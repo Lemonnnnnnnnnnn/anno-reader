@@ -54,7 +54,7 @@ export function buildAnnotationScript(
     return nodes;
   }
 
-  function wrapRange(startOffset, endOffset, className, style) {
+  function wrapRange(startOffset, endOffset, className, style, dataAttrs) {
     var body = document.body;
     var textNodes = getTextNodes(body);
     var currentOffset = 0;
@@ -86,6 +86,13 @@ export function buildAnnotationScript(
       var span = document.createElement('span');
       span.className = className;
       if (style) span.setAttribute('style', style);
+      if (dataAttrs) {
+        for (var key in dataAttrs) {
+          if (dataAttrs.hasOwnProperty(key)) {
+            span.setAttribute('data-' + key, dataAttrs[key]);
+          }
+        }
+      }
       range.surroundContents(span);
     } catch(e) {
       // Range wrapping can fail on complex selections; skip silently
@@ -103,10 +110,14 @@ export function buildAnnotationScript(
       parent.removeChild(span);
     });
 
-    // Remove note markers
-    var noteMarkers = document.querySelectorAll('.anno-note-marker');
-    noteMarkers.forEach(function(marker) {
-      marker.parentNode.removeChild(marker);
+    // Remove note underline spans (unwrap them, keeping text content)
+    var noteSpans = document.querySelectorAll('.anno-note');
+    noteSpans.forEach(function(span) {
+      var parent = span.parentNode;
+      while (span.firstChild) {
+        parent.insertBefore(span.firstChild, span);
+      }
+      parent.removeChild(span);
     });
 
     // Normalize to merge adjacent text nodes
@@ -129,38 +140,24 @@ export function buildAnnotationScript(
       var noteOffsets = parseCfiOffsets(note.cfiRange);
       if (!noteOffsets) continue;
 
-      var body = document.body;
-      var textNodes = getTextNodes(body);
-      var curOffset = 0;
-      var targetNode, targetNodeOffset;
+      wrapRange(noteOffsets.start, noteOffsets.end, 'anno-note',
+        'text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer;',
+        { 'note-id': note.id });
 
-      for (var i = 0; i < textNodes.length; i++) {
-        var node = textNodes[i];
-        var nodeLen = node.textContent.length;
-        if (curOffset + nodeLen > noteOffsets.start) {
-          targetNode = node;
-          targetNodeOffset = noteOffsets.start - curOffset;
-          break;
-        }
-        curOffset += nodeLen;
-      }
-
-      if (!targetNode) continue;
-
-      try {
-        var marker = document.createElement('span');
-        marker.className = 'anno-note-marker';
-        marker.setAttribute('data-note-id', note.id);
-        marker.setAttribute('title', note.text || 'Note');
-        marker.setAttribute('style',
-          'display: inline-block; width: 8px; height: 8px; background: #374151; border-radius: 50%; margin: 0 2px; vertical-align: middle; cursor: pointer; opacity: 0.7;');
-        var range = document.createRange();
-        range.setStart(targetNode, Math.min(targetNodeOffset, targetNode.textContent.length));
-        range.collapse(true);
-        range.insertNode(marker);
-      } catch(e) {
-        // Skip silently
-      }
+      // Add click handler to the newly created span
+      var noteSpans = document.querySelectorAll('.anno-note[data-note-id="' + note.id + '"]');
+      noteSpans.forEach(function(span) {
+        span.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var rect = span.getBoundingClientRect();
+          window.parent.postMessage({
+            type: 'note-click',
+            noteId: note.id,
+            rect: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height }
+          }, '*');
+        });
+      });
     }
   }
 
