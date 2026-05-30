@@ -21,9 +21,10 @@
  * ```
  */
 
-import { useRef, useMemo, useEffect } from "react";
+import { useRef, useMemo, useEffect, useState, useCallback } from "react";
 import { injectSelectionScript } from "@/lib/selection";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
+import { AnnotationPopover } from "../AnnotationPopover";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
 import { injectScrollScript } from "./hooks/useScrollTracking";
 
@@ -49,6 +50,10 @@ export function VerticalScroller({
 }: VerticalScrollerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Annotation popover state
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [popoverPosition, setPopoverPosition] = useState<{ top: number } | null>(null);
+
   // Scroll position tracking and restoration
   const { iframeRef, handleIframeLoad } = useScrollTracking(chapterHref);
 
@@ -62,6 +67,23 @@ export function VerticalScroller({
 
   // Annotation state and synchronization
   const { annotationScript } = useAnnotationSync(chapterHref, iframeRef);
+
+  // Listen for note-click messages from iframe
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type === "note-click" && event.data.noteId) {
+        setActiveNoteId(event.data.noteId);
+        setPopoverPosition({ top: event.data.rect.top });
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  const handleClosePopover = useCallback(() => {
+    setActiveNoteId(null);
+    setPopoverPosition(null);
+  }, []);
 
   // Build the final srcdoc with scroll tracker, selection detector, and annotations injected
   const srcdocWithTracking = useMemo(() => {
@@ -87,6 +109,11 @@ export function VerticalScroller({
       <TextSelectionToolbar
         containerRef={containerRef}
         chapterHref={chapterHref}
+      />
+      <AnnotationPopover
+        noteId={activeNoteId}
+        position={popoverPosition}
+        onClose={handleClosePopover}
       />
     </div>
   );
