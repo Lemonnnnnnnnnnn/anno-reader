@@ -24,6 +24,8 @@ export interface ImageResolutionOptions {
   lazyLoad?: boolean;
   /** Maximum image dimension for resizing (0 = no limit) */
   maxDimension?: number;
+  /** Map from normalized file path to manifest resource ID */
+  manifestHrefs?: Record<string, string>;
 }
 
 /** Cache entry for resolved images */

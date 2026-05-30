@@ -45,8 +45,11 @@ export async function loadEpub(
   const coverUrl = await extractCover(epub);
   const chapters = extractContent ? extractChapters(epub) : [];
   const toc = extractToc(epub);
+  const resources = epub.resources;
+  const opfFolder = epub.opfFolder || "";
+  const manifestHrefs = await extractManifestHrefs(epub);
 
-  return { metadata, coverUrl, chapters, toc };
+  return { metadata, coverUrl, chapters, toc, resources, opfFolder, manifestHrefs };
 }
 
 /**
@@ -218,6 +221,57 @@ export function resolveHref(
 }
 
 // --- Internal helpers ---
+
+/**
+ * Extract manifest href mapping from the EPUB OPF file.
+ * Maps normalized file paths to manifest resource IDs.
+ * This is needed because epubix only indexes resources by ID, not by href.
+ */
+async function extractManifestHrefs(epub: Epub): Promise<Record<string, string>> {
+  const manifestHrefs: Record<string, string> = {};
+
+  try {
+    // Read META-INF/container.xml to locate the OPF file
+    const containerBuffer = await epub.getFile("META-INF/container.xml");
+    if (!containerBuffer) return manifestHrefs;
+
+    const containerXml = new TextDecoder().decode(containerBuffer);
+    const containerDoc = new DOMParser().parseFromString(containerXml, "application/xml");
+    const rootfilePath = containerDoc.querySelector("rootfile")?.getAttribute("full-path");
+    if (!rootfilePath) return manifestHrefs;
+
+    // Read and parse the OPF file
+    const opfBuffer = await epub.getFile(rootfilePath);
+    if (!opfBuffer) return manifestHrefs;
+
+    const opfXml = new TextDecoder().decode(opfBuffer);
+    const opfDoc = new DOMParser().parseFromString(opfXml, "application/xml");
+
+    // Extract opfFolder for path resolution
+    const opfFolder = rootfilePath.substring(0, rootfilePath.lastIndexOf("/") + 1);
+
+    // Parse manifest items and build href -> id mapping
+    const manifestItems = opfDoc.querySelectorAll("manifest > item");
+    for (const item of manifestItems) {
+      const id = item.getAttribute("id");
+      const href = item.getAttribute("href");
+      if (id && href) {
+        // Normalize the full path (opfFolder + href)
+        const fullPath = opfFolder + href;
+        const normalizedPath = normalizePath(fullPath);
+        manifestHrefs[normalizedPath] = id;
+
+        // Also store without opfFolder for relative path matching
+        const normalizedHref = normalizePath(href);
+        manifestHrefs[normalizedHref] = id;
+      }
+    }
+  } catch {
+    // If parsing fails, return empty mapping
+  }
+
+  return manifestHrefs;
+}
 
 /** Recursively convert epubix TocEntry to our EpubTocEntry */
 function convertTocEntry(entry: { title: string; href: string; children?: { title: string; href: string; children?: unknown }[] }): EpubTocEntry {

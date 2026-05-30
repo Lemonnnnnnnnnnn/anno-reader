@@ -189,6 +189,9 @@ export function ReaderPage() {
           <div className="h-full overflow-hidden">
             <ChapterRenderer
               chapters={parsedEpub.chapters}
+              resources={parsedEpub.resources}
+              opfFolder={parsedEpub.opfFolder}
+              manifestHrefs={parsedEpub.manifestHrefs}
               showNav={false}
               onIframeRef={setIframeEl}
             />

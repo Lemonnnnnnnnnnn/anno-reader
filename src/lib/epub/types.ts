@@ -3,6 +3,8 @@
  * These are our application-level types, decoupled from epubix internals.
  */
 
+import type { EpubResource } from "epubix";
+
 /** Metadata extracted from an EPUB file */
 export interface EpubMetadata {
   title: string;
@@ -45,6 +47,12 @@ export interface ParsedEpub {
   chapters: EpubChapterInfo[];
   /** Table of contents (possibly nested) */
   toc: EpubTocEntry[];
+  /** EPUB resources map for image/font/CSS resolution */
+  resources: Record<string, EpubResource>;
+  /** OPF folder path for relative path resolution */
+  opfFolder: string;
+  /** Map from normalized file path to manifest resource ID (for image resolution) */
+  manifestHrefs: Record<string, string>;
 }
 
 /** Options for loading an EPUB */

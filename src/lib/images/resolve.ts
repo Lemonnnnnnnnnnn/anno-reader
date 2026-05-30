@@ -33,7 +33,7 @@ export function resolveImagePaths(
   resources: Record<string, EpubResource>,
   options: ImageResolutionOptions = {},
 ): string {
-  const { opfFolder = "", chapterHref = "", lazyLoad = true } = options;
+  const { opfFolder = "", chapterHref = "", lazyLoad = true, manifestHrefs = {} } = options;
 
   // Find all img src attributes
   const imageSrcs = extractImageSrcs(htmlContent);
@@ -55,7 +55,7 @@ export function resolveImagePaths(
     }
 
     // Resolve the image from EPUB resources
-    const resolved = resolveImageFromResources(src, resources, chapterHref, opfFolder);
+    const resolved = resolveImageFromResources(src, resources, chapterHref, opfFolder, manifestHrefs);
 
     // Replace the src in the HTML
     const escapedSrc = escapeRegex(src);
@@ -92,6 +92,7 @@ export function resolveImagePaths(
  * @param resources - EPUB resource map
  * @param chapterHref - Chapter's href for relative path resolution
  * @param opfFolder - OPF base folder
+ * @param manifestHrefs - Map from normalized file path to manifest resource ID
  * @returns ResolvedImage with data URL or fallback
  */
 export function resolveImageFromResources(
@@ -99,6 +100,7 @@ export function resolveImageFromResources(
   resources: Record<string, EpubResource>,
   chapterHref: string,
   opfFolder: string,
+  manifestHrefs: Record<string, string> = {},
 ): ResolvedImage {
   const normalizedSrc = normalizePath(src);
   const resolvedPath = resolveRelativePath(src, chapterHref, opfFolder);
@@ -113,6 +115,23 @@ export function resolveImageFromResources(
       resolved: true,
       mimeType: cached.mimeType,
     };
+  }
+
+  // Strategy 0: Use manifest href mapping to find resource by path
+  // This is the most reliable method when available
+  if (resolvedPath) {
+    const normalizedResolved = normalizePath(resolvedPath);
+    const resourceId = manifestHrefs[normalizedResolved] || manifestHrefs[normalizedSrc];
+    if (resourceId && resources[resourceId]) {
+      const resource = resources[resourceId];
+      if (resource.type.startsWith("image/")) {
+        const result = buildDataUrlFromResource(resource);
+        if (result) {
+          addToCache(cacheKey, result.dataUrl, result.mimeType);
+          return { originalSrc: src, ...result, resolved: true };
+        }
+      }
+    }
   }
 
   // Search through resources for image match
@@ -142,6 +161,32 @@ export function resolveImageFromResources(
 
     // Strategy 3: Match against resolved absolute path
     if (resolvedPath && normalizePath(resource.id) === normalizePath(resolvedPath)) {
+      const result = buildDataUrlFromResource(resource);
+      if (result) {
+        addToCache(cacheKey, result.dataUrl, result.mimeType);
+        return { originalSrc: src, ...result, resolved: true };
+      }
+    }
+
+    // Strategy 4: Filename match — resource ID often equals the filename
+    // e.g., resource.id="cover.jpg" should match resolvedPath="OEBPS/images/cover.jpg"
+    const srcFilename = extractFilename(resolvedPath || normalizedSrc);
+    if (srcFilename && resource.id.toLowerCase() === srcFilename.toLowerCase()) {
+      const result = buildDataUrlFromResource(resource);
+      if (result) {
+        addToCache(cacheKey, result.dataUrl, result.mimeType);
+        return { originalSrc: src, ...result, resolved: true };
+      }
+    }
+
+    // Strategy 5: Resource ID contained in path or path contained in resource ID
+    // Handles cases like id="images/cover" matching src="images/cover.jpg"
+    const normalizedResourceId = normalizePath(resource.id);
+    const normalizedResolved = normalizePath(resolvedPath || normalizedSrc);
+    if (
+      normalizedResolved.includes(normalizedResourceId) ||
+      normalizedResourceId.includes(normalizedResolved.replace(/\.[^.]+$/, ""))
+    ) {
       const result = buildDataUrlFromResource(resource);
       if (result) {
         addToCache(cacheKey, result.dataUrl, result.mimeType);
@@ -306,6 +351,14 @@ function resolvePath(base: string, relative: string): string {
 /** Normalize a path for comparison */
 function normalizePath(path: string): string {
   return path.replace(/^(\.\.?\/)+/, "").toLowerCase();
+}
+
+/** Extract filename from a path (without extension) */
+function extractFilename(path: string): string | null {
+  if (!path) return null;
+  const parts = path.split("/");
+  const filename = parts[parts.length - 1];
+  return filename || null;
 }
 
 /** Convert ArrayBuffer to base64 string */

@@ -28,13 +28,15 @@ interface ChapterRendererProps {
   resources?: Record<string, EpubResource>;
   /** OPF folder for path resolution (optional) */
   opfFolder?: string;
+  /** Map from normalized file path to manifest resource ID (optional) */
+  manifestHrefs?: Record<string, string>;
   /** Whether to show the built-in chapter navigation header (default: true) */
   showNav?: boolean;
   /** Callback to expose the iframe element ref to parent components */
   onIframeRef?: (ref: HTMLIFrameElement | null) => void;
 }
 
-export function ChapterRenderer({ chapters, resources, opfFolder, showNav = true, onIframeRef }: ChapterRendererProps) {
+export function ChapterRenderer({ chapters, resources, opfFolder, manifestHrefs, showNav = true, onIframeRef }: ChapterRendererProps) {
   const currentChapterIndex = useBookStore(
     (state) => state.ui.currentChapterIndex,
   );
@@ -52,6 +54,7 @@ export function ChapterRenderer({ chapters, resources, opfFolder, showNav = true
         opfFolder: opfFolder || "",
         chapterHref: currentChapter.href,
         lazyLoad: true,
+        manifestHrefs: manifestHrefs || {},
       });
     }
 
