@@ -41,6 +41,7 @@ export function DataDirSetup({ onComplete }: { onComplete: () => void }) {
 
       onComplete();
     } catch (err) {
+      console.error(err)
       setError(
         err instanceof Error ? err.message : "Failed to set data directory"
       );
