@@ -95,11 +95,6 @@ export function buildReaderOverrides(): string {
       max-width: 100% !important;
       height: auto !important;
     }
-
-    /* Ensure links are always distinguishable */
-    a {
-      color: #2563eb !important;
-    }
   `;
 }
 

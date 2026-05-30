@@ -63,15 +63,6 @@ export const DEFAULT_BASE_CSS = `
     margin-bottom: 0.5em;
     line-height: 1.3;
   }
-
-  a {
-    color: #2563eb;
-    text-decoration: none;
-  }
-
-  a:hover {
-    text-decoration: underline;
-  }
 `;
 
 /**
