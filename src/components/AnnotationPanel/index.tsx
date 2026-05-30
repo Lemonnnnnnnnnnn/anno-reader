@@ -10,14 +10,9 @@
  * ```
  */
 
-import { useState, useCallback } from "react";
-import { useBookStore, type Note } from "@/stores/useBookStore";
-import {
-  deleteNote,
-  updateNote,
-  deleteHighlight,
-} from "@/lib/annotations";
 import { Button, TextArea, Icon } from "@/components/primitives";
+import { useAnnotationState, useAnnotationActions } from "./hooks";
+import { truncate, formatTime } from "./utils";
 
 interface AnnotationPanelProps {
   /** Whether the panel is visible */
@@ -26,62 +21,34 @@ interface AnnotationPanelProps {
   onClose: () => void;
 }
 
-type TabType = "notes" | "highlights";
-
 export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
-  const currentBook = useBookStore((state) => state.currentBook);
-  const notes = useBookStore((state) => state.notes);
-  const highlights = useBookStore((state) => state.highlights);
-  const [tab, setTab] = useState<TabType>("notes");
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
+  const {
+    currentBook,
+    tab,
+    setTab,
+    editingNoteId,
+    setEditingNoteId,
+    editText,
+    setEditText,
+    bookNotes,
+    bookHighlights,
+    sortedNotes,
+    sortedHighlights,
+  } = useAnnotationState();
 
-  // Filter annotations for the current book
-  const bookNotes = currentBook
-    ? notes.filter((n) => n.bookId === currentBook.id)
-    : [];
-  const bookHighlights = currentBook
-    ? highlights.filter((h) => h.bookId === currentBook.id)
-    : [];
-
-  // Sort by creation time (newest first)
-  const sortedNotes = [...bookNotes].sort((a, b) => b.createdAt - a.createdAt);
-  const sortedHighlights = [...bookHighlights].sort(
-    (a, b) => b.createdAt - a.createdAt,
-  );
-
-  const handleDeleteNote = useCallback(
-    async (noteId: string) => {
-      if (!currentBook) return;
-      await deleteNote(noteId, currentBook.id);
-    },
-    [currentBook],
-  );
-
-  const handleDeleteHighlight = useCallback(
-    async (highlightId: string) => {
-      if (!currentBook) return;
-      await deleteHighlight(highlightId, currentBook.id);
-    },
-    [currentBook],
-  );
-
-  const handleStartEdit = useCallback((note: Note) => {
-    setEditingNoteId(note.id);
-    setEditText(note.content);
-  }, []);
-
-  const handleSaveEdit = useCallback(async () => {
-    if (!editingNoteId || !currentBook) return;
-    await updateNote(editingNoteId, editText, currentBook.id);
-    setEditingNoteId(null);
-    setEditText("");
-  }, [editingNoteId, editText, currentBook]);
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingNoteId(null);
-    setEditText("");
-  }, []);
+  const {
+    handleDeleteNote,
+    handleDeleteHighlight,
+    handleStartEdit,
+    handleSaveEdit,
+    handleCancelEdit,
+  } = useAnnotationActions({
+    currentBook,
+    editingNoteId,
+    editText,
+    setEditingNoteId,
+    setEditText,
+  });
 
   if (!open) return null;
 
@@ -250,30 +217,4 @@ export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
       </div>
     </>
   );
-}
-
-/** Truncate text to a max length with ellipsis */
-function truncate(text: string, max: number): string {
-  if (text.length <= max) return text;
-  return text.slice(0, max) + "\u2026";
-}
-
-/** Format timestamp to a readable date string */
-function formatTime(ts: number): string {
-  const date = new Date(ts);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-
-  if (isToday) {
-    return date.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
