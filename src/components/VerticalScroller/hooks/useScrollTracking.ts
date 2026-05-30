@@ -79,12 +79,81 @@ export function injectScrollScript(srcdoc: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// CFI parsing and scroll helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a pseudo-CFI range string to extract start and end character offsets.
+ * Format: "epubcfi(/6/4[chap01]!/4/2:100,200)"
+ * Returns { start, end } or null if parsing fails.
+ */
+export function parseCfiOffsets(cfi: string): { start: number; end: number } | null {
+  const match = cfi.match(/:(\d+),(\d+)\)$/);
+  if (!match) return null;
+  return { start: parseInt(match[1], 10), end: parseInt(match[2], 10) };
+}
+
+/**
+ * Scroll an iframe to the position of text at the given character offset.
+ * Uses TreeWalker to find the text node containing the offset, then scrolls to it.
+ *
+ * @param iframe - The iframe element containing the chapter content
+ * @param charOffset - The character offset within the document body text
+ * @param behavior - Scroll behavior: 'auto' for instant, 'smooth' for animated
+ * @returns true if scroll was successful, false otherwise
+ */
+export function scrollToCharOffset(
+  iframe: HTMLIFrameElement,
+  charOffset: number,
+  behavior: ScrollBehavior = "smooth",
+): boolean {
+  const doc = iframe.contentWindow?.document;
+  if (!doc?.body) return false;
+
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
+  let currentOffset = 0;
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const nodeLen = node.textContent?.length ?? 0;
+
+    if (currentOffset + nodeLen > charOffset) {
+      // Found the text node containing our offset
+      const range = doc.createRange();
+      const localOffset = charOffset - currentOffset;
+      range.setStart(node, localOffset);
+      range.setEnd(node, Math.min(localOffset + 1, nodeLen));
+
+      // Get the bounding rect of the range
+      const rect = range.getBoundingClientRect();
+      const iframeRect = iframe.getBoundingClientRect();
+
+      // Calculate the scroll position to center the element in view
+      const viewportHeight = iframe.contentWindow?.innerHeight ?? iframeRect.height;
+      const targetScrollY = rect.top + (iframe.contentWindow?.scrollY ?? 0) - viewportHeight / 3;
+
+      iframe.contentWindow?.scrollTo({
+        top: Math.max(0, targetScrollY),
+        behavior,
+      });
+
+      return true;
+    }
+
+    currentOffset += nodeLen;
+  }
+
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // useScrollTracking hook
 // ---------------------------------------------------------------------------
 
 export function useScrollTracking(chapterHref: string) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const setScrollPosition = useBookStore((state) => state.setScrollPosition);
+  const setPendingScrollCfi = useBookStore((state) => state.setPendingScrollCfi);
 
   // Track whether we're restoring scroll (to avoid feedback loop)
   const isRestoringRef = useRef(false);
@@ -118,12 +187,39 @@ export function useScrollTracking(chapterHref: string) {
   /**
    * Restore scroll position after iframe loads.
    * When a chapter with saved progress loads, scroll to the saved position.
+   * Also handles pending CFI-based navigation from annotations.
    */
   const handleIframeLoad = useCallback(() => {
     const iframe = iframeRef.current;
     if (!iframe?.contentWindow) return;
 
-    // Only restore if we have a saved position and haven't restored for this chapter yet
+    // Check for pending CFI scroll (from annotation navigation)
+    const { pendingScrollCfi } = useBookStore.getState().ui;
+    if (pendingScrollCfi) {
+      isRestoringRef.current = true;
+      restoredChapterRef.current = chapterHref;
+
+      // Clear the pending CFI immediately to avoid re-processing
+      setPendingScrollCfi(null);
+
+      // Small delay to let iframe content fully render
+      requestAnimationFrame(() => {
+        const offsets = parseCfiOffsets(pendingScrollCfi);
+        if (offsets) {
+          // Scroll to the middle of the annotation range
+          const midOffset = Math.floor((offsets.start + offsets.end) / 2);
+          scrollToCharOffset(iframe, midOffset, "smooth");
+        }
+
+        // Re-enable scroll tracking after restoration
+        setTimeout(() => {
+          isRestoringRef.current = false;
+        }, 100);
+      });
+      return;
+    }
+
+    // Otherwise, restore saved scroll position if available
     const savedPosition = useBookStore.getState().ui.scrollPosition;
     if (savedPosition > 0 && restoredChapterRef.current !== chapterHref) {
       isRestoringRef.current = true;
@@ -145,7 +241,7 @@ export function useScrollTracking(chapterHref: string) {
       // New chapter without saved position — scroll to top
       restoredChapterRef.current = chapterHref;
     }
-  }, [chapterHref]);
+  }, [chapterHref, setPendingScrollCfi]);
 
   /**
    * Reset restoration tracking when chapter changes.

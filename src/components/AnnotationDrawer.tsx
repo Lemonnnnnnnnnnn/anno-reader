@@ -29,8 +29,8 @@ interface AnnotationDrawerProps {
   open: boolean;
   /** Callback when the drawer should close */
   onClose: () => void;
-  /** Callback to navigate to a chapter (href, index) */
-  onNavigate: (href: string, index: number) => void;
+  /** Callback to navigate to a chapter (href, index, cfiRange?) */
+  onNavigate: (href: string, index: number, cfiRange?: string) => void;
   /** All chapters for href-to-index resolution */
   chapters: EpubChapterInfo[];
 }
@@ -64,7 +64,7 @@ function findChapterIndex(
 
 interface NoteItemProps {
   note: Note;
-  onNavigate: (href: string, index: number) => void;
+  onNavigate: (href: string, index: number, cfiRange?: string) => void;
   onClose: () => void;
   chapters: EpubChapterInfo[];
 }
@@ -80,10 +80,10 @@ function NoteItem({ note, onNavigate, onClose, chapters }: NoteItemProps) {
   const handleNavigate = useCallback(() => {
     const index = findChapterIndex(note.chapterHref, chapters);
     if (index !== -1) {
-      onNavigate(note.chapterHref, index);
+      onNavigate(note.chapterHref, index, note.cfiRange);
       onClose();
     }
-  }, [note.chapterHref, chapters, onNavigate, onClose]);
+  }, [note.chapterHref, note.cfiRange, chapters, onNavigate, onClose]);
 
   const handleStartEdit = useCallback(() => {
     setEditText(note.content);
@@ -184,7 +184,7 @@ function NoteItem({ note, onNavigate, onClose, chapters }: NoteItemProps) {
 
 interface HighlightItemProps {
   highlight: Highlight;
-  onNavigate: (href: string, index: number) => void;
+  onNavigate: (href: string, index: number, cfiRange?: string) => void;
   onClose: () => void;
   chapters: EpubChapterInfo[];
 }
@@ -197,10 +197,10 @@ function HighlightItem({ highlight, onNavigate, onClose, chapters }: HighlightIt
   const handleNavigate = useCallback(() => {
     const index = findChapterIndex(highlight.chapterHref, chapters);
     if (index !== -1) {
-      onNavigate(highlight.chapterHref, index);
+      onNavigate(highlight.chapterHref, index, highlight.cfiRange);
       onClose();
     }
-  }, [highlight.chapterHref, chapters, onNavigate, onClose]);
+  }, [highlight.chapterHref, highlight.cfiRange, chapters, onNavigate, onClose]);
 
   const handleDelete = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();

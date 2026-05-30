@@ -28,6 +28,7 @@ export function ReaderPage() {
   const ui = useBookStore((state) => state.ui);
   const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
   const setScrollPosition = useBookStore((state) => state.setScrollPosition);
+  const setPendingScrollCfi = useBookStore((state) => state.setPendingScrollCfi);
 
   // Route guard: redirect to bookshelf if no book
   const guardedBook = useRouteGuard();
@@ -224,9 +225,13 @@ export function ReaderPage() {
         open={annotationDrawerOpen}
         onClose={() => setAnnotationDrawerOpen(false)}
         chapters={parsedEpub?.chapters ?? []}
-        onNavigate={(href, index) => {
+        onNavigate={(href, index, cfiRange) => {
           setCurrentChapter(href, index);
-          setScrollPosition(0);
+          if (cfiRange) {
+            setPendingScrollCfi(cfiRange);
+          } else {
+            setScrollPosition(0);
+          }
         }}
       />
 

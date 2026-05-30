@@ -43,6 +43,7 @@ export interface UIState {
   currentChapter: string | null;
   currentChapterIndex: number;
   scrollPosition: number;
+  pendingScrollCfi: string | null;
   theme: "light" | "dark";
 }
 
@@ -75,6 +76,7 @@ export interface BookStore {
   // UI actions
   setCurrentChapter: (chapter: string, index: number) => void;
   setScrollPosition: (position: number) => void;
+  setPendingScrollCfi: (cfi: string | null) => void;
   setTheme: (theme: "light" | "dark") => void;
 }
 
@@ -82,6 +84,7 @@ const DEFAULT_UI_STATE: UIState = {
   currentChapter: null,
   currentChapterIndex: 0,
   scrollPosition: 0,
+  pendingScrollCfi: null,
   theme: "light",
 };
 
@@ -138,6 +141,11 @@ export const useBookStore = create<BookStore>((set) => ({
   setScrollPosition: (position) =>
     set((state) => ({
       ui: { ...state.ui, scrollPosition: position },
+    })),
+
+  setPendingScrollCfi: (cfi) =>
+    set((state) => ({
+      ui: { ...state.ui, pendingScrollCfi: cfi },
     })),
 
   setTheme: (theme) =>
