@@ -11,14 +11,13 @@
  * for file selection, and ChapterRenderer for content display.
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookStore } from "@/stores/useBookStore";
-import { useMediaQuery, LG_BREAKPOINT } from "@/hooks/useMediaQuery";
-import { readConfig } from "@/lib/storage/config";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
-import { TocSidebar } from "@/components/TocSidebar";
+import { TocDrawer } from "@/components/TocDrawer";
+import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DataDirSetup } from "@/components/DataDirSetup";
 import { Button, Icon } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav } from "./hooks";
@@ -45,18 +44,9 @@ export function ReaderPage() {
   // Iframe ref for ChapterRenderer
   const [, setIframeEl] = useState<HTMLIFrameElement | null>(null);
 
-  // Responsive detection and sidebar config
-  const isLg = useMediaQuery(LG_BREAKPOINT);
-  const [showTocSidebar, setShowTocSidebar] = useState(true);
-
-  useEffect(() => {
-    if (!configReady) return;
-    readConfig().then((cfg) => {
-      if (cfg) {
-        setShowTocSidebar(cfg.showTocSidebar);
-      }
-    });
-  }, [configReady]);
+  // Drawer state
+  const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
+  const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
 
   // Return null if no book (before redirect completes)
   if (!guardedBook) {
@@ -109,14 +99,32 @@ export function ReaderPage() {
                 <p className="text-xs text-text-secondary truncate">{currentBook.author}</p>
               </div>
               {parsedEpub && (
-                <Button
-                  variant="icon"
-                  className="ml-2"
-                  onClick={() => navigate("/settings")}
-                  title="Settings"
-                >
-                  <Icon name="settings" size={16} />
-                </Button>
+                <>
+                  <Button
+                    variant="icon"
+                    className="ml-2"
+                    onClick={() => setTocDrawerOpen(true)}
+                    title="Table of Contents"
+                  >
+                    <Icon name="list" size={16} />
+                  </Button>
+                  <Button
+                    variant="icon"
+                    className="ml-2"
+                    onClick={() => setAnnotationDrawerOpen(true)}
+                    title="Annotations"
+                  >
+                    <Icon name="annotation" size={16} />
+                  </Button>
+                  <Button
+                    variant="icon"
+                    className="ml-2"
+                    onClick={() => navigate("/settings")}
+                    title="Settings"
+                  >
+                    <Icon name="settings" size={16} />
+                  </Button>
+                </>
               )}
             </div>
           ) : (
@@ -130,27 +138,8 @@ export function ReaderPage() {
         </div>
       </header>
 
-      {/* Horizontal flex container: left sidebar + main content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar: Table of Contents (≥1024px + config enabled) */}
-        {isLg && showTocSidebar && (
-          <aside className="w-72 shrink-0 h-full bg-surface border-r border-border">
-            {parsedEpub && (
-              <TocSidebar
-                toc={parsedEpub.toc}
-                currentChapterHref={ui.currentChapter}
-                chapters={parsedEpub.chapters}
-                onNavigate={(href, index) => {
-                  setCurrentChapter(href, index);
-                  setScrollPosition(0);
-                }}
-              />
-            )}
-          </aside>
-        )}
-
-        {/* Content area: Chapter rendering */}
-        <main className="flex-1 overflow-hidden relative">
+      {/* Content area: Chapter rendering */}
+      <main className="flex-1 overflow-hidden relative">
         {error && (
           <div className="flex items-center justify-between p-2 px-4 bg-error-bg border-b border-error-border gap-3">
             <span className="text-sm text-error flex-1">{error}</span>
@@ -205,7 +194,6 @@ export function ReaderPage() {
           </div>
         )}
         </main>
-      </div>
 
       {/* Footer: Navigation controls */}
       <footer className="shrink-0 bg-surface border-t border-border relative z-10 reader-footer">
@@ -219,6 +207,28 @@ export function ReaderPage() {
           )}
         </div>
       </footer>
+
+      {/* Drawers */}
+      <TocDrawer
+        open={tocDrawerOpen}
+        onClose={() => setTocDrawerOpen(false)}
+        toc={parsedEpub?.toc ?? []}
+        currentChapterHref={ui.currentChapter}
+        chapters={parsedEpub?.chapters ?? []}
+        onNavigate={(href, index) => {
+          setCurrentChapter(href, index);
+          setScrollPosition(0);
+        }}
+      />
+      <AnnotationDrawer
+        open={annotationDrawerOpen}
+        onClose={() => setAnnotationDrawerOpen(false)}
+        chapters={parsedEpub?.chapters ?? []}
+        onNavigate={(href, index) => {
+          setCurrentChapter(href, index);
+          setScrollPosition(0);
+        }}
+      />
 
     </div>
   );

@@ -12,18 +12,14 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { appLocalDataDir } from "@tauri-apps/api/path";
 
-/** App configuration — user-selected data directory and UI preferences. */
+/** App configuration — user-selected data directory. */
 export interface AppConfig {
   dataDir: string;
-  showTocSidebar: boolean;
-  showNotesSidebar: boolean;
 }
 
 /** Default configuration — used to fill missing fields for backward compatibility. */
 export const DEFAULT_CONFIG: AppConfig = {
   dataDir: "",
-  showTocSidebar: true,
-  showNotesSidebar: true,
 };
 
 /** Configuration filename within appLocalDataDir */

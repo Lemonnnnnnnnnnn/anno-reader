@@ -43,8 +43,6 @@ export interface UIState {
   currentChapter: string | null;
   currentChapterIndex: number;
   scrollPosition: number;
-  tocSidebarOpen: boolean;
-  notesSidebarOpen: boolean;
   theme: "light" | "dark";
 }
 
@@ -77,8 +75,6 @@ export interface BookStore {
   // UI actions
   setCurrentChapter: (chapter: string, index: number) => void;
   setScrollPosition: (position: number) => void;
-  toggleTocSidebar: () => void;
-  toggleNotesSidebar: () => void;
   setTheme: (theme: "light" | "dark") => void;
 }
 
@@ -86,8 +82,6 @@ const DEFAULT_UI_STATE: UIState = {
   currentChapter: null,
   currentChapterIndex: 0,
   scrollPosition: 0,
-  tocSidebarOpen: false,
-  notesSidebarOpen: false,
   theme: "light",
 };
 
@@ -144,16 +138,6 @@ export const useBookStore = create<BookStore>((set) => ({
   setScrollPosition: (position) =>
     set((state) => ({
       ui: { ...state.ui, scrollPosition: position },
-    })),
-
-  toggleTocSidebar: () =>
-    set((state) => ({
-      ui: { ...state.ui, tocSidebarOpen: !state.ui.tocSidebarOpen },
-    })),
-
-  toggleNotesSidebar: () =>
-    set((state) => ({
-      ui: { ...state.ui, notesSidebarOpen: !state.ui.notesSidebarOpen },
     })),
 
   setTheme: (theme) =>
