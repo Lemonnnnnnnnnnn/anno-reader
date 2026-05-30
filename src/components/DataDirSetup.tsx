@@ -37,7 +37,7 @@ export function DataDirSetup({ onComplete }: { onComplete: () => void }) {
         return;
       }
 
-      await writeConfig({ dataDir: selected });
+      await writeConfig({ dataDir: selected, showTocSidebar: true, showNotesSidebar: true });
       await ensureDataSubdirs(selected);
 
       onComplete();

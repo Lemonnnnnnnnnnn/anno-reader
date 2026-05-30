@@ -11,19 +11,26 @@
  * for file selection, and ChapterRenderer for content display.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookStore } from "@/stores/useBookStore";
+import { useMediaQuery, LG_BREAKPOINT } from "@/hooks/useMediaQuery";
+import { readConfig } from "@/lib/storage/config";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
+import { TocSidebar } from "@/components/TocSidebar";
 import { AnnotationPanel } from "@/components/AnnotationPanel";
 import { DataDirSetup } from "@/components/DataDirSetup";
 import { Button, Icon } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav } from "./hooks";
+import { useNotePositions } from "@/components/VerticalScroller/hooks";
 
 export function ReaderPage() {
   const navigate = useNavigate();
   const currentBook = useBookStore((state) => state.currentBook);
+  const ui = useBookStore((state) => state.ui);
+  const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
+  const setScrollPosition = useBookStore((state) => state.setScrollPosition);
 
   // Route guard: redirect to bookshelf if no book
   const guardedBook = useRouteGuard();
@@ -37,8 +44,45 @@ export function ReaderPage() {
   // Keyboard navigation between chapters
   useKeyboardNav(parsedEpub);
 
-  // Annotation panel toggle
-  const [annotationPanelOpen, setAnnotationPanelOpen] = useState(false);
+  // Iframe ref for note position tracking
+  const [iframeEl, setIframeEl] = useState<HTMLIFrameElement | null>(null);
+  const iframeRefObj = useRef<HTMLIFrameElement | null>(null);
+  iframeRefObj.current = iframeEl;
+
+  // Track scroll position from iframe postMessage
+  const [scrollTop, setScrollTop] = useState(0);
+
+  // Note positions within the current chapter
+  const { positions: notePositions, docHeight } = useNotePositions(
+    iframeRefObj,
+    ui.currentChapter || "",
+  );
+
+  // Listen for scroll-position messages from the iframe
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type === "scroll-position" && typeof event.data.scrollY === "number") {
+        setScrollTop(event.data.scrollY);
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  // Responsive detection and sidebar config
+  const isLg = useMediaQuery(LG_BREAKPOINT);
+  const [showTocSidebar, setShowTocSidebar] = useState(true);
+  const [showNotesSidebar, setShowNotesSidebar] = useState(true);
+
+  useEffect(() => {
+    if (!configReady) return;
+    readConfig().then((cfg) => {
+      if (cfg) {
+        setShowTocSidebar(cfg.showTocSidebar);
+        setShowNotesSidebar(cfg.showNotesSidebar);
+      }
+    });
+  }, [configReady]);
 
   // Return null if no book (before redirect completes)
   if (!guardedBook) {
@@ -90,14 +134,14 @@ export function ReaderPage() {
                 <h1 className="text-base font-semibold text-text truncate reader-book-title">{currentBook.title}</h1>
                 <p className="text-xs text-text-secondary truncate">{currentBook.author}</p>
               </div>
-              {parsedEpub && (
+              {parsedEpub && !(isLg && showNotesSidebar) && (
                 <Button
                   variant="icon"
                   className="ml-2"
-                  onClick={() => setAnnotationPanelOpen(!annotationPanelOpen)}
-                  title="View annotations"
+                  onClick={() => navigate("/settings")}
+                  title="Settings"
                 >
-                  <Icon name="edit" size={16} />
+                  <Icon name="settings" size={16} />
                 </Button>
               )}
             </div>
@@ -112,8 +156,27 @@ export function ReaderPage() {
         </div>
       </header>
 
-      {/* Content area: Chapter rendering */}
-      <main className="flex-1 overflow-hidden relative">
+      {/* Horizontal flex container: left sidebar + main + right sidebar */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left sidebar: Table of Contents (≥1024px + config enabled) */}
+        {isLg && showTocSidebar && (
+          <aside className="w-72 shrink-0 h-full bg-surface border-r border-border">
+            {parsedEpub && (
+              <TocSidebar
+                toc={parsedEpub.toc}
+                currentChapterHref={ui.currentChapter}
+                chapters={parsedEpub.chapters}
+                onNavigate={(href, index) => {
+                  setCurrentChapter(href, index);
+                  setScrollPosition(0);
+                }}
+              />
+            )}
+          </aside>
+        )}
+
+        {/* Content area: Chapter rendering */}
+        <main className="flex-1 overflow-hidden relative">
         {error && (
           <div className="flex items-center justify-between p-2 px-4 bg-error-bg border-b border-error-border gap-3">
             <span className="text-sm text-error flex-1">{error}</span>
@@ -163,10 +226,23 @@ export function ReaderPage() {
             <ChapterRenderer
               chapters={parsedEpub.chapters}
               showNav={false}
+              onIframeRef={setIframeEl}
             />
           </div>
         )}
-      </main>
+        </main>
+
+        {/* Right sidebar: Annotations (≥1024px + config enabled) */}
+        {isLg && showNotesSidebar && (
+          <aside className="w-72 shrink-0 h-full bg-surface border-l border-border">
+            <AnnotationPanel
+              notePositions={notePositions}
+              docHeight={docHeight}
+              scrollTop={scrollTop}
+            />
+          </aside>
+        )}
+      </div>
 
       {/* Footer: Navigation controls */}
       <footer className="shrink-0 bg-surface border-t border-border relative z-10 reader-footer">
@@ -181,11 +257,6 @@ export function ReaderPage() {
         </div>
       </footer>
 
-      {/* Annotation panel overlay */}
-      <AnnotationPanel
-        open={annotationPanelOpen}
-        onClose={() => setAnnotationPanelOpen(false)}
-      />
     </div>
   );
 }

@@ -2,13 +2,13 @@
  * Annotation actions hook for AnnotationPanel.
  *
  * Handles:
- * - Deleting notes and highlights
+ * - Deleting notes
  * - Editing notes (start, save, cancel)
  */
 
 import { useCallback } from "react";
 import type { Note } from "@/stores/useBookStore";
-import { deleteNote, updateNote, deleteHighlight } from "@/lib/annotations";
+import { deleteNote, updateNote } from "@/lib/annotations";
 
 interface UseAnnotationActionsParams {
   currentBook: { id: string } | null;
@@ -29,14 +29,6 @@ export function useAnnotationActions({
     async (noteId: string) => {
       if (!currentBook) return;
       await deleteNote(noteId, currentBook.id);
-    },
-    [currentBook],
-  );
-
-  const handleDeleteHighlight = useCallback(
-    async (highlightId: string) => {
-      if (!currentBook) return;
-      await deleteHighlight(highlightId, currentBook.id);
     },
     [currentBook],
   );
@@ -63,7 +55,6 @@ export function useAnnotationActions({
 
   return {
     handleDeleteNote,
-    handleDeleteHighlight,
     handleStartEdit,
     handleSaveEdit,
     handleCancelEdit,

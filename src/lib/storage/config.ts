@@ -12,10 +12,19 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { appLocalDataDir } from "@tauri-apps/api/path";
 
-/** App configuration — user-selected data directory for book storage. */
+/** App configuration — user-selected data directory and UI preferences. */
 export interface AppConfig {
   dataDir: string;
+  showTocSidebar: boolean;
+  showNotesSidebar: boolean;
 }
+
+/** Default configuration — used to fill missing fields for backward compatibility. */
+export const DEFAULT_CONFIG: AppConfig = {
+  dataDir: "",
+  showTocSidebar: true,
+  showNotesSidebar: true,
+};
 
 /** Configuration filename within appLocalDataDir */
 const CONFIG_FILE = "config.json";
@@ -37,7 +46,8 @@ export async function readConfig(): Promise<AppConfig | null> {
 
   const json = await readTextFile(configPath);
   try {
-    return JSON.parse(json) as AppConfig;
+    const parsed = JSON.parse(json) as Partial<AppConfig>;
+    return { ...DEFAULT_CONFIG, ...parsed };
   } catch {
     return null;
   }

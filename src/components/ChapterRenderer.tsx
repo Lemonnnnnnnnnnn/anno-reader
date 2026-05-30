@@ -30,9 +30,11 @@ interface ChapterRendererProps {
   opfFolder?: string;
   /** Whether to show the built-in chapter navigation header (default: true) */
   showNav?: boolean;
+  /** Callback to expose the iframe element ref to parent components */
+  onIframeRef?: (ref: HTMLIFrameElement | null) => void;
 }
 
-export function ChapterRenderer({ chapters, resources, opfFolder, showNav = true }: ChapterRendererProps) {
+export function ChapterRenderer({ chapters, resources, opfFolder, showNav = true, onIframeRef }: ChapterRendererProps) {
   const currentChapterIndex = useBookStore(
     (state) => state.ui.currentChapterIndex,
   );
@@ -92,6 +94,7 @@ export function ChapterRenderer({ chapters, resources, opfFolder, showNav = true
         chapterIndex={currentChapterIndex}
         chapterHref={currentChapter.href}
         title={currentChapter.title || `Chapter ${currentChapterIndex + 1}`}
+        onIframeRef={onIframeRef}
       />
     </div>
   );

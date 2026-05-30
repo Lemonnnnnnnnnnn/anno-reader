@@ -1,12 +1,12 @@
 /**
  * AnnotationPanel component.
  *
- * Side panel that displays all notes and highlights for the current book.
- * Provides management UI for editing note content and deleting annotations.
+ * Side panel that displays notes for the current book.
+ * Provides management UI for editing note content and deleting notes.
  *
  * @example
  * ```tsx
- * <AnnotationPanel open={true} onClose={() => setOpen(false)} />
+ * <AnnotationPanel />
  * ```
  */
 
@@ -15,30 +15,26 @@ import { useAnnotationState, useAnnotationActions } from "./hooks";
 import { truncate, formatTime } from "./utils";
 
 interface AnnotationPanelProps {
-  /** Whether the panel is visible */
-  open: boolean;
-  /** Callback to close the panel */
-  onClose: () => void;
+  /** Map of noteId → vertical offset in the chapter iframe */
+  notePositions?: Map<string, number>;
+  /** Total scrollable height of the chapter document */
+  docHeight?: number;
+  /** Current vertical scroll offset of the chapter iframe */
+  scrollTop?: number;
 }
 
-export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
+export function AnnotationPanel({ notePositions, docHeight, scrollTop }: AnnotationPanelProps) {
   const {
     currentBook,
-    tab,
-    setTab,
     editingNoteId,
     setEditingNoteId,
     editText,
     setEditText,
-    bookNotes,
-    bookHighlights,
     sortedNotes,
-    sortedHighlights,
   } = useAnnotationState();
 
   const {
     handleDeleteNote,
-    handleDeleteHighlight,
     handleStartEdit,
     handleSaveEdit,
     handleCancelEdit,
@@ -50,171 +46,163 @@ export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
     setEditText,
   });
 
-  if (!open) return null;
-
   return (
-    <>
-      {/* Backdrop — click outside to close */}
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+    <div className="h-full w-full bg-surface border-l border-border flex flex-col font-serif">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+        <h2 className="m-0 text-base font-semibold text-text tracking-tight">
+          Notes
+        </h2>
+      </div>
 
-      {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-[340px] max-w-[90vw] bg-surface border-l border-border shadow-lg z-50 flex flex-col font-serif">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-          <h2 className="m-0 text-base font-semibold text-text tracking-tight">
-            Annotations
-          </h2>
-          <Button variant="icon" onClick={onClose} title="Close">
-            <Icon name="close" size={16} />
-          </Button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-border shrink-0">
-          <button
-            className={`flex-1 py-2 text-sm font-medium text-center cursor-pointer bg-transparent border-none border-b-2 transition-colors ${
-              tab === "notes"
-                ? "text-text border-b-accent"
-                : "text-text-secondary border-b-transparent"
-            }`}
-            onClick={() => setTab("notes")}
-          >
-            Notes ({bookNotes.length})
-          </button>
-          <button
-            className={`flex-1 py-2 text-sm font-medium text-center cursor-pointer bg-transparent border-none border-b-2 transition-colors ${
-              tab === "highlights"
-                ? "text-text border-b-accent"
-                : "text-text-secondary border-b-transparent"
-            }`}
-            onClick={() => setTab("highlights")}
-          >
-            Highlights ({bookHighlights.length})
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {tab === "notes" && (
-            <>
-              {sortedNotes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center px-4 py-6 text-center gap-1">
-                  <p className="m-0 text-sm font-medium text-text-secondary">
-                    No notes yet
-                  </p>
-                  <p className="m-0 text-xs text-text-muted leading-relaxed">
-                    Select text in the chapter and click &ldquo;Note&rdquo; to
-                    add one
-                  </p>
-                </div>
-              ) : (
-                sortedNotes.map((note) => (
-                  <div key={note.id} className="p-4 border-b border-border">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <span className="text-xs text-text-secondary italic leading-snug flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
-                        &ldquo;{truncate(note.text, 60)}&rdquo;
-                      </span>
-                      <div className="flex gap-0.5 shrink-0">
-                        <Button
-                          variant="icon"
-                          onClick={() => handleStartEdit(note)}
-                          title="Edit note"
-                        >
-                          <Icon name="edit" size={14} />
-                        </Button>
-                        <Button
-                          variant="icon"
-                          onClick={() => handleDeleteNote(note.id)}
-                          title="Delete note"
-                        >
-                          <Icon name="trash" size={14} />
-                        </Button>
-                      </div>
-                    </div>
-                    {editingNoteId === note.id ? (
-                      <div className="flex flex-col gap-2 mt-1">
-                        <TextArea
-                          value={editText}
-                          onChange={(e) => setEditText(e.target.value)}
-                          onSubmit={handleSaveEdit}
-                          onCancel={handleCancelEdit}
-                          rows={3}
-                        />
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={handleCancelEdit}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={handleSaveEdit}
-                          >
-                            Save
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="m-0 text-[0.85rem] text-text leading-relaxed break-words">
-                        {note.content}
-                      </p>
-                    )}
-                    <span className="block text-[0.72rem] text-text-muted mt-1">
-                      {formatTime(note.createdAt)}
-                    </span>
+      {/* Content - positioned notes matching body layout */}
+      {notePositions ? (
+        <div
+          className="relative overflow-hidden flex-1"
+          style={{ height: docHeight || "100%", marginTop: -(scrollTop || 0) }}
+        >
+          {sortedNotes.map((note) => {
+            const top = notePositions.get(note.id);
+            if (top === undefined) return null;
+            return (
+              <div
+                key={note.id}
+                className="absolute left-2 right-2 p-3 bg-surface border border-border rounded-lg shadow-sm"
+                style={{ top }}
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <span className="text-xs text-text-secondary italic leading-snug flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
+                    &ldquo;{truncate(note.text, 60)}&rdquo;
+                  </span>
+                  <div className="flex gap-0.5 shrink-0">
+                    <Button
+                      variant="icon"
+                      onClick={() => handleStartEdit(note)}
+                      title="Edit note"
+                    >
+                      <Icon name="edit" size={14} />
+                    </Button>
+                    <Button
+                      variant="icon"
+                      onClick={() => handleDeleteNote(note.id)}
+                      title="Delete note"
+                    >
+                      <Icon name="trash" size={14} />
+                    </Button>
                   </div>
-                ))
-              )}
-            </>
-          )}
-
-          {tab === "highlights" && (
-            <>
-              {sortedHighlights.length === 0 ? (
-                <div className="flex flex-col items-center justify-center px-4 py-6 text-center gap-1">
-                  <p className="m-0 text-sm font-medium text-text-secondary">
-                    No highlights yet
-                  </p>
-                  <p className="m-0 text-xs text-text-muted leading-relaxed">
-                    Select text in the chapter and click &ldquo;Highlight&rdquo;
-                    to add one
-                  </p>
                 </div>
-              ) : (
-                sortedHighlights.map((hl) => (
-                  <div key={hl.id} className="p-4 border-b border-border">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-1 flex-1 min-w-0">
-                        {/* Dynamic color requires inline style */}
-                        <span
-                          className="inline-block w-2.5 h-2.5 rounded-full shrink-0 border border-border"
-                          style={{ backgroundColor: hl.color }}
-                        />
-                        <span className="text-xs text-text-secondary italic leading-snug flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
-                          &ldquo;{truncate(hl.text, 60)}&rdquo;
-                        </span>
-                      </div>
+                {editingNoteId === note.id ? (
+                  <div className="flex flex-col gap-2 mt-1">
+                    <TextArea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      onSubmit={handleSaveEdit}
+                      onCancel={handleCancelEdit}
+                      rows={3}
+                    />
+                    <div className="flex justify-end gap-1">
                       <Button
-                        variant="icon"
-                        onClick={() => handleDeleteHighlight(hl.id)}
-                        title="Delete highlight"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleCancelEdit}
                       >
-                        <Icon name="trash" size={14} />
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={handleSaveEdit}
+                      >
+                        Save
                       </Button>
                     </div>
-                    <span className="block text-[0.72rem] text-text-muted mt-1">
-                      {formatTime(hl.createdAt)}
-                    </span>
                   </div>
-                ))
-              )}
-            </>
+                ) : (
+                  <p className="m-0 text-[0.85rem] text-text leading-relaxed break-words">
+                    {note.content}
+                  </p>
+                )}
+                <span className="block text-[0.72rem] text-text-muted mt-1">
+                  {formatTime(note.createdAt)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto p-4">
+          {sortedNotes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-4 py-6 text-center gap-1">
+              <p className="m-0 text-sm font-medium text-text-secondary">
+                No notes yet
+              </p>
+              <p className="m-0 text-xs text-text-muted leading-relaxed">
+                Select text in the chapter and click &ldquo;Note&rdquo; to add one
+              </p>
+            </div>
+          ) : (
+            sortedNotes.map((note) => (
+              <div key={note.id} className="p-4 border-b border-border">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <span className="text-xs text-text-secondary italic leading-snug flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
+                    &ldquo;{truncate(note.text, 60)}&rdquo;
+                  </span>
+                  <div className="flex gap-0.5 shrink-0">
+                    <Button
+                      variant="icon"
+                      onClick={() => handleStartEdit(note)}
+                      title="Edit note"
+                    >
+                      <Icon name="edit" size={14} />
+                    </Button>
+                    <Button
+                      variant="icon"
+                      onClick={() => handleDeleteNote(note.id)}
+                      title="Delete note"
+                    >
+                      <Icon name="trash" size={14} />
+                    </Button>
+                  </div>
+                </div>
+                {editingNoteId === note.id ? (
+                  <div className="flex flex-col gap-2 mt-1">
+                    <TextArea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      onSubmit={handleSaveEdit}
+                      onCancel={handleCancelEdit}
+                      rows={3}
+                    />
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleCancelEdit}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={handleSaveEdit}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="m-0 text-[0.85rem] text-text leading-relaxed break-words">
+                    {note.content}
+                  </p>
+                )}
+                <span className="block text-[0.72rem] text-text-muted mt-1">
+                  {formatTime(note.createdAt)}
+                </span>
+              </div>
+            ))
           )}
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
 }

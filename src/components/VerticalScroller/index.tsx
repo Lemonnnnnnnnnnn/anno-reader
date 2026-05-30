@@ -21,7 +21,7 @@
  * ```
  */
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { injectSelectionScript } from "@/lib/selection";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
@@ -36,6 +36,8 @@ interface VerticalScrollerProps {
   chapterHref: string;
   /** Optional title for the iframe */
   title?: string;
+  /** Callback to expose the iframe element ref to parent components */
+  onIframeRef?: (ref: HTMLIFrameElement | null) => void;
 }
 
 export function VerticalScroller({
@@ -43,11 +45,20 @@ export function VerticalScroller({
   chapterIndex,
   chapterHref,
   title,
+  onIframeRef,
 }: VerticalScrollerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Scroll position tracking and restoration
   const { iframeRef, handleIframeLoad } = useScrollTracking(chapterHref);
+
+  // Expose iframe ref to parent
+  useEffect(() => {
+    onIframeRef?.(iframeRef.current);
+    return () => {
+      onIframeRef?.(null);
+    };
+  }, [iframeRef, onIframeRef]);
 
   // Annotation state and synchronization
   const { annotationScript } = useAnnotationSync(chapterHref, iframeRef);

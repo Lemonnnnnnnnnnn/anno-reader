@@ -38,7 +38,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { exists } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(false);
 
     const { loadBookshelf } = await import("@/lib/bookshelf/persistence");
@@ -51,7 +51,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { exists, readTextFile } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readTextFile).mockResolvedValue(
       JSON.stringify({ books: [mockBook] })
@@ -67,7 +67,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { writeTextFile, mkdir, exists } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(false);
     vi.mocked(mkdir).mockResolvedValue(undefined);
     vi.mocked(writeTextFile).mockResolvedValue(undefined);
@@ -85,7 +85,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { exists, readTextFile } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readTextFile).mockResolvedValue("not valid json{{{" );
 
@@ -99,7 +99,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { exists, readTextFile, writeTextFile, mkdir } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readTextFile).mockResolvedValue(JSON.stringify({ books: [] }));
     vi.mocked(mkdir).mockResolvedValue(undefined);
@@ -118,7 +118,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { exists, readTextFile, writeTextFile, mkdir } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readTextFile).mockResolvedValue(JSON.stringify({ books: [mockBook] }));
     vi.mocked(mkdir).mockResolvedValue(undefined);
@@ -138,7 +138,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { exists, readTextFile, writeTextFile, mkdir } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readTextFile).mockResolvedValue(JSON.stringify({ books: [mockBook] }));
     vi.mocked(mkdir).mockResolvedValue(undefined);
@@ -157,7 +157,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { exists, readTextFile, writeTextFile, mkdir } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readTextFile).mockResolvedValue(JSON.stringify({ books: [mockBook] }));
     vi.mocked(mkdir).mockResolvedValue(undefined);
@@ -177,7 +177,7 @@ describe("bookshelf persistence", () => {
     const { readConfig } = await import("@/lib/storage/config");
     const { exists, readTextFile, writeTextFile } = await import("@tauri-apps/plugin-fs");
 
-    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data" });
+    vi.mocked(readConfig).mockResolvedValue({ dataDir: "/test/data", showTocSidebar: true, showNotesSidebar: true });
     vi.mocked(exists).mockResolvedValue(true);
     vi.mocked(readTextFile).mockResolvedValue(JSON.stringify({ books: [mockBook] }));
 
