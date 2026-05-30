@@ -4,4 +4,3 @@
 
 export { useScrollTracking } from "./useScrollTracking";
 export { useAnnotationSync } from "./useAnnotationSync";
-export { useNotePositions } from "./useNotePositions";

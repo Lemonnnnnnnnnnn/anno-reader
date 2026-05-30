@@ -11,7 +11,7 @@
  * for file selection, and ChapterRenderer for content display.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookStore } from "@/stores/useBookStore";
 import { useMediaQuery, LG_BREAKPOINT } from "@/hooks/useMediaQuery";
@@ -19,11 +19,9 @@ import { readConfig } from "@/lib/storage/config";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { TocSidebar } from "@/components/TocSidebar";
-import { AnnotationPanel } from "@/components/AnnotationPanel";
 import { DataDirSetup } from "@/components/DataDirSetup";
 import { Button, Icon } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav } from "./hooks";
-import { useNotePositions } from "@/components/VerticalScroller/hooks";
 
 export function ReaderPage() {
   const navigate = useNavigate();
@@ -44,42 +42,18 @@ export function ReaderPage() {
   // Keyboard navigation between chapters
   useKeyboardNav(parsedEpub);
 
-  // Iframe ref for note position tracking
-  const [iframeEl, setIframeEl] = useState<HTMLIFrameElement | null>(null);
-  const iframeRefObj = useRef<HTMLIFrameElement | null>(null);
-  iframeRefObj.current = iframeEl;
-
-  // Track scroll position from iframe postMessage
-  const [scrollTop, setScrollTop] = useState(0);
-
-  // Note positions within the current chapter
-  const { positions: notePositions, docHeight } = useNotePositions(
-    iframeRefObj,
-    ui.currentChapter || "",
-  );
-
-  // Listen for scroll-position messages from the iframe
-  useEffect(() => {
-    function handleMessage(event: MessageEvent) {
-      if (event.data?.type === "scroll-position" && typeof event.data.scrollY === "number") {
-        setScrollTop(event.data.scrollY);
-      }
-    }
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, []);
+  // Iframe ref for ChapterRenderer
+  const [, setIframeEl] = useState<HTMLIFrameElement | null>(null);
 
   // Responsive detection and sidebar config
   const isLg = useMediaQuery(LG_BREAKPOINT);
   const [showTocSidebar, setShowTocSidebar] = useState(true);
-  const [showNotesSidebar, setShowNotesSidebar] = useState(true);
 
   useEffect(() => {
     if (!configReady) return;
     readConfig().then((cfg) => {
       if (cfg) {
         setShowTocSidebar(cfg.showTocSidebar);
-        setShowNotesSidebar(cfg.showNotesSidebar);
       }
     });
   }, [configReady]);
@@ -134,7 +108,7 @@ export function ReaderPage() {
                 <h1 className="text-base font-semibold text-text truncate reader-book-title">{currentBook.title}</h1>
                 <p className="text-xs text-text-secondary truncate">{currentBook.author}</p>
               </div>
-              {parsedEpub && !(isLg && showNotesSidebar) && (
+              {parsedEpub && (
                 <Button
                   variant="icon"
                   className="ml-2"
@@ -156,7 +130,7 @@ export function ReaderPage() {
         </div>
       </header>
 
-      {/* Horizontal flex container: left sidebar + main + right sidebar */}
+      {/* Horizontal flex container: left sidebar + main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar: Table of Contents (≥1024px + config enabled) */}
         {isLg && showTocSidebar && (
@@ -231,17 +205,6 @@ export function ReaderPage() {
           </div>
         )}
         </main>
-
-        {/* Right sidebar: Annotations (≥1024px + config enabled) */}
-        {isLg && showNotesSidebar && (
-          <aside className="w-72 shrink-0 h-full bg-surface border-l border-border">
-            <AnnotationPanel
-              notePositions={notePositions}
-              docHeight={docHeight}
-              scrollTop={scrollTop}
-            />
-          </aside>
-        )}
       </div>
 
       {/* Footer: Navigation controls */}
