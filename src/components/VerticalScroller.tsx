@@ -103,7 +103,12 @@ function injectScrollScript(srcdoc: string): string {
 
 /**
  * Build a script that renders highlights and note markers in the iframe.
- * Uses character offsets from the pseudo-CFI range to locate text.
+ * Supports dynamic updates via postMessage to avoid iframe reload.
+ *
+ * The script:
+ * 1. Renders initial annotations on load
+ * 2. Listens for 'annotation-update' messages to update dynamically
+ * 3. Provides clearAnnotations() to remove old annotations before re-rendering
  */
 function buildAnnotationScript(
   highlights: Array<{ id: string; cfiRange: string; color: string }>,
@@ -115,8 +120,8 @@ function buildAnnotationScript(
   return `
 <script>
 (function() {
-  var highlights = ${highlightsJson};
-  var notes = ${notesJson};
+  var currentHighlights = ${highlightsJson};
+  var currentNotes = ${notesJson};
 
   function parseCfiOffsets(cfi) {
     var match = cfi.match(/:(\\d+),(\\d+)\\)$/);
@@ -173,54 +178,92 @@ function buildAnnotationScript(
     }
   }
 
-  // Render highlights
-  for (var h = 0; h < highlights.length; h++) {
-    var hl = highlights[h];
-    var offsets = parseCfiOffsets(hl.cfiRange);
-    if (!offsets) continue;
-    wrapRange(offsets.start, offsets.end, 'anno-highlight',
-      'background-color: ' + hl.color + '; border-radius: 2px; padding: 1px 0;');
-  }
-
-  // Render note markers
-  for (var n = 0; n < notes.length; n++) {
-    var note = notes[n];
-    var noteOffsets = parseCfiOffsets(note.cfiRange);
-    if (!noteOffsets) continue;
-
-    var body = document.body;
-    var textNodes = getTextNodes(body);
-    var curOffset = 0;
-    var targetNode, targetNodeOffset;
-
-    for (var i = 0; i < textNodes.length; i++) {
-      var node = textNodes[i];
-      var nodeLen = node.textContent.length;
-      if (curOffset + nodeLen > noteOffsets.start) {
-        targetNode = node;
-        targetNodeOffset = noteOffsets.start - curOffset;
-        break;
+  function clearAnnotations() {
+    // Remove highlight spans (unwrap them, keeping text content)
+    var highlightSpans = document.querySelectorAll('.anno-highlight');
+    highlightSpans.forEach(function(span) {
+      var parent = span.parentNode;
+      while (span.firstChild) {
+        parent.insertBefore(span.firstChild, span);
       }
-      curOffset += nodeLen;
-    }
+      parent.removeChild(span);
+    });
 
-    if (!targetNode) continue;
+    // Remove note markers
+    var noteMarkers = document.querySelectorAll('.anno-note-marker');
+    noteMarkers.forEach(function(marker) {
+      marker.parentNode.removeChild(marker);
+    });
 
-    try {
-      var marker = document.createElement('span');
-      marker.className = 'anno-note-marker';
-      marker.setAttribute('data-note-id', note.id);
-      marker.setAttribute('title', note.text || 'Note');
-      marker.setAttribute('style',
-        'display: inline-block; width: 8px; height: 8px; background: #374151; border-radius: 50%; margin: 0 2px; vertical-align: middle; cursor: pointer; opacity: 0.7;');
-      var range = document.createRange();
-      range.setStart(targetNode, Math.min(targetNodeOffset, targetNode.textContent.length));
-      range.collapse(true);
-      range.insertNode(marker);
-    } catch(e) {
-      // Skip silently
+    // Normalize to merge adjacent text nodes
+    document.body.normalize();
+  }
+
+  function renderHighlights(highlights) {
+    for (var h = 0; h < highlights.length; h++) {
+      var hl = highlights[h];
+      var offsets = parseCfiOffsets(hl.cfiRange);
+      if (!offsets) continue;
+      wrapRange(offsets.start, offsets.end, 'anno-highlight',
+        'background-color: ' + hl.color + '; border-radius: 2px; padding: 1px 0;');
     }
   }
+
+  function renderNotes(notes) {
+    for (var n = 0; n < notes.length; n++) {
+      var note = notes[n];
+      var noteOffsets = parseCfiOffsets(note.cfiRange);
+      if (!noteOffsets) continue;
+
+      var body = document.body;
+      var textNodes = getTextNodes(body);
+      var curOffset = 0;
+      var targetNode, targetNodeOffset;
+
+      for (var i = 0; i < textNodes.length; i++) {
+        var node = textNodes[i];
+        var nodeLen = node.textContent.length;
+        if (curOffset + nodeLen > noteOffsets.start) {
+          targetNode = node;
+          targetNodeOffset = noteOffsets.start - curOffset;
+          break;
+        }
+        curOffset += nodeLen;
+      }
+
+      if (!targetNode) continue;
+
+      try {
+        var marker = document.createElement('span');
+        marker.className = 'anno-note-marker';
+        marker.setAttribute('data-note-id', note.id);
+        marker.setAttribute('title', note.text || 'Note');
+        marker.setAttribute('style',
+          'display: inline-block; width: 8px; height: 8px; background: #374151; border-radius: 50%; margin: 0 2px; vertical-align: middle; cursor: pointer; opacity: 0.7;');
+        var range = document.createRange();
+        range.setStart(targetNode, Math.min(targetNodeOffset, targetNode.textContent.length));
+        range.collapse(true);
+        range.insertNode(marker);
+      } catch(e) {
+        // Skip silently
+      }
+    }
+  }
+
+  // Initial render on load
+  renderHighlights(currentHighlights);
+  renderNotes(currentNotes);
+
+  // Listen for dynamic updates from parent window
+  window.addEventListener('message', function(e) {
+    if (e.data?.type === 'annotation-update') {
+      clearAnnotations();
+      currentHighlights = e.data.highlights || [];
+      currentNotes = e.data.notes || [];
+      renderHighlights(currentHighlights);
+      renderNotes(currentNotes);
+    }
+  });
 })();
 </script>`;
 }
@@ -251,6 +294,8 @@ export function VerticalScroller({
   const isRestoringRef = useRef(false);
   // Track the chapter we last restored for
   const restoredChapterRef = useRef<string | null>(null);
+  // Track if this is the initial render (to skip postMessage on mount)
+  const isInitialRenderRef = useRef(true);
 
   /**
    * Handle scroll messages from the iframe.
@@ -316,6 +361,39 @@ export function VerticalScroller({
     restoredChapterRef.current = null;
   }, [chapterIndex]);
 
+  /**
+   * Send annotation updates to iframe via postMessage.
+   * Skips the initial render since srcdoc already contains the initial annotations.
+   * This avoids rebuilding srcdoc (which would reload the iframe).
+   */
+  useEffect(() => {
+    // Skip the initial render - annotations are already in srcdoc
+    if (isInitialRenderRef.current) {
+      isInitialRenderRef.current = false;
+      return;
+    }
+
+    const iframe = iframeRef.current?.contentWindow;
+    if (!iframe) return;
+
+    iframe.postMessage(
+      {
+        type: "annotation-update",
+        highlights: highlights.map((h) => ({
+          id: h.id,
+          cfiRange: h.cfiRange,
+          color: h.color,
+        })),
+        notes: notes.map((n) => ({
+          id: n.id,
+          cfiRange: n.cfiRange,
+          text: n.text,
+        })),
+      },
+      "*",
+    );
+  }, [highlights, notes]);
+
   // Build the final srcdoc with scroll tracker, selection detector, and annotations injected
   const annotationScript = useMemo(
     () =>
@@ -334,7 +412,7 @@ export function VerticalScroller({
     const idx = withSelection.lastIndexOf(closingBody);
     if (idx === -1) return withSelection + annotationScript;
     return withSelection.slice(0, idx) + annotationScript + withSelection.slice(idx);
-  }, [srcdoc, annotationScript]);
+  }, [srcdoc]); // Only depend on srcdoc, not annotationScript - annotations update via postMessage
 
   return (
     <div ref={containerRef} className="flex-1 overflow-hidden relative">
