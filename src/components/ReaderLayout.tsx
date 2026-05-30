@@ -21,9 +21,11 @@ import { restoreNotes, restoreHighlights } from "@/lib/annotations";
 import { ChapterRenderer } from "./ChapterRenderer";
 import { ChapterNavigation } from "./ChapterNavigation";
 import { AnnotationPanel } from "./AnnotationPanel";
+import { DataDirSetup } from "./DataDirSetup";
 import type { ParsedEpub } from "@/lib/epub";
 import { loadEpub } from "@/lib/epub";
 import { readFileAsArrayBuffer } from "@/lib/import";
+import { readConfig, isDataDirValid } from "@/lib/storage/config";
 
 export function ReaderLayout() {
   const currentBook = useBookStore((state) => state.currentBook);
@@ -34,9 +36,37 @@ export function ReaderLayout() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [annotationPanelOpen, setAnnotationPanelOpen] = useState(false);
+  const [configReady, setConfigReady] = useState<boolean | null>(null);
 
   // Total chapters from parsed EPUB
   const totalChapters = parsedEpub?.chapters.length ?? 0;
+
+  // Check config on mount to determine if DataDirSetup is needed
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkConfig() {
+      try {
+        const config = await readConfig();
+        if (cancelled) return;
+
+        if (!config) {
+          setConfigReady(false);
+          return;
+        }
+
+        const valid = await isDataDirValid(config.dataDir);
+        if (cancelled) return;
+
+        setConfigReady(valid);
+      } catch {
+        if (!cancelled) setConfigReady(false);
+      }
+    }
+
+    checkConfig();
+    return () => { cancelled = true; };
+  }, []);
 
   /**
    * Handle EPUB file import.
@@ -142,6 +172,39 @@ export function ReaderLayout() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [ui.currentChapterIndex, parsedEpub, setCurrentChapter]);
+
+  // Called when DataDirSetup completes — verify config then transition
+  const handleConfigComplete = useCallback(async () => {
+    try {
+      const config = await readConfig();
+      if (config && (await isDataDirValid(config.dataDir))) {
+        setConfigReady(true);
+      } else {
+        setConfigReady(false);
+      }
+    } catch {
+      setConfigReady(false);
+    }
+  }, []);
+
+  // Loading state while checking config
+  if (configReady === null) {
+    return (
+      <div style={styles.layout}>
+        <main style={styles.content}>
+          <div style={styles.loadingState}>
+            <div style={styles.loadingSpinner} />
+            <p style={styles.loadingText}>Loading...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // First launch — show DataDirSetup
+  if (!configReady) {
+    return <DataDirSetup onComplete={handleConfigComplete} />;
+  }
 
   return (
     <div style={styles.layout}>

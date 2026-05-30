@@ -11,7 +11,7 @@ import {
   mkdir,
   exists,
 } from "@tauri-apps/plugin-fs";
-import { appLocalDataDir } from "@tauri-apps/api/path";
+import { readConfig } from "@/lib/storage/config";
 import type { ProgressData } from "./types";
 
 /** Subdirectory within app data for progress files */
@@ -22,8 +22,11 @@ const PROGRESS_DIR = "progress";
  * Creates it if it doesn't exist.
  */
 async function getProgressDir(): Promise<string> {
-  const baseDir = await appLocalDataDir();
-  const progressDir = `${baseDir}/${PROGRESS_DIR}`;
+  const config = await readConfig();
+  if (!config) {
+    throw new Error("Data directory not configured");
+  }
+  const progressDir = `${config.dataDir}/${PROGRESS_DIR}`;
 
   const dirExists = await exists(progressDir);
   if (!dirExists) {

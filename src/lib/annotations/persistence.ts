@@ -12,7 +12,7 @@ import {
   exists,
   remove,
 } from "@tauri-apps/plugin-fs";
-import { appLocalDataDir } from "@tauri-apps/api/path";
+import { readConfig } from "@/lib/storage/config";
 import type { NoteData, HighlightData } from "./types";
 
 /** Subdirectory within app data for notes files */
@@ -26,8 +26,12 @@ const HIGHLIGHTS_DIR = "highlights";
  * Creates it if it doesn't exist.
  */
 async function getNotesDir(): Promise<string> {
-  const baseDir = await appLocalDataDir();
-  const notesDir = `${baseDir}/${NOTES_DIR}`;
+  const config = await readConfig();
+  if (!config) {
+    throw new Error("Data directory not configured");
+  }
+
+  const notesDir = `${config.dataDir}/${NOTES_DIR}`;
 
   const dirExists = await exists(notesDir);
   if (!dirExists) {
@@ -108,8 +112,12 @@ export async function deleteNotesFile(bookId: string): Promise<void> {
  * Creates it if it doesn't exist.
  */
 async function getHighlightsDir(): Promise<string> {
-  const baseDir = await appLocalDataDir();
-  const highlightsDir = `${baseDir}/${HIGHLIGHTS_DIR}`;
+  const config = await readConfig();
+  if (!config) {
+    throw new Error("Data directory not configured");
+  }
+
+  const highlightsDir = `${config.dataDir}/${HIGHLIGHTS_DIR}`;
 
   const dirExists = await exists(highlightsDir);
   if (!dirExists) {
