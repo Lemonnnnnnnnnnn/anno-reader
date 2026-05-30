@@ -224,7 +224,7 @@ export function TextSelectionToolbar({
     left = Math.max(padding, Math.min(left, containerRect.width - toolbarWidth - padding));
 
     // Position above the selection
-    let top = selRect.top - 8;
+    let top = selRect.top +24;
 
     // If toolbar would go above the container, position below selection instead
     const toolbarHeight = mode === "note" ? 160 : 60;

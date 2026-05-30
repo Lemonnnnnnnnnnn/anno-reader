@@ -369,16 +369,7 @@ export function ReaderPage() {
 
       {/* Footer: Navigation controls */}
       <footer className="shrink-0 bg-surface border-t border-border relative z-10 reader-footer">
-        <div className="flex items-center justify-between px-4 py-2 max-w-[1200px] mx-auto w-full min-h-[48px]">
-          <Button
-            variant="secondary"
-            onClick={handleImport}
-            disabled={loading}
-          >
-            <Icon name="download" size={16} className="shrink-0" />
-            Import
-          </Button>
-
+        <div className="flex items-center justify-end px-4 py-2 max-w-[1200px] mx-auto w-full min-h-[48px]">
           {parsedEpub && totalChapters > 0 && (
             <ChapterNavigation
               chapters={parsedEpub.chapters}
