@@ -121,10 +121,18 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
       }}
     >
       {/* Quoted selected text */}
-      <div className="px-3 pt-3 pb-2 border-b border-border">
-        <p className="m-0 text-xs text-text-secondary italic leading-snug overflow-hidden text-ellipsis line-clamp-3">
+      <div className="px-3 pt-3 pb-2 border-b border-border flex items-start gap-2">
+        <p className="m-0 text-xs text-text-secondary italic leading-snug overflow-hidden text-ellipsis line-clamp-3 flex-1">
           &ldquo;{note.text}&rdquo;
         </p>
+        <Button
+          variant="icon"
+          onClick={onClose}
+          title="Close"
+          className="shrink-0 -mt-0.5"
+        >
+          <Icon name="close" size={14} />
+        </Button>
       </div>
 
       {/* Note content */}
