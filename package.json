@@ -19,6 +19,7 @@
     "epubix": "^0.2.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-router-dom": "^7.16.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
