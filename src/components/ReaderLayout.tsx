@@ -136,6 +136,51 @@ export function ReaderLayout() {
     }
   }, [setCurrentChapter]);
 
+  // Auto-load EPUB content when currentBook exists but parsedEpub is missing
+  // (e.g., page refresh, navigation from bookshelf)
+  useEffect(() => {
+    if (!currentBook || parsedEpub) return;
+
+    let cancelled = false;
+
+    async function loadBook() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const arrayBuffer = await readFileAsArrayBuffer(currentBook!.filePath);
+        const parsed = await loadEpub(arrayBuffer, { extractContent: true });
+
+        if (cancelled) return;
+
+        if (parsed.chapters.length === 0) {
+          setError("The EPUB file contains no readable chapters");
+          return;
+        }
+
+        setParsedEpub(parsed);
+
+        // Restore saved notes and highlights
+        try {
+          await restoreNotes(currentBook!.id);
+          await restoreHighlights(currentBook!.id);
+        } catch (restoreErr) {
+          console.warn("Failed to restore annotations:", restoreErr);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load book");
+        }
+      } finally {
+        // Always reset loading, even if cancelled — prevents stuck loading state
+        setLoading(false);
+      }
+    }
+
+    loadBook();
+    return () => { cancelled = true; };
+  }, [currentBook, parsedEpub]);
+
   // Reset parsed EPUB when book changes (e.g., re-import)
   useEffect(() => {
     if (!currentBook) {
