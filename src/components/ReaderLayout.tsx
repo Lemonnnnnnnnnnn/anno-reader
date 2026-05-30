@@ -15,6 +15,7 @@
  */
 
 import { useState, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useBookStore } from "@/stores/useBookStore";
 import { importEpub, EpubImportError, ImportErrorCode } from "@/lib/import";
 import { restoreNotes, restoreHighlights } from "@/lib/annotations";
@@ -28,6 +29,7 @@ import { readFileAsArrayBuffer } from "@/lib/import";
 import { readConfig, isDataDirValid } from "@/lib/storage/config";
 
 export function ReaderLayout() {
+  const navigate = useNavigate();
   const currentBook = useBookStore((state) => state.currentBook);
   const ui = useBookStore((state) => state.ui);
   const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
@@ -211,6 +213,25 @@ export function ReaderLayout() {
       {/* Header: Book metadata */}
       <header style={styles.header} className="reader-header">
         <div style={styles.headerContent}>
+          <button
+            style={styles.backButton}
+            onClick={() => navigate("/bookshelf")}
+            title="Back to bookshelf"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M19 12H5" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+          </button>
           {currentBook ? (
             <div style={styles.bookInfo}>
               {currentBook.coverUrl && (
@@ -469,6 +490,22 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     letterSpacing: "0.01em",
+  },
+  backButton: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "32px",
+    height: "32px",
+    background: "transparent",
+    border: `1px solid ${colors.border}`,
+    borderRadius: "6px",
+    cursor: "pointer",
+    color: colors.textSecondary,
+    transition: "color 0.15s, border-color 0.15s",
+    flexShrink: 0,
+    marginRight: spacing.sm,
+    padding: 0,
   },
   annotationButton: {
     display: "flex",

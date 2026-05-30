@@ -9,6 +9,7 @@
 import { openFileDialog } from "./dialog";
 import { readFileAsArrayBuffer } from "./fileReader";
 import { loadEpub } from "@/lib/epub";
+import { addBookToBookshelf } from "@/lib/bookshelf";
 import { useBookStore, type BookMetadata } from "@/stores/useBookStore";
 import { EpubImportError, ImportErrorCode } from "./errors";
 
@@ -144,6 +145,9 @@ export async function importEpub(): Promise<ImportResult> {
   };
 
   useBookStore.getState().setBook(book);
+
+  // Add to bookshelf persistence
+  await addBookToBookshelf(book);
 
   return { book, filePath };
 }
