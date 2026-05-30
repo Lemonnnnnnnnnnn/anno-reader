@@ -145,19 +145,22 @@ export function buildAnnotationScript(
         { 'note-id': note.id });
 
       // Add click handler to the newly created span
-      var noteSpans = document.querySelectorAll('.anno-note[data-note-id="' + note.id + '"]');
-      noteSpans.forEach(function(span) {
-        span.addEventListener('click', function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          var rect = span.getBoundingClientRect();
-          window.parent.postMessage({
-            type: 'note-click',
-            noteId: note.id,
-            rect: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height }
-          }, '*');
+      // Use IIFE to capture noteId in closure
+      (function(noteId) {
+        var noteSpans = document.querySelectorAll('.anno-note[data-note-id="' + noteId + '"]');
+        noteSpans.forEach(function(span) {
+          span.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var rect = span.getBoundingClientRect();
+            window.parent.postMessage({
+              type: 'note-click',
+              noteId: noteId,
+              rect: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height }
+            }, '*');
+          });
         });
-      });
+      })(note.id);
     }
   }
 
