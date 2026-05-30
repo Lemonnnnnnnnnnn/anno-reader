@@ -10,13 +10,14 @@
  * ```
  */
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useBookStore, type Note } from "@/stores/useBookStore";
 import {
   deleteNote,
   updateNote,
   deleteHighlight,
 } from "@/lib/annotations";
+import { Button, TextArea, Icon } from "@/components/primitives";
 
 interface AnnotationPanelProps {
   /** Whether the panel is visible */
@@ -34,7 +35,6 @@ export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
   const [tab, setTab] = useState<TabType>("notes");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Filter annotations for the current book
   const bookNotes = currentBook
@@ -49,13 +49,6 @@ export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
   const sortedHighlights = [...bookHighlights].sort(
     (a, b) => b.createdAt - a.createdAt,
   );
-
-  // Focus edit input when entering edit mode
-  useEffect(() => {
-    if (editingNoteId && editInputRef.current) {
-      editInputRef.current.focus();
-    }
-  }, [editingNoteId]);
 
   const handleDeleteNote = useCallback(
     async (noteId: string) => {
@@ -93,44 +86,40 @@ export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
   if (!open) return null;
 
   return (
-    <div style={styles.overlay}>
-      <div style={styles.panel}>
+    <>
+      {/* Backdrop — click outside to close */}
+      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="fixed right-0 top-0 h-full w-[340px] max-w-[90vw] bg-surface border-l border-border shadow-lg z-50 flex flex-col font-serif">
         {/* Header */}
-        <div style={styles.header}>
-          <h2 style={styles.title}>Annotations</h2>
-          <button style={styles.closeButton} onClick={onClose} title="Close">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+          <h2 className="m-0 text-base font-semibold text-text tracking-tight">
+            Annotations
+          </h2>
+          <Button variant="icon" onClick={onClose} title="Close">
+            <Icon name="close" size={16} />
+          </Button>
         </div>
 
         {/* Tabs */}
-        <div style={styles.tabBar}>
+        <div className="flex border-b border-border shrink-0">
           <button
-            style={{
-              ...styles.tab,
-              ...(tab === "notes" ? styles.tabActive : {}),
-            }}
+            className={`flex-1 py-2 text-sm font-medium text-center cursor-pointer bg-transparent border-none border-b-2 transition-colors ${
+              tab === "notes"
+                ? "text-text border-b-accent"
+                : "text-text-secondary border-b-transparent"
+            }`}
             onClick={() => setTab("notes")}
           >
             Notes ({bookNotes.length})
           </button>
           <button
-            style={{
-              ...styles.tab,
-              ...(tab === "highlights" ? styles.tabActive : {}),
-            }}
+            className={`flex-1 py-2 text-sm font-medium text-center cursor-pointer bg-transparent border-none border-b-2 transition-colors ${
+              tab === "highlights"
+                ? "text-text border-b-accent"
+                : "text-text-secondary border-b-transparent"
+            }`}
             onClick={() => setTab("highlights")}
           >
             Highlights ({bookHighlights.length})
@@ -138,99 +127,75 @@ export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
         </div>
 
         {/* Content */}
-        <div style={styles.content}>
+        <div className="flex-1 overflow-y-auto p-4">
           {tab === "notes" && (
             <>
               {sortedNotes.length === 0 ? (
-                <div style={styles.empty}>
-                  <p style={styles.emptyText}>No notes yet</p>
-                  <p style={styles.emptyHint}>
-                    Select text in the chapter and click "Note" to add one
+                <div className="flex flex-col items-center justify-center px-4 py-6 text-center gap-1">
+                  <p className="m-0 text-sm font-medium text-text-secondary">
+                    No notes yet
+                  </p>
+                  <p className="m-0 text-xs text-text-muted leading-relaxed">
+                    Select text in the chapter and click &ldquo;Note&rdquo; to
+                    add one
                   </p>
                 </div>
               ) : (
                 sortedNotes.map((note) => (
-                  <div key={note.id} style={styles.card}>
-                    <div style={styles.cardHeader}>
-                      <span style={styles.cardSource}>"{truncate(note.text, 60)}"</span>
-                      <div style={styles.cardActions}>
-                        <button
-                          style={styles.iconButton}
+                  <div key={note.id} className="p-4 border-b border-border">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <span className="text-xs text-text-secondary italic leading-snug flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
+                        &ldquo;{truncate(note.text, 60)}&rdquo;
+                      </span>
+                      <div className="flex gap-0.5 shrink-0">
+                        <Button
+                          variant="icon"
                           onClick={() => handleStartEdit(note)}
                           title="Edit note"
                         >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                          </svg>
-                        </button>
-                        <button
-                          style={styles.iconButton}
+                          <Icon name="edit" size={14} />
+                        </Button>
+                        <Button
+                          variant="icon"
                           onClick={() => handleDeleteNote(note.id)}
                           title="Delete note"
                         >
-                          <svg
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
-                        </button>
+                          <Icon name="trash" size={14} />
+                        </Button>
                       </div>
                     </div>
                     {editingNoteId === note.id ? (
-                      <div style={styles.editContainer}>
-                        <textarea
-                          ref={editInputRef}
-                          style={styles.editInput}
+                      <div className="flex flex-col gap-2 mt-1">
+                        <TextArea
                           value={editText}
                           onChange={(e) => setEditText(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                              e.preventDefault();
-                              handleSaveEdit();
-                            }
-                            if (e.key === "Escape") {
-                              handleCancelEdit();
-                            }
-                          }}
+                          onSubmit={handleSaveEdit}
+                          onCancel={handleCancelEdit}
                           rows={3}
                         />
-                        <div style={styles.editActions}>
-                          <button
-                            style={styles.cancelBtn}
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={handleCancelEdit}
                           >
                             Cancel
-                          </button>
-                          <button
-                            style={styles.saveBtn}
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
                             onClick={handleSaveEdit}
                           >
                             Save
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
-                      <p style={styles.cardContent}>{note.content}</p>
+                      <p className="m-0 text-[0.85rem] text-text leading-relaxed break-words">
+                        {note.content}
+                      </p>
                     )}
-                    <span style={styles.cardTime}>
+                    <span className="block text-[0.72rem] text-text-muted mt-1">
                       {formatTime(note.createdAt)}
                     </span>
                   </div>
@@ -242,48 +207,38 @@ export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
           {tab === "highlights" && (
             <>
               {sortedHighlights.length === 0 ? (
-                <div style={styles.empty}>
-                  <p style={styles.emptyText}>No highlights yet</p>
-                  <p style={styles.emptyHint}>
-                    Select text in the chapter and click "Highlight" to add one
+                <div className="flex flex-col items-center justify-center px-4 py-6 text-center gap-1">
+                  <p className="m-0 text-sm font-medium text-text-secondary">
+                    No highlights yet
+                  </p>
+                  <p className="m-0 text-xs text-text-muted leading-relaxed">
+                    Select text in the chapter and click &ldquo;Highlight&rdquo;
+                    to add one
                   </p>
                 </div>
               ) : (
                 sortedHighlights.map((hl) => (
-                  <div key={hl.id} style={styles.card}>
-                    <div style={styles.cardHeader}>
-                      <div style={styles.highlightBadge}>
+                  <div key={hl.id} className="p-4 border-b border-border">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        {/* Dynamic color requires inline style */}
                         <span
-                          style={{
-                            ...styles.colorDot,
-                            background: hl.color,
-                          }}
+                          className="inline-block w-2.5 h-2.5 rounded-full shrink-0 border border-border"
+                          style={{ backgroundColor: hl.color }}
                         />
-                        <span style={styles.cardSource}>
-                          "{truncate(hl.text, 60)}"
+                        <span className="text-xs text-text-secondary italic leading-snug flex-1 min-w-0 overflow-hidden text-ellipsis line-clamp-2">
+                          &ldquo;{truncate(hl.text, 60)}&rdquo;
                         </span>
                       </div>
-                      <button
-                        style={styles.iconButton}
+                      <Button
+                        variant="icon"
                         onClick={() => handleDeleteHighlight(hl.id)}
                         title="Delete highlight"
                       >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        </svg>
-                      </button>
+                        <Icon name="trash" size={14} />
+                      </Button>
                     </div>
-                    <span style={styles.cardTime}>
+                    <span className="block text-[0.72rem] text-text-muted mt-1">
                       {formatTime(hl.createdAt)}
                     </span>
                   </div>
@@ -293,16 +248,14 @@ export function AnnotationPanel({ open, onClose }: AnnotationPanelProps) {
           )}
         </div>
       </div>
-      {/* Click outside to close */}
-      <div style={styles.backdrop} onClick={onClose} />
-    </div>
+    </>
   );
 }
 
 /** Truncate text to a max length with ellipsis */
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
-  return text.slice(0, max) + "...";
+  return text.slice(0, max) + "\u2026";
 }
 
 /** Format timestamp to a readable date string */
@@ -324,261 +277,3 @@ function formatTime(ts: number): string {
     minute: "2-digit",
   });
 }
-
-// --- Design tokens ---
-
-const colors = {
-  surface: "#ffffff",
-  surfaceHover: "#f9fafb",
-  bg: "#f6f6f6",
-  text: "#0f0f0f",
-  textSecondary: "#6b7280",
-  textMuted: "#9ca3af",
-  border: "#e5e5e5",
-  accent: "#374151",
-  accentHover: "#1f2937",
-  error: "#dc2626",
-  shadow: "rgba(0, 0, 0, 0.1)",
-} as const;
-
-const spacing = {
-  xs: "0.25rem",
-  sm: "0.5rem",
-  md: "0.75rem",
-  lg: "1rem",
-  xl: "1.5rem",
-} as const;
-
-const styles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: "fixed",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 200,
-    display: "flex",
-    justifyContent: "flex-end",
-  },
-  backdrop: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    background: "transparent",
-  },
-  panel: {
-    position: "relative",
-    width: "360px",
-    maxWidth: "90vw",
-    height: "100%",
-    background: colors.surface,
-    borderLeft: `1px solid ${colors.border}`,
-    boxShadow: `-4px 0 24px ${colors.shadow}`,
-    display: "flex",
-    flexDirection: "column",
-    zIndex: 1,
-    fontFamily:
-      "'Literata', 'Georgia', 'Iowan Old Style', 'Palatino Linotype', 'Noto Serif', serif",
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: `${spacing.md} ${spacing.lg}`,
-    borderBottom: `1px solid ${colors.border}`,
-    flexShrink: 0,
-  },
-  title: {
-    margin: 0,
-    fontSize: "1rem",
-    fontWeight: 600,
-    color: colors.text,
-    letterSpacing: "-0.01em",
-  },
-  closeButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "28px",
-    height: "28px",
-    background: "transparent",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    color: colors.textSecondary,
-    transition: "background 0.12s",
-    padding: 0,
-  },
-  tabBar: {
-    display: "flex",
-    borderBottom: `1px solid ${colors.border}`,
-    flexShrink: 0,
-  },
-  tab: {
-    flex: 1,
-    padding: `${spacing.sm} ${spacing.md}`,
-    fontSize: "0.8rem",
-    fontWeight: 500,
-    color: colors.textSecondary,
-    background: "transparent",
-    border: "none",
-    borderBottom: "2px solid transparent",
-    cursor: "pointer",
-    transition: "color 0.12s, border-color 0.12s",
-    fontFamily: "inherit",
-  },
-  tabActive: {
-    color: colors.text,
-    borderBottomColor: colors.accent,
-  },
-  content: {
-    flex: 1,
-    overflowY: "auto",
-    padding: spacing.md,
-  },
-  empty: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: `${spacing.xl} ${spacing.lg}`,
-    textAlign: "center",
-    gap: spacing.xs,
-  },
-  emptyText: {
-    margin: 0,
-    fontSize: "0.9rem",
-    fontWeight: 500,
-    color: colors.textSecondary,
-  },
-  emptyHint: {
-    margin: 0,
-    fontSize: "0.8rem",
-    color: colors.textMuted,
-    lineHeight: 1.5,
-  },
-  card: {
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    background: colors.bg,
-    borderRadius: "6px",
-    border: `1px solid ${colors.border}`,
-  },
-  cardHeader: {
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  highlightBadge: {
-    display: "flex",
-    alignItems: "center",
-    gap: spacing.xs,
-    flex: 1,
-    minWidth: 0,
-  },
-  colorDot: {
-    display: "inline-block",
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    flexShrink: 0,
-    border: `1px solid ${colors.border}`,
-  },
-  cardSource: {
-    fontSize: "0.78rem",
-    color: colors.textSecondary,
-    fontStyle: "italic",
-    lineHeight: 1.4,
-    flex: 1,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    display: "-webkit-box",
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: "vertical",
-  } as React.CSSProperties,
-  cardActions: {
-    display: "flex",
-    gap: "2px",
-    flexShrink: 0,
-  },
-  iconButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "24px",
-    height: "24px",
-    background: "transparent",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    color: colors.textMuted,
-    transition: "color 0.12s, background 0.12s",
-    padding: 0,
-  },
-  cardContent: {
-    margin: 0,
-    fontSize: "0.85rem",
-    color: colors.text,
-    lineHeight: 1.5,
-    wordBreak: "break-word",
-  },
-  cardTime: {
-    display: "block",
-    fontSize: "0.72rem",
-    color: colors.textMuted,
-    marginTop: spacing.xs,
-  },
-  editContainer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  editInput: {
-    width: "100%",
-    padding: `${spacing.sm} ${spacing.md}`,
-    fontSize: "0.825rem",
-    fontFamily: "inherit",
-    lineHeight: "1.5",
-    color: colors.text,
-    background: colors.surface,
-    border: `1px solid ${colors.border}`,
-    borderRadius: "5px",
-    resize: "vertical",
-    outline: "none",
-    minHeight: "60px",
-    boxSizing: "border-box",
-  },
-  editActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: spacing.xs,
-  },
-  cancelBtn: {
-    padding: "4px 10px",
-    fontSize: "0.78rem",
-    fontWeight: 500,
-    color: colors.textSecondary,
-    background: "transparent",
-    border: `1px solid ${colors.border}`,
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-  },
-  saveBtn: {
-    padding: "4px 12px",
-    fontSize: "0.78rem",
-    fontWeight: 500,
-    color: colors.surface,
-    background: colors.accent,
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-  },
-};

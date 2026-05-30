@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: "Literata", "Georgia", "Iowan Old Style", "Palatino Linotype",
+      "Noto Serif", serif;
+    font-optical-sizing: auto;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+}

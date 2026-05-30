@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import type { BookshelfItem } from "@/lib/bookshelf";
+import { Icon } from "@/components/primitives";
 
 interface BookCardProps {
   book: BookshelfItem;
@@ -52,7 +53,7 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
   return (
     <>
       <div
-        style={styles.card}
+        className="flex flex-col bg-surface rounded-lg overflow-hidden cursor-pointer transition-all shadow-sm border border-border w-[180px] hover:shadow-md"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         role="button"
@@ -65,53 +66,40 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
         }}
       >
         {/* Cover image */}
-        <div style={styles.coverContainer}>
+        <div className="w-full h-60 overflow-hidden bg-gray-50">
           {book.coverUrl ? (
             <img
               src={book.coverUrl}
               alt={book.title}
-              style={styles.coverImage}
+              className="w-full h-full object-cover"
               loading="lazy"
             />
           ) : (
-            <div style={styles.coverPlaceholder}>
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-              </svg>
+            <div className="flex items-center justify-center w-full h-full text-text-muted">
+              <Icon name="book" size={48} />
             </div>
           )}
         </div>
 
         {/* Book info */}
-        <div style={styles.info}>
-          <h3 style={styles.title} title={book.title}>
+        <div className="p-3 flex flex-col gap-1">
+          <h3 className="m-0 text-sm font-semibold text-text leading-tight truncate" title={book.title}>
             {book.title}
           </h3>
-          <p style={styles.author} title={book.author}>
+          <p className="m-0 text-xs text-text-secondary truncate" title={book.author}>
             {book.author}
           </p>
 
           {/* Progress bar */}
           {book.progress && (
-            <div style={styles.progressContainer}>
-              <div style={styles.progressBar}>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  style={{
-                    ...styles.progressFill,
-                    width: `${book.progress.percentage}%`,
-                  }}
+                  className="h-full bg-accent rounded-full transition-all duration-200"
+                  style={{ width: `${book.progress.percentage}%` }}
                 />
               </div>
-              <span style={styles.progressText}>
+              <span className="text-[0.7rem] text-text-muted min-w-[32px] text-right">
                 {Math.round(book.progress.percentage)}%
               </span>
             </div>
@@ -123,7 +111,7 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
       {contextMenu && (
         <>
           <div
-            style={styles.overlay}
+            className="fixed inset-0 z-[999]"
             onClick={handleCloseMenu}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -131,13 +119,10 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
             }}
           />
           <div
-            style={{
-              ...styles.contextMenu,
-              left: contextMenu.x,
-              top: contextMenu.y,
-            }}
+            className="fixed bg-surface rounded-md shadow-lg border border-border p-1 z-[1000] min-w-[180px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
           >
-            <button style={styles.menuItem} onClick={handleRemove}>
+            <button className="block w-full px-3 py-2 text-[0.8rem] text-text bg-transparent border-none rounded cursor-pointer text-left font-inherit hover:bg-error-bg text-error" onClick={handleRemove}>
               Remove from Bookshelf
             </button>
           </div>
@@ -146,133 +131,3 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
     </>
   );
 }
-
-// --- Design tokens (aligned with project palette) ---
-
-const colors = {
-  surface: "#ffffff",
-  text: "#0f0f0f",
-  textSecondary: "#6b7280",
-  textMuted: "#9ca3af",
-  border: "#e5e5e5",
-  accent: "#374151",
-  progressBg: "#e5e5e5",
-  progressFill: "#374151",
-  menuBg: "#ffffff",
-  menuHover: "#f3f4f6",
-  overlay: "rgba(0, 0, 0, 0.1)",
-} as const;
-
-const styles: Record<string, React.CSSProperties> = {
-  card: {
-    display: "flex",
-    flexDirection: "column",
-    background: colors.surface,
-    borderRadius: "8px",
-    overflow: "hidden",
-    cursor: "pointer",
-    transition: "transform 0.15s, box-shadow 0.15s",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
-    border: `1px solid ${colors.border}`,
-    width: "180px",
-  },
-  coverContainer: {
-    width: "100%",
-    height: "240px",
-    overflow: "hidden",
-    background: "#f9fafb",
-  },
-  coverImage: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-  coverPlaceholder: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    height: "100%",
-    color: colors.textMuted,
-  },
-  info: {
-    padding: "12px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
-  },
-  title: {
-    margin: 0,
-    fontSize: "0.875rem",
-    fontWeight: 600,
-    color: colors.text,
-    lineHeight: 1.3,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  author: {
-    margin: 0,
-    fontSize: "0.75rem",
-    color: colors.textSecondary,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  progressContainer: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    marginTop: "4px",
-  },
-  progressBar: {
-    flex: 1,
-    height: "4px",
-    background: colors.progressBg,
-    borderRadius: "2px",
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    background: colors.progressFill,
-    borderRadius: "2px",
-    transition: "width 0.2s",
-  },
-  progressText: {
-    fontSize: "0.7rem",
-    color: colors.textMuted,
-    minWidth: "32px",
-    textAlign: "right",
-  },
-  overlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 999,
-  },
-  contextMenu: {
-    position: "fixed",
-    background: colors.menuBg,
-    borderRadius: "6px",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-    border: `1px solid ${colors.border}`,
-    padding: "4px",
-    zIndex: 1000,
-    minWidth: "180px",
-  },
-  menuItem: {
-    display: "block",
-    width: "100%",
-    padding: "8px 12px",
-    fontSize: "0.8rem",
-    color: colors.text,
-    background: "transparent",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    textAlign: "left",
-    fontFamily: "inherit",
-  },
-};

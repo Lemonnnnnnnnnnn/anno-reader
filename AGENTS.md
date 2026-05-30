@@ -33,6 +33,8 @@ anno-reader/
 | Task | Location | Notes |
 |------|----------|-------|
 | UI components | `src/components/` | ReaderLayout is main orchestrator |
+| Shared primitives | `src/components/primitives/` | Button, TextArea, Icon, ErrorBanner |
+| Tailwind config | `tailwind.config.ts` | Design tokens, colors, fonts |
 | EPUB parsing | `src/lib/epub/` | Wraps epubix library |
 | File import | `src/lib/import/` | Tauri dialog + fs plugins |
 | Annotations | `src/lib/annotations/` | Notes + highlights persistence |
@@ -62,16 +64,19 @@ main.rs → lib.rs::run() → Tauri window (1200×800)
 - **EPUB rendering**: iframe srcdoc for CSS isolation
 - **Iframe communication**: `window.parent.postMessage` pattern
 - **Persistence**: JSON files via Tauri fs plugin
-- **Styling**: Inline styles with design tokens (no CSS modules)
-- **Design tokens**: bg `#f6f6f6`, text `#0f0f0f`, accent `#374151`, font Literata/Georgia serif
+- **Styling**: Tailwind CSS with centralized design tokens
+- **Design tokens**: Defined in `tailwind.config.ts` (colors, fonts)
+- **Shared primitives**: `src/components/primitives/` (Button, TextArea, Icon, ErrorBanner)
+- **No CSS modules**: Project uses Tailwind exclusively
 
 ## ANTI-PATTERNS (THIS PROJECT)
 
 - **DO NOT** use Zustand `.filter()` in selectors without `useShallow` — causes infinite re-render loop
 - **DO NOT** use epubix for EPUB 3 cover detection — use direct OPF parsing (see `metadata/cover.ts`)
 - **DO NOT** remove `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]` from main.rs
-- **DO NOT** add CSS modules — project uses inline styles exclusively
+- **DO NOT** add CSS modules — project uses Tailwind exclusively
 - **NEVER** suppress TypeScript errors with `as any` or `@ts-ignore`
+- **DO NOT** use inline styles — prefer Tailwind utility classes and design tokens
 
 ## UNIQUE PATTERNS
 

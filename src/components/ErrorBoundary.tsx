@@ -14,6 +14,7 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Button, Icon } from "@/components/primitives";
 
 interface ErrorBoundaryProps {
   /** Child components to wrap */
@@ -58,47 +59,34 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       // Default fallback UI
       return (
-        <div style={styles.container}>
-          <div style={styles.content}>
-            <div style={styles.icon}>
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-            </div>
-            <h2 style={styles.title}>Something went wrong</h2>
-            <p style={styles.message}>
+        <div className="flex items-center justify-center h-screen w-screen bg-bg font-serif">
+          <div className="flex flex-col items-center text-center p-8 max-w-[480px] bg-surface rounded-lg border border-border shadow-lg">
+            <Icon name="alert" size={48} className="text-error mb-4" />
+            <h2 className="text-xl font-semibold text-text mb-2">Something went wrong</h2>
+            <p className="text-sm text-text-secondary leading-relaxed mb-4">
               An unexpected error occurred. This might be due to a corrupt
               file or an issue with the application.
             </p>
             {this.state.error && (
-              <details style={styles.details}>
-                <summary style={styles.summary}>Technical details</summary>
-                <pre style={styles.errorText}>
+              <details className="w-full mb-4 text-left">
+                <summary className="text-xs text-text-muted cursor-pointer py-1">
+                  Technical details
+                </summary>
+                <pre className="text-xs text-error bg-error-bg p-3 rounded overflow-auto max-h-[120px] mt-2 whitespace-pre-wrap break-word">
                   {this.state.error.message}
                 </pre>
               </details>
             )}
-            <div style={styles.actions}>
-              <button style={styles.button} onClick={this.handleReset}>
+            <div className="flex gap-3">
+              <Button variant="primary" onClick={this.handleReset}>
                 Try Again
-              </button>
-              <button
-                style={styles.buttonSecondary}
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => window.location.reload()}
               >
                 Reload App
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -108,120 +96,3 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return this.props.children;
   }
 }
-
-// --- Design tokens (aligned with project conventions) ---
-
-const colors = {
-  bg: "#f6f6f6",
-  surface: "#ffffff",
-  text: "#0f0f0f",
-  textSecondary: "#6b7280",
-  textMuted: "#9ca3af",
-  border: "#e5e5e5",
-  accent: "#374151",
-  error: "#dc2626",
-  errorBg: "#fef2f2",
-} as const;
-
-const spacing = {
-  xs: "0.25rem",
-  sm: "0.5rem",
-  md: "0.75rem",
-  lg: "1rem",
-  xl: "1.5rem",
-  xxl: "2rem",
-} as const;
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    width: "100vw",
-    background: colors.bg,
-    fontFamily:
-      "'Literata', 'Georgia', 'Iowan Old Style', 'Palatino Linotype', 'Noto Serif', serif",
-  },
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    textAlign: "center",
-    padding: spacing.xxl,
-    maxWidth: "480px",
-    background: colors.surface,
-    borderRadius: "8px",
-    border: `1px solid ${colors.border}`,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
-  },
-  icon: {
-    color: colors.error,
-    marginBottom: spacing.lg,
-  },
-  title: {
-    margin: 0,
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  message: {
-    margin: 0,
-    fontSize: "0.9rem",
-    color: colors.textSecondary,
-    lineHeight: 1.5,
-    marginBottom: spacing.lg,
-  },
-  details: {
-    width: "100%",
-    marginBottom: spacing.lg,
-    textAlign: "left",
-  },
-  summary: {
-    fontSize: "0.85rem",
-    color: colors.textMuted,
-    cursor: "pointer",
-    padding: `${spacing.xs} 0`,
-  },
-  errorText: {
-    fontSize: "0.8rem",
-    color: colors.error,
-    background: colors.errorBg,
-    padding: spacing.md,
-    borderRadius: "4px",
-    overflow: "auto",
-    maxHeight: "120px",
-    marginTop: spacing.sm,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  },
-  actions: {
-    display: "flex",
-    gap: spacing.md,
-  },
-  button: {
-    padding: `${spacing.sm} ${spacing.lg}`,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    color: colors.surface,
-    background: colors.accent,
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "background 0.15s",
-    fontFamily: "inherit",
-  },
-  buttonSecondary: {
-    padding: `${spacing.sm} ${spacing.lg}`,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    color: colors.textSecondary,
-    background: "transparent",
-    border: `1px solid ${colors.border}`,
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "color 0.15s, border-color 0.15s",
-    fontFamily: "inherit",
-  },
-};

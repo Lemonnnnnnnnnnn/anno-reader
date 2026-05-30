@@ -21,6 +21,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 import { createNote, createHighlight } from "@/lib/annotations";
 import { generateCfiRange, type SelectionMessage } from "@/lib/selection";
+import { Button, TextArea, Icon } from "@/components/primitives";
 
 interface TextSelectionToolbarProps {
   /** Ref to the iframe container element (for coordinate calculation) */
@@ -64,7 +65,6 @@ export function TextSelectionToolbar({
   const [noteText, setNoteText] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const noteInputRef = useRef<HTMLTextAreaElement>(null);
 
   const currentBook = useBookStore((state) => state.currentBook);
 
@@ -98,15 +98,6 @@ export function TextSelectionToolbar({
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, []);
-
-  /**
-   * Focus note input when switching to note mode.
-   */
-  useEffect(() => {
-    if (mode === "note" && noteInputRef.current) {
-      noteInputRef.current.focus();
-    }
-  }, [mode]);
 
   /**
    * Dismiss toolbar on Escape key.
@@ -253,103 +244,62 @@ export function TextSelectionToolbar({
 
   return (
     <div ref={toolbarRef} style={getToolbarPosition()}>
-      <div style={styles.toolbar}>
+      <div className="bg-surface border border-border rounded-lg shadow-lg overflow-hidden min-w-[200px]">
         {mode === "default" && (
-          <div style={styles.buttonRow}>
+          <div className="flex items-center p-1">
             <button
-              style={styles.actionButton}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg transition-colors"
               onClick={handleAddNote}
               title="Add note to selection"
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={styles.buttonIcon}
-              >
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-              </svg>
+              <Icon name="edit" size={14} className="shrink-0 opacity-70" />
               Note
             </button>
-            <div style={styles.divider} />
+            <div className="w-px h-5 bg-border mx-0.5" />
             <button
-              style={styles.actionButton}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg transition-colors"
               onClick={handleHighlight}
               title="Highlight selection"
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={styles.buttonIcon}
-              >
-                <path d="m9 11-6 6v3h9l3-3" />
-                <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
-              </svg>
+              <Icon name="highlight" size={14} className="shrink-0 opacity-70" />
               Highlight
             </button>
           </div>
         )}
 
         {mode === "note" && (
-          <div style={styles.noteContainer}>
-            <textarea
-              ref={noteInputRef}
-              style={styles.noteInput}
+          <div className="p-2 flex flex-col gap-2 min-w-[280px]">
+            <TextArea
               placeholder="Write your note..."
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault();
-                  handleSubmitNote();
-                }
-              }}
+              onSubmit={handleSubmitNote}
+              onCancel={handleCancel}
               rows={3}
             />
-            <div style={styles.noteActions}>
-              <button
-                style={styles.cancelButton}
-                onClick={handleCancel}
-              >
+            <div className="flex justify-end gap-1.5">
+              <Button variant="secondary" size="sm" onClick={handleCancel}>
                 Cancel
-              </button>
-              <button
-                style={{
-                  ...styles.submitButton,
-                  ...(isCreating || !noteText.trim()
-                    ? styles.submitButtonDisabled
-                    : {}),
-                }}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleSubmitNote}
                 disabled={isCreating || !noteText.trim()}
               >
                 Save
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {mode === "highlight" && (
-          <div style={styles.colorPicker}>
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5">
             {HIGHLIGHT_COLORS.map((color) => (
               <button
                 key={color.value}
-                style={{
-                  ...styles.colorSwatch,
-                  background: color.value,
-                }}
+                className="w-6 h-6 rounded-full border-2 border-border cursor-pointer p-0 hover:scale-110 transition-transform"
+                style={{ backgroundColor: color.value }}
                 onClick={() => handleCreateHighlight(color.value)}
                 title={color.name}
                 disabled={isCreating}
@@ -359,8 +309,8 @@ export function TextSelectionToolbar({
         )}
 
         {/* Selection preview */}
-        <div style={styles.selectionPreview}>
-          <span style={styles.previewText}>
+        <div className="px-2.5 pt-1 pb-1.5 border-t border-border">
+          <span className="text-[0.72rem] text-text-muted italic leading-[1.4] block overflow-hidden text-ellipsis whitespace-nowrap">
             {selection.text.length > 60
               ? selection.text.slice(0, 60) + "..."
               : selection.text}
@@ -370,146 +320,3 @@ export function TextSelectionToolbar({
     </div>
   );
 }
-
-// --- Design tokens (matching project conventions) ---
-
-const colors = {
-  surface: "#ffffff",
-  surfaceHover: "#f9fafb",
-  text: "#0f0f0f",
-  textSecondary: "#6b7280",
-  textMuted: "#9ca3af",
-  border: "#e5e5e5",
-  accent: "#374151",
-  accentHover: "#1f2937",
-  shadow: "rgba(0, 0, 0, 0.08)",
-  shadowStrong: "rgba(0, 0, 0, 0.15)",
-} as const;
-
-const styles: Record<string, React.CSSProperties> = {
-  toolbar: {
-    background: colors.surface,
-    border: `1px solid ${colors.border}`,
-    borderRadius: "8px",
-    boxShadow: `0 4px 16px ${colors.shadow}, 0 2px 4px ${colors.shadow}`,
-    overflow: "hidden",
-    minWidth: "200px",
-  },
-  buttonRow: {
-    display: "flex",
-    alignItems: "center",
-    padding: "4px",
-  },
-  actionButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "6px 12px",
-    fontSize: "0.8rem",
-    fontWeight: 500,
-    color: colors.text,
-    background: "transparent",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-    transition: "background 0.12s, color 0.12s",
-    fontFamily: "inherit",
-    whiteSpace: "nowrap",
-  },
-  buttonIcon: {
-    flexShrink: 0,
-    opacity: 0.7,
-  },
-  divider: {
-    width: "1px",
-    height: "20px",
-    background: colors.border,
-    margin: "0 2px",
-  },
-  noteContainer: {
-    padding: "8px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "8px",
-    minWidth: "280px",
-  },
-  noteInput: {
-    width: "100%",
-    padding: "8px 10px",
-    fontSize: "0.825rem",
-    fontFamily: "inherit",
-    lineHeight: "1.5",
-    color: colors.text,
-    background: colors.surface,
-    border: `1px solid ${colors.border}`,
-    borderRadius: "5px",
-    resize: "vertical",
-    outline: "none",
-    transition: "border-color 0.15s",
-    minHeight: "60px",
-    boxSizing: "border-box",
-  },
-  noteActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "6px",
-  },
-  cancelButton: {
-    padding: "5px 12px",
-    fontSize: "0.78rem",
-    fontWeight: 500,
-    color: colors.textSecondary,
-    background: "transparent",
-    border: `1px solid ${colors.border}`,
-    borderRadius: "5px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    transition: "background 0.12s",
-  },
-  submitButton: {
-    padding: "5px 14px",
-    fontSize: "0.78rem",
-    fontWeight: 500,
-    color: colors.surface,
-    background: colors.accent,
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    transition: "background 0.12s, opacity 0.12s",
-  },
-  submitButtonDisabled: {
-    opacity: 0.4,
-    cursor: "not-allowed",
-  },
-  colorPicker: {
-    display: "flex",
-    alignItems: "center",
-    gap: "6px",
-    padding: "6px 10px",
-  },
-  colorSwatch: {
-    width: "24px",
-    height: "24px",
-    borderRadius: "50%",
-    border: `2px solid ${colors.border}`,
-    cursor: "pointer",
-    transition: "transform 0.12s, border-color 0.12s",
-    padding: 0,
-    outline: "none",
-  },
-  selectionPreview: {
-    padding: "4px 10px 6px",
-    borderTop: `1px solid ${colors.border}`,
-  },
-  previewText: {
-    fontSize: "0.72rem",
-    color: colors.textMuted,
-    fontStyle: "italic",
-    lineHeight: "1.4",
-    display: "block",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-};

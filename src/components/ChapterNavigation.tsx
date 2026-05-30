@@ -27,6 +27,7 @@
 import { useCallback } from "react";
 import { useBookStore, type ReadingProgress } from "@/stores/useBookStore";
 import type { EpubChapterInfo } from "@/lib/epub";
+import { Button, Icon } from "@/components/primitives";
 
 interface ChapterNavigationProps {
   /** Array of chapters in reading order */
@@ -123,39 +124,55 @@ export function ChapterNavigation({
   const isCompact = variant === "compact";
 
   return (
-    <div style={isCompact ? styles.compactContainer : styles.fullContainer}>
+    <div
+      className={
+        isCompact
+          ? "flex items-center gap-3"
+          : "flex items-center justify-between gap-4 py-3 px-4 bg-white border-b border-border"
+      }
+    >
       {/* Previous button */}
-      <button
-        style={{
-          ...(isCompact ? styles.compactButton : styles.fullButton),
-          ...(isFirstChapter ? styles.buttonDisabled : {}),
-        }}
+      <Button
+        variant="nav"
+        className={
+          isCompact
+            ? "w-9 h-9 p-0 bg-transparent text-text text-xs font-medium"
+            : "gap-1 text-xs font-medium tracking-wide"
+        }
         onClick={goToPrevious}
         disabled={isFirstChapter}
         aria-label="Previous chapter"
         title={isFirstChapter ? "Already at first chapter" : "Previous chapter"}
       >
         {isCompact ? (
-          <ChevronLeftIcon />
+          <Icon name="chevron-left" size={16} />
         ) : (
           <>
-            <ChevronLeftIcon />
-            <span style={styles.fullLabel}>Prev</span>
+            <Icon name="chevron-left" size={16} />
+            <span className="leading-none">Prev</span>
           </>
         )}
-      </button>
+      </Button>
 
       {/* Chapter indicator */}
       {showChapterInfo && (
-        <div style={isCompact ? styles.compactInfo : styles.fullInfo}>
+        <div
+          className={
+            isCompact
+              ? "flex items-center min-w-[60px] justify-center"
+              : "flex flex-col items-center gap-[2px] min-w-0 flex-1"
+          }
+        >
           {isCompact ? (
-            <span style={styles.chapterCount}>
+            <span className="text-xs text-text-secondary font-normal tracking-wide tabular-nums">
               {currentChapterIndex + 1} / {totalChapters}
             </span>
           ) : (
             <>
-              <span style={styles.chapterTitle}>{chapterTitle}</span>
-              <span style={styles.chapterCount}>
+              <span className="text-sm text-text-secondary truncate max-w-[300px] text-center">
+                {chapterTitle}
+              </span>
+              <span className="text-xs text-text-secondary font-normal tracking-wide tabular-nums">
                 {currentChapterIndex + 1} / {totalChapters}
               </span>
             </>
@@ -164,171 +181,27 @@ export function ChapterNavigation({
       )}
 
       {/* Next button */}
-      <button
-        style={{
-          ...(isCompact ? styles.compactButton : styles.fullButton),
-          ...(isLastChapter ? styles.buttonDisabled : {}),
-        }}
+      <Button
+        variant="nav"
+        className={
+          isCompact
+            ? "w-9 h-9 p-0 bg-transparent text-text text-xs font-medium"
+            : "gap-1 text-xs font-medium tracking-wide"
+        }
         onClick={goToNext}
         disabled={isLastChapter}
         aria-label="Next chapter"
         title={isLastChapter ? "Already at last chapter" : "Next chapter"}
       >
         {isCompact ? (
-          <ChevronRightIcon />
+          <Icon name="chevron-right" size={16} />
         ) : (
           <>
-            <span style={styles.fullLabel}>Next</span>
-            <ChevronRightIcon />
+            <span className="leading-none">Next</span>
+            <Icon name="chevron-right" size={16} />
           </>
         )}
-      </button>
+      </Button>
     </div>
   );
 }
-
-// --- Icons ---
-
-function ChevronLeftIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
-
-// --- Design tokens (aligned with ReaderLayout) ---
-
-const colors = {
-  text: "#0f0f0f",
-  textSecondary: "#6b7280",
-  border: "#e5e5e5",
-} as const;
-
-const spacing = {
-  xs: "0.25rem",
-  sm: "0.5rem",
-  md: "0.75rem",
-  lg: "1rem",
-} as const;
-
-const styles: Record<string, React.CSSProperties> = {
-  // --- Compact variant (footer-style) ---
-  compactContainer: {
-    display: "flex",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  compactButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "36px",
-    height: "36px",
-    padding: 0,
-    fontSize: "0.8rem",
-    fontWeight: 500,
-    color: colors.text,
-    background: "transparent",
-    border: `1px solid ${colors.border}`,
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "color 0.15s, border-color 0.15s, background 0.15s",
-    boxShadow: "none",
-    fontFamily: "inherit",
-  },
-  compactInfo: {
-    display: "flex",
-    alignItems: "center",
-    minWidth: "60px",
-    justifyContent: "center",
-  },
-
-  // --- Full variant (standalone) ---
-  fullContainer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    padding: `${spacing.md} ${spacing.lg}`,
-    background: "#fff",
-    borderBottom: `1px solid ${colors.border}`,
-  },
-  fullButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: spacing.xs,
-    padding: `${spacing.sm} ${spacing.md}`,
-    fontSize: "0.8rem",
-    fontWeight: 500,
-    color: colors.text,
-    background: "transparent",
-    border: `1px solid ${colors.border}`,
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "color 0.15s, border-color 0.15s, background 0.15s",
-    letterSpacing: "0.01em",
-    boxShadow: "none",
-    fontFamily: "inherit",
-  },
-  fullLabel: {
-    lineHeight: 1,
-  },
-  fullInfo: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "2px",
-    minWidth: 0,
-    flex: 1,
-  },
-
-  // --- Shared ---
-  buttonDisabled: {
-    opacity: 0.35,
-    cursor: "not-allowed",
-  },
-  chapterTitle: {
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    color: colors.text,
-    textAlign: "center",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    maxWidth: "300px",
-  },
-  chapterCount: {
-    fontSize: "0.75rem",
-    fontWeight: 400,
-    color: colors.textSecondary,
-    letterSpacing: "0.02em",
-    fontVariantNumeric: "tabular-nums",
-  },
-};

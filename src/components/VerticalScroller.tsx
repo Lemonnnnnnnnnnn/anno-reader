@@ -337,12 +337,12 @@ export function VerticalScroller({
   }, [srcdoc, annotationScript]);
 
   return (
-    <div ref={containerRef} style={styles.container}>
+    <div ref={containerRef} className="flex-1 overflow-hidden relative">
       <iframe
         ref={iframeRef}
         srcDoc={srcdocWithTracking}
         title={title || `Chapter ${chapterIndex + 1}`}
-        style={styles.iframe}
+        className="w-full h-full border-none bg-[#fafafa]"
         sandbox="allow-same-origin allow-scripts"
         onLoad={handleIframeLoad}
       />
@@ -354,16 +354,4 @@ export function VerticalScroller({
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    flex: 1,
-    overflow: "hidden",
-    position: "relative",
-  },
-  iframe: {
-    width: "100%",
-    height: "100%",
-    border: "none",
-    background: "#fafafa",
-  },
-};
+
