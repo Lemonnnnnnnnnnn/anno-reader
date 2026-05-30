@@ -20,6 +20,7 @@ import { ChapterRenderer } from "@/components/ChapterRenderer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { AnnotationPanel } from "@/components/AnnotationPanel";
 import { DataDirSetup } from "@/components/DataDirSetup";
+import { Button, Icon } from "@/components/primitives";
 import type { ParsedEpub } from "@/lib/epub";
 import { loadEpub } from "@/lib/epub";
 import { readFileAsArrayBuffer } from "@/lib/import";
@@ -246,11 +247,11 @@ export function ReaderPage() {
   // Loading state while checking config
   if (configReady === null) {
     return (
-      <div style={styles.layout}>
-        <main style={styles.content}>
-          <div style={styles.loadingState}>
-            <div style={styles.loadingSpinner} />
-            <p style={styles.loadingText}>Loading...</p>
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
+        <main className="flex-1 overflow-hidden relative">
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin" />
+            <p className="text-sm text-text-secondary">Loading...</p>
           </div>
         </main>
       </div>
@@ -263,70 +264,47 @@ export function ReaderPage() {
   }
 
   return (
-    <div style={styles.layout}>
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
       {/* Header: Book metadata */}
-      <header style={styles.header} className="reader-header">
-        <div style={styles.headerContent}>
-          <button
-            style={styles.backButton}
+      <header className="shrink-0 bg-surface border-b border-border relative z-10 reader-header">
+        <div className="flex items-center justify-between px-4 py-3 max-w-[1200px] mx-auto w-full">
+          <Button
+            variant="icon"
+            className="mr-2"
             onClick={() => navigate("/bookshelf")}
             title="Back to bookshelf"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M19 12H5" />
-              <polyline points="12 19 5 12 12 5" />
-            </svg>
-          </button>
+            <Icon name="arrow-left" size={16} />
+          </Button>
           {currentBook ? (
-            <div style={styles.bookInfo}>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               {currentBook.coverUrl && (
                 <img
                   src={currentBook.coverUrl}
                   alt=""
-                  style={styles.headerCover}
-                  className="reader-header-cover"
+                  className="w-9 h-12 object-cover rounded shadow-sm shrink-0 reader-header-cover"
                 />
               )}
-              <div style={styles.bookText}>
-                <h1 style={styles.title} className="reader-book-title">{currentBook.title}</h1>
-                <p style={styles.author}>{currentBook.author}</p>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <h1 className="text-base font-semibold text-text truncate reader-book-title">{currentBook.title}</h1>
+                <p className="text-xs text-text-secondary truncate">{currentBook.author}</p>
               </div>
               {parsedEpub && (
-                <button
-                  style={styles.annotationButton}
+                <Button
+                  variant="icon"
+                  className="ml-2"
                   onClick={() => setAnnotationPanelOpen(!annotationPanelOpen)}
                   title="View annotations"
                 >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                  </svg>
-                </button>
+                  <Icon name="edit" size={16} />
+                </Button>
               )}
             </div>
           ) : (
-            <div style={styles.bookInfo}>
-              <div style={styles.bookText}>
-                <h1 style={styles.title}>Anno Reader</h1>
-                <p style={styles.author}>Import an EPUB to begin</p>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <h1 className="text-base font-semibold text-text truncate">Anno Reader</h1>
+                <p className="text-xs text-text-secondary truncate">Import an EPUB to begin</p>
               </div>
             </div>
           )}
@@ -334,62 +312,53 @@ export function ReaderPage() {
       </header>
 
       {/* Content area: Chapter rendering */}
-      <main style={styles.content}>
+      <main className="flex-1 overflow-hidden relative">
         {error && (
-          <div style={styles.errorBanner}>
-            <span style={styles.errorText}>{error}</span>
-            <div style={styles.errorActions}>
-              <button
-                style={styles.errorRetry}
+          <div className="flex items-center justify-between p-2 px-4 bg-error-bg border-b border-error-border gap-3">
+            <span className="text-sm text-error flex-1">{error}</span>
+            <div className="flex gap-2 shrink-0">
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleImport}
               >
                 Retry
-              </button>
-              <button
-                style={styles.errorDismiss}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() => setError(null)}
               >
                 Dismiss
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {loading && (
-          <div style={styles.loadingState}>
-            <div style={styles.loadingSpinner} />
-            <p style={styles.loadingText}>Opening book...</p>
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <div className="w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin" />
+            <p className="text-sm text-text-secondary">Opening book...</p>
           </div>
         )}
 
         {!loading && !parsedEpub && !currentBook && (
-          <div style={styles.emptyState}>
-            <div style={styles.emptyIcon}>
-              <svg
-                width="64"
-                height="64"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-              </svg>
+          <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
+            <div className="text-text-muted opacity-50">
+              <Icon name="book" size={64} />
             </div>
-            <h2 style={styles.emptyTitle} className="reader-empty-title">No book open</h2>
-            <p style={styles.emptySubtitle} className="reader-empty-subtitle">
+            <h2 className="text-xl font-semibold text-text tracking-tight reader-empty-title">No book open</h2>
+            <p className="text-sm text-text-secondary max-w-[280px] reader-empty-subtitle">
               Import an EPUB file to start reading
             </p>
-            <button style={styles.importButton} onClick={handleImport}>
+            <Button variant="primary" onClick={handleImport}>
               Import EPUB
-            </button>
+            </Button>
           </div>
         )}
 
         {!loading && parsedEpub && (
-          <div style={styles.readerArea}>
+          <div className="h-full overflow-hidden">
             <ChapterRenderer
               chapters={parsedEpub.chapters}
               showNav={false}
@@ -399,30 +368,16 @@ export function ReaderPage() {
       </main>
 
       {/* Footer: Navigation controls */}
-      <footer style={styles.footer} className="reader-footer">
-        <div style={styles.footerContent}>
-          <button
-            style={styles.footerButton}
+      <footer className="shrink-0 bg-surface border-t border-border relative z-10 reader-footer">
+        <div className="flex items-center justify-between px-4 py-2 max-w-[1200px] mx-auto w-full min-h-[48px]">
+          <Button
+            variant="secondary"
             onClick={handleImport}
             disabled={loading}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={styles.buttonIcon}
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
+            <Icon name="download" size={16} className="shrink-0" />
             Import
-          </button>
+          </Button>
 
           {parsedEpub && totalChapters > 0 && (
             <ChapterNavigation
@@ -442,302 +397,3 @@ export function ReaderPage() {
     </div>
   );
 }
-
-// --- Design tokens (aligned with project conventions) ---
-
-const colors = {
-  bg: "#f6f6f6",
-  surface: "#ffffff",
-  text: "#0f0f0f",
-  textSecondary: "#6b7280",
-  textMuted: "#9ca3af",
-  border: "#e5e5e5",
-  borderLight: "#f0f0f0",
-  accent: "#374151",
-  accentHover: "#1f2937",
-  error: "#dc2626",
-  errorBg: "#fef2f2",
-  errorBorder: "#fecaca",
-} as const;
-
-const spacing = {
-  xs: "0.25rem",
-  sm: "0.5rem",
-  md: "0.75rem",
-  lg: "1rem",
-  xl: "1.5rem",
-  xxl: "2rem",
-} as const;
-
-const styles: Record<string, React.CSSProperties> = {
-  // --- Layout shell ---
-  layout: {
-    display: "flex",
-    flexDirection: "column",
-    height: "100vh",
-    width: "100vw",
-    overflow: "hidden",
-    background: colors.bg,
-    color: colors.text,
-    fontFamily:
-      "'Literata', 'Georgia', 'Iowan Old Style', 'Palatino Linotype', 'Noto Serif', 'Noto Serif CJK SC', serif",
-    fontOpticalSizing: "auto",
-    fontFeatureSettings: "'kern' 1, 'liga' 1",
-  },
-
-  // --- Header ---
-  header: {
-    flexShrink: 0,
-    background: colors.surface,
-    borderBottom: `1px solid ${colors.border}`,
-    position: "relative",
-    zIndex: 10,
-  },
-  headerContent: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: `${spacing.md} ${spacing.xl}`,
-    maxWidth: "1200px",
-    margin: "0 auto",
-    width: "100%",
-  },
-  bookInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: spacing.md,
-    minWidth: 0,
-    flex: 1,
-  },
-  headerCover: {
-    width: "36px",
-    height: "48px",
-    objectFit: "cover",
-    borderRadius: "2px",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.12)",
-    flexShrink: 0,
-  },
-  bookText: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "2px",
-    minWidth: 0,
-  },
-  title: {
-    margin: 0,
-    fontSize: "1rem",
-    fontWeight: 600,
-    lineHeight: 1.3,
-    color: colors.text,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    letterSpacing: "-0.01em",
-    textAlign: "left",
-  },
-  author: {
-    margin: 0,
-    fontSize: "0.8rem",
-    color: colors.textSecondary,
-    fontWeight: 400,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    letterSpacing: "0.01em",
-  },
-  backButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "32px",
-    height: "32px",
-    background: "transparent",
-    border: `1px solid ${colors.border}`,
-    borderRadius: "6px",
-    cursor: "pointer",
-    color: colors.textSecondary,
-    transition: "color 0.15s, border-color 0.15s",
-    flexShrink: 0,
-    marginRight: spacing.sm,
-    padding: 0,
-  },
-  annotationButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "32px",
-    height: "32px",
-    background: "transparent",
-    border: `1px solid ${colors.border}`,
-    borderRadius: "6px",
-    cursor: "pointer",
-    color: colors.textSecondary,
-    transition: "color 0.15s, border-color 0.15s",
-    flexShrink: 0,
-    marginLeft: spacing.sm,
-    padding: 0,
-  },
-
-  // --- Content area ---
-  content: {
-    flex: 1,
-    overflow: "hidden",
-    position: "relative",
-  },
-  readerArea: {
-    height: "100%",
-    overflow: "hidden",
-  },
-
-  // --- Loading state ---
-  loadingState: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100%",
-    gap: spacing.lg,
-  },
-  loadingSpinner: {
-    width: "32px",
-    height: "32px",
-    border: `2px solid ${colors.border}`,
-    borderTopColor: colors.accent,
-    borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
-  },
-  loadingText: {
-    margin: 0,
-    fontSize: "0.9rem",
-    color: colors.textSecondary,
-  },
-
-  // --- Empty state ---
-  emptyState: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100%",
-    gap: spacing.lg,
-    padding: spacing.xxl,
-    textAlign: "center",
-  },
-  emptyIcon: {
-    color: colors.textMuted,
-    opacity: 0.5,
-  },
-  emptyTitle: {
-    margin: 0,
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    color: colors.text,
-    letterSpacing: "-0.02em",
-  },
-  emptySubtitle: {
-    margin: 0,
-    fontSize: "0.9rem",
-    color: colors.textSecondary,
-    maxWidth: "280px",
-  },
-  importButton: {
-    marginTop: spacing.sm,
-    padding: `${spacing.md} ${spacing.xl}`,
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    color: colors.surface,
-    background: colors.accent,
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "background 0.15s, transform 0.1s",
-    letterSpacing: "0.01em",
-    boxShadow: "none",
-    fontFamily: "inherit",
-  },
-
-  // --- Error banner ---
-  errorBanner: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: `${spacing.sm} ${spacing.lg}`,
-    background: colors.errorBg,
-    borderBottom: `1px solid ${colors.errorBorder}`,
-    gap: spacing.md,
-  },
-  errorText: {
-    fontSize: "0.85rem",
-    color: colors.error,
-    flex: 1,
-  },
-  errorActions: {
-    display: "flex",
-    gap: spacing.sm,
-    flexShrink: 0,
-  },
-  errorRetry: {
-    padding: `${spacing.xs} ${spacing.sm}`,
-    fontSize: "0.8rem",
-    color: colors.surface,
-    background: colors.error,
-    border: `1px solid ${colors.error}`,
-    borderRadius: "4px",
-    cursor: "pointer",
-    flexShrink: 0,
-    boxShadow: "none",
-    fontFamily: "inherit",
-  },
-  errorDismiss: {
-    padding: `${spacing.xs} ${spacing.sm}`,
-    fontSize: "0.8rem",
-    color: colors.error,
-    background: "transparent",
-    border: `1px solid ${colors.errorBorder}`,
-    borderRadius: "4px",
-    cursor: "pointer",
-    flexShrink: 0,
-    boxShadow: "none",
-    fontFamily: "inherit",
-  },
-
-  // --- Footer ---
-  footer: {
-    flexShrink: 0,
-    background: colors.surface,
-    borderTop: `1px solid ${colors.border}`,
-    position: "relative",
-    zIndex: 10,
-  },
-  footerContent: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: `${spacing.sm} ${spacing.xl}`,
-    maxWidth: "1200px",
-    margin: "0 auto",
-    width: "100%",
-    minHeight: "48px",
-  },
-  footerButton: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: `${spacing.sm} ${spacing.md}`,
-    fontSize: "0.8rem",
-    fontWeight: 500,
-    color: colors.textSecondary,
-    background: "transparent",
-    border: `1px solid ${colors.border}`,
-    borderRadius: "6px",
-    cursor: "pointer",
-    transition: "color 0.15s, border-color 0.15s",
-    letterSpacing: "0.01em",
-    boxShadow: "none",
-    fontFamily: "inherit",
-  },
-  buttonIcon: {
-    flexShrink: 0,
-    verticalAlign: "middle",
-  },
-};
