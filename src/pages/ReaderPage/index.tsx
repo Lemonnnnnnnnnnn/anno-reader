@@ -11,7 +11,7 @@
  * for file selection, and ChapterRenderer for content display.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookStore } from "@/stores/useBookStore";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
@@ -20,7 +20,7 @@ import { TocDrawer } from "@/components/TocDrawer";
 import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DataDirSetup } from "@/components/DataDirSetup";
 import { Button, Icon } from "@/components/primitives";
-import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav } from "./hooks";
+import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
 
 export function ReaderPage() {
   const navigate = useNavigate();
@@ -43,7 +43,13 @@ export function ReaderPage() {
   useKeyboardNav(parsedEpub);
 
   // Iframe ref for ChapterRenderer
-  const [, setIframeEl] = useState<HTMLIFrameElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const setIframeEl = (el: HTMLIFrameElement | null) => {
+    iframeRef.current = el;
+  };
+
+  // Vim-like smooth scrolling (j/k keys)
+  useVimScroll(iframeRef);
 
   // Drawer state
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
