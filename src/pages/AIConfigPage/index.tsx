@@ -305,10 +305,14 @@ function ContextTab() {
 
   const toggleModule = (moduleId: string) => {
     const isSelected = selectedModuleIds.includes(moduleId);
+    const nextEnabled = !isSelected;
     updateContextConfig({
       selectedModuleIds: isSelected
         ? selectedModuleIds.filter((id) => id !== moduleId)
         : [...selectedModuleIds, moduleId],
+      modules: modules.map((m) =>
+        m.id === moduleId ? { ...m, isEnabled: nextEnabled } : m,
+      ),
     });
   };
 
