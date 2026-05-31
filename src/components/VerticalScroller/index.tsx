@@ -22,9 +22,10 @@
  */
 
 import { useRef, useMemo, useEffect, useState, useCallback } from "react";
-import { injectSelectionScript } from "@/lib/selection";
+import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
 import { AnnotationPopover } from "../AnnotationPopover";
+import { AITranslationPanel } from "../AITranslationPanel";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
 import { injectScrollScript } from "./hooks/useScrollTracking";
 
@@ -53,6 +54,14 @@ export function VerticalScroller({
   // Annotation popover state
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [popoverPosition, setPopoverPosition] = useState<{ top: number } | null>(null);
+
+  // AI translation panel state
+  const [translationPanel, setTranslationPanel] = useState<{
+    selectedText: string;
+    chapterHref: string;
+    startOffset: number;
+    endOffset: number;
+  } | null>(null);
 
   // Scroll position tracking and restoration
   const { iframeRef, handleIframeLoad } = useScrollTracking(chapterHref);
@@ -85,6 +94,19 @@ export function VerticalScroller({
     setPopoverPosition(null);
   }, []);
 
+  const handleTranslate = useCallback((data: {
+    selectedText: string;
+    chapterHref: string;
+    startOffset: number;
+    endOffset: number;
+  }) => {
+    setTranslationPanel(data);
+  }, []);
+
+  const handleCloseTranslationPanel = useCallback(() => {
+    setTranslationPanel(null);
+  }, []);
+
   // Build the final srcdoc with scroll tracker, selection detector, and annotations injected
   const srcdocWithTracking = useMemo(() => {
     const withScroll = injectScrollScript(srcdoc);
@@ -109,12 +131,27 @@ export function VerticalScroller({
       <TextSelectionToolbar
         containerRef={containerRef}
         chapterHref={chapterHref}
+        onTranslate={handleTranslate}
       />
       <AnnotationPopover
         noteId={activeNoteId}
         position={popoverPosition}
         onClose={handleClosePopover}
       />
+      {translationPanel && (
+        <AITranslationPanel
+          selectedText={translationPanel.selectedText}
+          chapterHref={translationPanel.chapterHref}
+          cfiRange={generateCfiRange(
+            translationPanel.chapterHref,
+            translationPanel.startOffset,
+            translationPanel.endOffset,
+          )}
+          startOffset={translationPanel.startOffset}
+          endOffset={translationPanel.endOffset}
+          onClose={handleCloseTranslationPanel}
+        />
+      )}
     </div>
   );
 }
