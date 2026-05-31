@@ -165,6 +165,7 @@ describe("AITranslationPanel (stateful)", () => {
       <AITranslationPanel
         selectedText="Test text"
         chapterHref="chapter1.xhtml"
+        fullContext="Full chapter content for context"
         cfiRange="epubcfi(/6/4[chap01]!/4/2:0,5)"
         startOffset={0}
         endOffset={9}
@@ -183,6 +184,7 @@ describe("AITranslationPanel (stateful)", () => {
       <AITranslationPanel
         selectedText="Test"
         chapterHref="chapter1.xhtml"
+        fullContext="Full chapter content"
         cfiRange="epubcfi(/6/4[chap01]!/4/2:0,4)"
         startOffset={0}
         endOffset={4}
@@ -198,6 +200,7 @@ describe("AITranslationPanel (stateful)", () => {
       <AITranslationPanel
         selectedText="Test"
         chapterHref="chapter1.xhtml"
+        fullContext="Full chapter content"
         cfiRange="epubcfi(/6/4[chap01]!/4/2:0,4)"
         startOffset={0}
         endOffset={4}

@@ -22,7 +22,7 @@
  */
 
 import { useRef, useMemo, useEffect, useState, useCallback } from "react";
-import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
+import { injectSelectionScript, generateCfiRange, stripHtml } from "@/lib/selection";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
 import { AnnotationPopover } from "../AnnotationPopover";
 import { AITranslationPanel } from "../AITranslationPanel";
@@ -118,6 +118,9 @@ export function VerticalScroller({
     return withSelection.slice(0, idx) + annotationScript + withSelection.slice(idx);
   }, [srcdoc]); // Only depend on srcdoc, not annotationScript - annotations update via postMessage
 
+  // Extract plain text for AI translation context
+  const chapterPlainText = useMemo(() => stripHtml(srcdoc), [srcdoc]);
+
   return (
     <div ref={containerRef} className="flex-1 overflow-hidden relative">
       <iframe
@@ -142,6 +145,7 @@ export function VerticalScroller({
         <AITranslationPanel
           selectedText={translationPanel.selectedText}
           chapterHref={translationPanel.chapterHref}
+          fullContext={chapterPlainText}
           cfiRange={generateCfiRange(
             translationPanel.chapterHref,
             translationPanel.startOffset,
