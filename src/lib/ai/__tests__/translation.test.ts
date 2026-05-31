@@ -80,6 +80,20 @@ const mockConfig: AIConfig = {
     selectedModuleIds: ["builtin-sentence"],
   },
   prompts: [mockPrompt],
+  roles: [
+    {
+      id: "reading-assistant",
+      name: "阅读助手",
+      systemMessage: "You are a reading assistant.",
+      userMessageTemplate: "Translate {selectedText}",
+      variables: [
+        { name: "selectedText", description: "The text selected by the user", defaultValue: "", isRequired: true },
+      ],
+      isDefault: true,
+      isEnabled: true,
+    },
+  ],
+  selectedRoleId: "reading-assistant",
 };
 
 const mockResponse: TranslationResponse = {
@@ -101,7 +115,9 @@ describe("TranslationService", () => {
     it("should call provider with correct request", async () => {
       mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
-      mockRenderPrompt.mockReturnValue("Translate Hello world to Chinese.");
+      mockRenderPrompt
+        .mockReturnValueOnce("You are a professional translator. Translate the following text to Chinese.")
+        .mockReturnValueOnce("Translate Hello world to Chinese.");
       mockTranslate.mockResolvedValue(mockResponse);
 
       const result = await service.translate("Hello world", "Chinese", mockConfig);
@@ -113,8 +129,8 @@ describe("TranslationService", () => {
           text: "Hello world",
           context: "Hello world",
           targetLanguage: "Chinese",
-          promptId: "default-translation",
-          renderedPrompt: "Translate Hello world to Chinese.",
+          systemMessage: "You are a professional translator. Translate the following text to Chinese.",
+          userMessage: "Text to translate:\nHello world",
         },
         mockProvider,
       );
@@ -152,22 +168,22 @@ describe("TranslationService", () => {
       );
     });
 
-    it("should render prompt with variables", async () => {
+    it("should render system message with target language", async () => {
       mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
-      mockRenderPrompt.mockReturnValue("rendered prompt");
+      mockRenderPrompt.mockReturnValue("rendered system message");
       mockTranslate.mockResolvedValue(mockResponse);
 
       await service.translate("Hello world", "Chinese", mockConfig);
 
       expect(mockRenderPrompt).toHaveBeenCalledTimes(1);
+      // First call is for system message
       expect(mockRenderPrompt).toHaveBeenCalledWith(
-        mockPrompt.content,
-        mockPrompt.variables,
-        {
-          selectedText: "Hello world",
-          targetLanguage: "Chinese",
-        },
+        expect.stringContaining("{targetLanguage}"),
+        expect.arrayContaining([
+          expect.objectContaining({ name: "targetLanguage" }),
+        ]),
+        { targetLanguage: "Chinese" },
       );
     });
 
@@ -201,20 +217,6 @@ describe("TranslationService", () => {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("UNKNOWN_ERROR");
         expect((error as AIServiceError).message).toBe("No AI provider configured");
-      }
-    });
-
-    it("should throw when no prompt configured", async () => {
-      mockGetContext.mockResolvedValue(mockContextData);
-      mockGetDefaultPrompt.mockReturnValue(undefined);
-
-      try {
-        await service.translate("Hello world", "Chinese", mockConfig);
-        expect.fail("Should have thrown");
-      } catch (error) {
-        expect(error).toBeInstanceOf(AIServiceError);
-        expect((error as AIServiceError).code).toBe("UNKNOWN_ERROR");
-        expect((error as AIServiceError).message).toBe("No prompt template configured");
       }
     });
   });

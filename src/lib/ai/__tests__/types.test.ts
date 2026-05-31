@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   DEFAULT_TRANSLATION_PROMPT,
   BUILTIN_SENTENCE_CONTEXT,
+} from "../constants";
+import {
   type ProviderType,
   type AIProvider,
   type ProviderStatus,

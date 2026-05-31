@@ -102,6 +102,31 @@ export interface PromptTemplate {
 }
 
 // ---------------------------------------------------------------------------
+// Role Types
+// ---------------------------------------------------------------------------
+
+/**
+ * An AI role defines how the AI should behave and respond.
+ * Contains system message and user message template.
+ */
+export interface AIRole {
+  /** Unique role identifier */
+  id: string;
+  /** Human-readable role name */
+  name: string;
+  /** System message that defines AI behavior */
+  systemMessage: string;
+  /** User message template with {variable} placeholders */
+  userMessageTemplate: string;
+  /** Interpolatable variables */
+  variables: PromptVariable[];
+  /** Whether this is the default role */
+  isDefault: boolean;
+  /** Whether this role is active and selectable */
+  isEnabled: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Context Types
 // ---------------------------------------------------------------------------
 
@@ -185,60 +210,22 @@ export interface AIConfig {
   contextConfig: ContextConfig;
   /** User-configured prompts */
   prompts: AIPrompt[];
+  /** Available roles */
+  roles: AIRole[];
+  /** ID of the currently active role, null if none selected */
+  selectedRoleId: string | null;
 }
 
 // ---------------------------------------------------------------------------
-// Built-in Constants
+// Re-export Constants
 // ---------------------------------------------------------------------------
 
-/** Default translation prompt template with standard variables. */
-export const DEFAULT_TRANSLATION_PROMPT: PromptTemplate = {
-  id: "default-translation",
-  name: "Translation",
-  content:
-    "Translate the following text to {targetLanguage}. Provide a concise interpretation that captures the meaning and nuance in context, not just a literal translation.\n\nText to translate:\n{selectedText}",
-  variables: [
-    {
-      name: "selectedText",
-      description: "The text selected by the user",
-      defaultValue: "",
-      isRequired: true,
-    },
-    {
-      name: "targetLanguage",
-      description: "Target language for translation",
-      defaultValue: "Chinese",
-      isRequired: true,
-    },
-  ],
-  category: "translation",
-};
-
-/** Built-in context module that uses the selected sentence as context. */
-export const BUILTIN_SENTENCE_CONTEXT: ContextModule = {
-  id: "builtin-sentence",
-  name: "Sentence Context",
-  type: "sentence",
-  content: "Extracts the surrounding paragraph from chapter text for richer context.",
-  isEnabled: true,
-};
-
-/** Built-in dictionary context modules. */
-export const BUILTIN_DICTIONARY_MODULES: ContextModule[] = [
-  {
-    id: "builtin-etymonline",
-    name: "Etymonline (词源)",
-    type: "dictionary",
-    content: "Etymology and word origins from Etymonline",
-    isEnabled: true,
-    providerId: "etymonline",
-  },
-  {
-    id: "builtin-vocabulary",
-    name: "Vocabulary.com",
-    type: "dictionary",
-    content: "Definitions from Vocabulary.com dictionary",
-    isEnabled: true,
-    providerId: "vocabulary",
-  },
-];
+export {
+  DEFAULT_SYSTEM_MESSAGE,
+  DEFAULT_TRANSLATION_PROMPT,
+  BUILTIN_SENTENCE_CONTEXT,
+  BUILTIN_DICTIONARY_MODULES,
+  BUILTIN_ROLES,
+  READING_ASSISTANT_ROLE,
+  TRANSLATOR_ROLE,
+} from "./constants";

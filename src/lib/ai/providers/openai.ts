@@ -15,13 +15,7 @@ export class OpenAIProvider implements AITranslationService {
     request: TranslationRequest,
     provider: AIProvider
   ): Promise<TranslationResponse> {
-    const { text, context, targetLanguage } = request;
-
-    // Build the prompt message
-    const systemMessage = `You are a professional translator. Translate the following text to ${targetLanguage}. Use the context if provided for better accuracy.`;
-    const userMessage = context
-      ? `Context:\n${context}\n\nText to translate:\n${text}`
-      : `Text to translate:\n${text}`;
+    const { text, systemMessage, userMessage } = request;
 
     try {
       const response = await fetch(`${provider.baseUrl}/chat/completions`, {

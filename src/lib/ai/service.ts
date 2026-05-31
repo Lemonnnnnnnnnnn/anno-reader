@@ -11,10 +11,10 @@ export interface TranslationRequest {
   context: string;
   /** Target language for translation */
   targetLanguage: string;
-  /** ID of the prompt template to use */
-  promptId: string;
-  /** The fully rendered prompt to send to the provider */
-  renderedPrompt: string;
+  /** System message to set AI behavior */
+  systemMessage: string;
+  /** User message with context and text to translate */
+  userMessage: string;
 }
 
 /**

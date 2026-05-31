@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { AIConfig, AIProvider, AIPrompt, ContextConfig } from "@/lib/ai/types";
-import { DEFAULT_TRANSLATION_PROMPT, BUILTIN_SENTENCE_CONTEXT, BUILTIN_DICTIONARY_MODULES } from "@/lib/ai/types";
+import type { AIConfig, AIProvider, AIPrompt, ContextConfig, AIRole } from "@/lib/ai/types";
+import { DEFAULT_TRANSLATION_PROMPT, BUILTIN_SENTENCE_CONTEXT, BUILTIN_DICTIONARY_MODULES, BUILTIN_ROLES } from "@/lib/ai/constants";
 import { readConfig } from "@/lib/storage/config";
 import { writeTextFile, readTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 
@@ -25,6 +25,12 @@ export interface AIConfigStore {
   removePrompt: (id: string) => void;
   setDefaultPrompt: (id: string) => void;
 
+  // Role actions
+  addRole: (role: AIRole) => void;
+  updateRole: (id: string, updates: Partial<AIRole>) => void;
+  removeRole: (id: string) => void;
+  setSelectedRole: (id: string | null) => void;
+
   // Persistence actions
   persistConfig: () => Promise<void>;
   loadConfig: () => Promise<void>;
@@ -47,6 +53,8 @@ const DEFAULT_CONFIG: AIConfig = {
       isEnabled: true,
     },
   ],
+  roles: BUILTIN_ROLES,
+  selectedRoleId: BUILTIN_ROLES.find(r => r.isDefault)?.id ?? null,
 };
 
 /**
@@ -159,6 +167,48 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
     persistAfterSet(get);
   },
 
+  // Role actions
+  addRole: (role) => {
+    set((state) => ({
+      config: {
+        ...state.config,
+        roles: [...state.config.roles, role],
+      },
+    }));
+    persistAfterSet(get);
+  },
+
+  updateRole: (id, updates) => {
+    set((state) => ({
+      config: {
+        ...state.config,
+        roles: state.config.roles.map((r) =>
+          r.id === id ? { ...r, ...updates } : r
+        ),
+      },
+    }));
+    persistAfterSet(get);
+  },
+
+  removeRole: (id) => {
+    set((state) => ({
+      config: {
+        ...state.config,
+        roles: state.config.roles.filter((r) => r.id !== id),
+        selectedRoleId:
+          state.config.selectedRoleId === id ? null : state.config.selectedRoleId,
+      },
+    }));
+    persistAfterSet(get);
+  },
+
+  setSelectedRole: (id) => {
+    set((state) => ({
+      config: { ...state.config, selectedRoleId: id },
+    }));
+    persistAfterSet(get);
+  },
+
   persistConfig: async () => {
     const config = await readConfig();
     if (!config) {
@@ -242,6 +292,8 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
           selectedModuleIds,
         },
         prompts: parsed.prompts ?? DEFAULT_CONFIG.prompts,
+        roles: parsed.roles ?? DEFAULT_CONFIG.roles,
+        selectedRoleId: parsed.selectedRoleId ?? DEFAULT_CONFIG.selectedRoleId,
       };
 
       set({ config: merged, isLoaded: true });

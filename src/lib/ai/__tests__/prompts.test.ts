@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PromptService } from "../prompts";
-import { DEFAULT_TRANSLATION_PROMPT } from "../types";
 import type { AIPrompt, PromptVariable } from "../types";
 
 describe("PromptService", () => {
@@ -62,20 +61,6 @@ describe("PromptService", () => {
       const result = service.renderPrompt(template, variables, values);
 
       expect(result).toBe("Just a plain string with no placeholders.");
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // getDefaultTranslationPrompt
-  // ---------------------------------------------------------------------------
-
-  describe("getDefaultTranslationPrompt", () => {
-    it("returns the default translation prompt", () => {
-      const result = service.getDefaultTranslationPrompt();
-
-      expect(result).toBe(DEFAULT_TRANSLATION_PROMPT);
-      expect(result.id).toBe("default-translation");
-      expect(result.category).toBe("translation");
     });
   });
 

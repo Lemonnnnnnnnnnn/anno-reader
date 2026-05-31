@@ -14,15 +14,15 @@ describe("TranslationRequest", () => {
       text: "Hello world",
       context: "Hello world",
       targetLanguage: "Chinese",
-      promptId: "default-translation",
-      renderedPrompt: "Translate Hello world to Chinese.",
+      systemMessage: "You are a professional translator.",
+      userMessage: "Text to translate:\nHello world",
     };
 
     expect(request.text).toBe("Hello world");
     expect(request.context).toBe("Hello world");
     expect(request.targetLanguage).toBe("Chinese");
-    expect(request.promptId).toBe("default-translation");
-    expect(request.renderedPrompt).toBe("Translate Hello world to Chinese.");
+    expect(request.systemMessage).toBe("You are a professional translator.");
+    expect(request.userMessage).toBe("Text to translate:\nHello world");
   });
 });
 

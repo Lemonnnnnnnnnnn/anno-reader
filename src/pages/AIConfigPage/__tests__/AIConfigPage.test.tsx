@@ -20,10 +20,7 @@ const mockUpdateProvider = vi.fn();
 const mockRemoveProvider = vi.fn();
 const mockSetSelectedProvider = vi.fn();
 const mockUpdateContextConfig = vi.fn();
-const mockAddPrompt = vi.fn();
-const mockUpdatePrompt = vi.fn();
-const mockRemovePrompt = vi.fn();
-const mockSetDefaultPrompt = vi.fn();
+const mockSetSelectedRole = vi.fn();
 
 let mockConfig = {
   providers: [] as Array<{
@@ -41,14 +38,14 @@ let mockConfig = {
   contextConfig: {
     modules: [
       {
-        id: "builtin-paragraph",
-        name: "Paragraph Context",
-        type: "paragraph",
-        content: "Automatically extracts the full paragraph surrounding the selected text.",
+        id: "builtin-sentence",
+        name: "Sentence Context",
+        type: "sentence",
+        content: "Extracts the surrounding paragraph from chapter text for richer context.",
         isEnabled: true,
       },
     ],
-    selectedModuleIds: ["builtin-paragraph"],
+    selectedModuleIds: ["builtin-sentence"],
   },
   prompts: [
     {
@@ -64,6 +61,31 @@ let mockConfig = {
       isEnabled: true,
     },
   ],
+  roles: [
+    {
+      id: "reading-assistant",
+      name: "阅读助手",
+      systemMessage: "你是一个专业的阅读助手。",
+      userMessageTemplate: "## 待翻译文本\n{selectedText}",
+      variables: [
+        { name: "selectedText", description: "The text selected by the user", defaultValue: "", isRequired: true },
+      ],
+      isDefault: true,
+      isEnabled: true,
+    },
+    {
+      id: "translator",
+      name: "翻译助手",
+      systemMessage: "你是一个专业的翻译助手。",
+      userMessageTemplate: "## 待翻译文本\n{selectedText}",
+      variables: [
+        { name: "selectedText", description: "The text selected by the user", defaultValue: "", isRequired: true },
+      ],
+      isDefault: false,
+      isEnabled: true,
+    },
+  ],
+  selectedRoleId: "reading-assistant" as string | null,
 };
 
 vi.mock("@/stores/useAIConfigStore", () => ({
@@ -74,10 +96,7 @@ vi.mock("@/stores/useAIConfigStore", () => ({
     removeProvider: mockRemoveProvider,
     setSelectedProvider: mockSetSelectedProvider,
     updateContextConfig: mockUpdateContextConfig,
-    addPrompt: mockAddPrompt,
-    updatePrompt: mockUpdatePrompt,
-    removePrompt: mockRemovePrompt,
-    setDefaultPrompt: mockSetDefaultPrompt,
+    setSelectedRole: mockSetSelectedRole,
   }),
 }));
 
@@ -93,14 +112,14 @@ describe("AIConfigPage", () => {
       contextConfig: {
         modules: [
           {
-            id: "builtin-paragraph",
-            name: "Paragraph Context",
-            type: "paragraph",
-            content: "Automatically extracts the full paragraph surrounding the selected text.",
+            id: "builtin-sentence",
+            name: "Sentence Context",
+            type: "sentence",
+            content: "Extracts the surrounding paragraph from chapter text for richer context.",
             isEnabled: true,
           },
         ],
-        selectedModuleIds: ["builtin-paragraph"],
+        selectedModuleIds: ["builtin-sentence"],
       },
       prompts: [
         {
@@ -116,6 +135,31 @@ describe("AIConfigPage", () => {
           isEnabled: true,
         },
       ],
+      roles: [
+        {
+          id: "reading-assistant",
+          name: "阅读助手",
+          systemMessage: "你是一个专业的阅读助手。",
+          userMessageTemplate: "## 待翻译文本\n{selectedText}",
+          variables: [
+            { name: "selectedText", description: "The text selected by the user", defaultValue: "", isRequired: true },
+          ],
+          isDefault: true,
+          isEnabled: true,
+        },
+        {
+          id: "translator",
+          name: "翻译助手",
+          systemMessage: "你是一个专业的翻译助手。",
+          userMessageTemplate: "## 待翻译文本\n{selectedText}",
+          variables: [
+            { name: "selectedText", description: "The text selected by the user", defaultValue: "", isRequired: true },
+          ],
+          isDefault: false,
+          isEnabled: true,
+        },
+      ],
+      selectedRoleId: "reading-assistant",
     };
   });
 
@@ -125,12 +169,11 @@ describe("AIConfigPage", () => {
     expect(html).toContain("AI Configuration");
   });
 
-  it("renders all three tabs", () => {
+  it("renders Provider and Assistant tabs", () => {
     const html = renderToString(<AIConfigPage />);
 
     expect(html).toContain(">Provider<");
-    expect(html).toContain(">Context<");
-    expect(html).toContain(">Prompt<");
+    expect(html).toContain(">Assistant<");
   });
 
   it("renders the back button", () => {
@@ -234,21 +277,10 @@ describe("AIConfigPage", () => {
     expect(html).toContain(">Set as Default<");
   });
 
-  it("renders context tab with module list", () => {
-    // We can't click tabs in SSR, but we can verify the content structure
-    // The Context tab panel won't be rendered until active, but the tab buttons exist
+  it("renders Assistant tab button", () => {
     const html = renderToString(<AIConfigPage />);
 
-    // The Provider tab is active by default, so Context panel is not rendered
-    // But the tab buttons are present
-    expect(html).toContain(">Context<");
-  });
-
-  it("renders prompt tab with prompt list", () => {
-    const html = renderToString(<AIConfigPage />);
-
-    // The Prompt tab button is present
-    expect(html).toContain(">Prompt<");
+    expect(html).toContain(">Assistant<");
   });
 
   it("renders provider form inputs when Add Provider is shown", () => {
@@ -256,16 +288,6 @@ describe("AIConfigPage", () => {
 
     // The Add Provider button should be visible
     expect(html).toContain(">Add Provider<");
-  });
-
-  it("renders context module with toggle switch", () => {
-    // Since we can't switch tabs in SSR, let's test a wrapper that renders ContextTab directly
-    // For now, verify the tab structure
-    const html = renderToString(<AIConfigPage />);
-
-    expect(html).toContain("Provider");
-    expect(html).toContain("Context");
-    expect(html).toContain("Prompt");
   });
 });
 
@@ -290,17 +312,10 @@ describe("AIConfigPage - Tab Content Verification", () => {
     expect(html).toContain("No providers configured. Add one to get started.");
   });
 
-  it("Context tab content is not rendered when Provider tab is active", () => {
+  it("Assistant tab content is not rendered when Provider tab is active", () => {
     const html = renderToString(<AIConfigPage />);
 
-    // Context panel should not be in DOM when Provider is active
-    expect(html).not.toContain('aria-label="Context configuration"');
-  });
-
-  it("Prompt tab content is not rendered when Provider tab is active", () => {
-    const html = renderToString(<AIConfigPage />);
-
-    // Prompt panel should not be in DOM when Provider is active
-    expect(html).not.toContain('aria-label="Prompt configuration"');
+    // Assistant panel should not be in DOM when Provider is active
+    expect(html).not.toContain('aria-label="Assistant configuration"');
   });
 });

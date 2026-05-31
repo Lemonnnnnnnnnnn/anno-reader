@@ -1,9 +1,9 @@
-import type { AIConfig, AIProvider } from "./types";
+import type { AIConfig, AIProvider, AIRole } from "./types";
 import type { TranslationRequest, TranslationResponse, PreviewData } from "./service";
 import { AIServiceError } from "./service";
 import { OpenAIProvider } from "./providers/openai";
 import { ContextService } from "./context";
-import { PromptService } from "./prompts";
+import { RoleService } from "./role";
 import { TranslationCache } from "./cache";
 import type { DictionaryAggregator } from "@/lib/dictionaries";
 
@@ -13,7 +13,7 @@ import type { DictionaryAggregator } from "@/lib/dictionaries";
  */
 export class TranslationService {
   private provider: OpenAIProvider;
-  private promptService: PromptService;
+  private roleService: RoleService;
   private cache: TranslationCache;
   private dictionaryAggregator: DictionaryAggregator | null = null;
   private dictionaryAggregatorPromise: Promise<DictionaryAggregator> | null =
@@ -21,7 +21,7 @@ export class TranslationService {
 
   constructor() {
     this.provider = new OpenAIProvider();
-    this.promptService = new PromptService();
+    this.roleService = new RoleService();
     this.cache = new TranslationCache();
   }
 
@@ -77,6 +77,12 @@ export class TranslationService {
       throw new AIServiceError("UNKNOWN_ERROR", "No AI provider configured");
     }
 
+    // Get selected role
+    const role = this.getSelectedRole(config);
+    if (!role) {
+      throw new AIServiceError("UNKNOWN_ERROR", "No AI role configured");
+    }
+
     // Initialize dictionary aggregator (if needed) and create context service
     const contextService = await this.getContextService(config);
 
@@ -87,21 +93,12 @@ export class TranslationService {
       config.contextConfig.modules,
     );
 
-
-    // Get prompt
-    const prompt = this.promptService.getDefaultPrompt(config.prompts);
-    if (!prompt) {
-      throw new AIServiceError("UNKNOWN_ERROR", "No prompt template configured");
-    }
-
-    // Render prompt
-    const renderedPrompt = this.promptService.renderPrompt(
-      prompt.content,
-      prompt.variables,
-      {
-        selectedText: text,
-        targetLanguage,
-      },
+    // Build messages using role
+    const { systemMessage, userMessage } = this.roleService.buildMessagesWithContext(
+      role,
+      text,
+      contextData.debug?.dictionary?.results?.map(r => JSON.stringify(r)).join("\n") || "",
+      contextData.text,
     );
 
     // Build translation request
@@ -109,8 +106,8 @@ export class TranslationService {
       text,
       context: contextData.text,
       targetLanguage,
-      promptId: prompt.id,
-      renderedPrompt,
+      systemMessage,
+      userMessage,
     };
 
     // Call provider
@@ -144,6 +141,12 @@ export class TranslationService {
       throw new AIServiceError("UNKNOWN_ERROR", "No AI provider configured");
     }
 
+    // Get selected role
+    const role = this.getSelectedRole(config);
+    if (!role) {
+      throw new AIServiceError("UNKNOWN_ERROR", "No AI role configured");
+    }
+
     // Initialize dictionary aggregator (if needed) and create context service
     const contextService = await this.getContextService(config);
 
@@ -155,27 +158,13 @@ export class TranslationService {
       true, // includeDebug
     );
 
-    // Get prompt
-    const prompt = this.promptService.getDefaultPrompt(config.prompts);
-    if (!prompt) {
-      throw new AIServiceError("UNKNOWN_ERROR", "No prompt template configured");
-    }
-
-    // Render prompt
-    const renderedPrompt = this.promptService.renderPrompt(
-      prompt.content,
-      prompt.variables,
-      {
-        selectedText: text,
-        targetLanguage,
-      },
+    // Build messages using role
+    const { systemMessage, userMessage } = this.roleService.buildMessagesWithContext(
+      role,
+      text,
+      contextData.debug?.dictionary?.results?.map(r => JSON.stringify(r)).join("\n") || "",
+      contextData.text,
     );
-
-    // Build messages as OpenAI provider would
-    const systemMessage = `You are a professional translator. Translate the following text to ${targetLanguage}. Use the context if provided for better accuracy.`;
-    const userMessage = contextData.text
-      ? `Context:\n${contextData.text}\n\nText to translate:\n${text}`
-      : `Text to translate:\n${text}`;
 
     // Get enabled module names
     const enabledModules = config.contextConfig.modules.filter((m) => m.isEnabled);
@@ -184,7 +173,7 @@ export class TranslationService {
     return {
       selectedText: text,
       targetLanguage,
-      renderedPrompt,
+      renderedPrompt: "", // No longer used - kept for interface compatibility
       systemMessage,
       userMessage,
       dictionary: contextData.debug?.dictionary,
@@ -261,5 +250,16 @@ export class TranslationService {
     return config.providers.find(
       (p) => p.id === config.selectedProviderId && p.enabled,
     );
+  }
+
+  /**
+   * Get the selected role from config.
+   *
+   * @param config - AI configuration
+   * @returns The selected role or undefined if not found
+   */
+  private getSelectedRole(config: AIConfig): AIRole | undefined {
+    if (!config.selectedRoleId) return undefined;
+    return config.roles.find((r) => r.id === config.selectedRoleId && r.isEnabled);
   }
 }

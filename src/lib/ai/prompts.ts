@@ -1,5 +1,4 @@
-import type { AIPrompt, PromptTemplate, PromptVariable } from "./types";
-import { DEFAULT_TRANSLATION_PROMPT } from "./types";
+import type { AIPrompt, PromptVariable } from "./types";
 
 /**
  * Service for managing and rendering AI prompt templates.
@@ -27,13 +26,6 @@ export class PromptService {
     }
 
     return rendered;
-  }
-
-  /**
-   * Get the default translation prompt template.
-   */
-  getDefaultTranslationPrompt(): PromptTemplate {
-    return DEFAULT_TRANSLATION_PROMPT;
   }
 
   /**
