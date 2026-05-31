@@ -1,7 +1,7 @@
 /**
  * Dictionary lookup module.
  *
- * Provides unified access to multiple dictionary sources (Etymonline, Collins)
+ * Provides unified access to multiple dictionary sources (Etymonline, Vocabulary)
  * with structured error handling and aggregated results.
  *
  * @example
@@ -27,8 +27,7 @@ export type {
   DictionaryResult,
   EtymonlineResult,
   EtymonlineResultItem,
-  CollinsResult,
-  CollinsSection,
+  VocabularyResult,
   AggregatedDictionaryResult,
   AggregatedDictionaryError,
   DictionarySearchFunction,

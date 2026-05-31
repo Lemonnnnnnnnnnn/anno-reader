@@ -3,7 +3,7 @@ import type { DictionaryAggregator } from "@/lib/dictionaries";
 import type {
   DictionaryResult,
   EtymonlineResult,
-  CollinsResult,
+  VocabularyResult,
   AggregatedDictionaryResult,
 } from "@/lib/dictionaries";
 
@@ -189,21 +189,13 @@ export class ContextService {
           parts.push(`[Etymology] ${etymParts.join("; ")}`);
           break;
         }
-        case "collins": {
-          const collinsResult = result as CollinsResult;
-          const sections = collinsResult.data.sections;
-          if (sections.length === 0) break;
-
-          const defParts = sections.map((s) => {
-            let text = s.definition;
-            if (s.partOfSpeech) {
-              text = `(${s.partOfSpeech}) ${text}`;
-            }
-            if (s.example) {
-              text += ` — e.g. "${s.example}"`;
-            }
-            return text;
-          });
+        case "vocabulary": {
+          const vocabResult = result as VocabularyResult;
+          const { short, long } = vocabResult.data;
+          const defParts: string[] = [];
+          if (short) defParts.push(short);
+          if (long) defParts.push(long);
+          if (defParts.length === 0) break;
           parts.push(`[Definition] ${defParts.join("; ")}`);
           break;
         }

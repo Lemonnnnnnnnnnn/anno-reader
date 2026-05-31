@@ -34,7 +34,7 @@
     {
       "identifier": "http:allow-fetch",
       "allow": [
-        { "url": "https://www.collinsdictionary.com/**" },
+        { "url": "https://www.vocabulary.com/**" },
         { "url": "https://www.etymonline.com/**" }
       ]
     },

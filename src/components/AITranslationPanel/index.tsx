@@ -309,16 +309,12 @@ function formatDictionaryResult(result: import("@/lib/dictionaries").DictionaryR
         })
         .join("; ");
     }
-    case "collins": {
-      const data = result.data as { sections: { partOfSpeech?: string; definition: string; example?: string }[] };
-      return data.sections
-        .map((s) => {
-          let text = s.definition;
-          if (s.partOfSpeech) text = `(${s.partOfSpeech}) ${text}`;
-          if (s.example) text += ` — e.g. "${s.example}"`;
-          return text;
-        })
-        .join("; ");
+    case "vocabulary": {
+      const data = result.data as { short: string; long: string };
+      const parts: string[] = [];
+      if (data.short) parts.push(data.short);
+      if (data.long) parts.push(data.long);
+      return parts.join("; ");
     }
     default:
       return JSON.stringify(result.data);

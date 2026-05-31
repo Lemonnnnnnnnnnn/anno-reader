@@ -16,7 +16,7 @@
  *    - OPTIONS preflight → HTTP 400 (rejected)
  *    - RESULT: ❌ CORS blocks browser fetch. Need backend proxy.
  *
- * 2. Collins (https://www.collinsdictionary.com)
+ * 2. Vocabulary.com (https://www.vocabulary.com)
  *    - GET with Origin header → HTTP 403 (Cloudflare challenge)
  *    - Cross-Origin-Resource-Policy: same-origin
  *    - Has bot protection (Cf-Mitigated: challenge)
@@ -31,11 +31,11 @@
  * DECISION:
  * ═══════════════════════════════════════════════════════════════════════
  * Frontend fetch viable for: Free Dictionary API only.
- * Backend proxy (Tauri Rust command) needed for: Etymonline, Collins.
+ * Backend proxy (Tauri Rust command) needed for: Etymonline, Vocabulary.com.
  *
  * Recommended approach:
  * - Free Dictionary API → frontend fetch (simple, CORS-friendly)
- * - Etymonline/Collins → Tauri Rust command with reqwest + browser-like headers
+ * - Etymonline/Vocabulary.com → Tauri Rust command with reqwest + browser-like headers
  * - Use existing CSP-disabled context but respect server CORS policies
  *
  * @vitest-environment node
@@ -56,9 +56,9 @@ describe("CORS spike: Etymonline", () => {
   });
 });
 
-describe("CORS spike: Collins", () => {
-  it.skip("Collins returns 403 with Cloudflare challenge — blocked", () => {
-    // curl -I -H "Origin: http://localhost:1420" "https://www.collinsdictionary.com/dictionary/english/test"
+describe("CORS spike: Vocabulary.com", () => {
+  it.skip("Vocabulary.com returns 403 with Cloudflare challenge — blocked", () => {
+    // curl -I -H "Origin: http://localhost:1420" "https://www.vocabulary.com/dictionary/test"
     // → 403 Forbidden
     // → Headers: Cross-Origin-Resource-Policy: same-origin, Cf-Mitigated: challenge
     //
@@ -85,7 +85,7 @@ describe("CORS decision record", () => {
      * 1. Free Dictionary API (api.dictionaryapi.dev)
      *    → Frontend fetch, CORS-friendly, no proxy
      *
-     * 2. Etymonline / Collins
+     * 2. Etymonline / Vocabulary.com
      *    → Tauri Rust backend command (reqwest + browser-like User-Agent)
      *    → Returns parsed HTML/JSON to frontend
      *    → Handles: CORS bypass, bot protection headers, rate limiting

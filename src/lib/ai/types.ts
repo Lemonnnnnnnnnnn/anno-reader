@@ -234,11 +234,11 @@ export const BUILTIN_DICTIONARY_MODULES: ContextModule[] = [
     providerId: "etymonline",
   },
   {
-    id: "builtin-collins",
-    name: "Collins COBUILD",
+    id: "builtin-vocabulary",
+    name: "Vocabulary.com",
     type: "dictionary",
-    content: "Definitions from Collins COBUILD dictionary",
+    content: "Definitions from Vocabulary.com dictionary",
     isEnabled: true,
-    providerId: "collins",
+    providerId: "vocabulary",
   },
 ];

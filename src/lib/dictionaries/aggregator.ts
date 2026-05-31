@@ -208,7 +208,7 @@ export class DictionaryAggregator {
 // ---------------------------------------------------------------------------
 
 /**
- * Create a DictionaryAggregator with Etymonline and Collins providers
+ * Create a DictionaryAggregator with Etymonline and Vocabulary.com providers
  * registered using their default configurations.
  *
  * @returns Configured aggregator ready for lookups
@@ -218,10 +218,10 @@ export async function createDefaultAggregator(): Promise<DictionaryAggregator> {
 
   // Import providers dynamically to avoid circular dependencies
   const etymonline = await import("./providers/etymonline");
-  const collins = await import("./providers/collins");
+  const vocabulary = await import("./providers/vocabulary");
 
   const etymonlineConfig = etymonline.getDefaultConfig();
-  const collinsConfig = collins.getDefaultConfig();
+  const vocabularyConfig = vocabulary.getDefaultConfig();
 
   aggregator.registerProvider(
     etymonlineConfig.id,
@@ -230,9 +230,9 @@ export async function createDefaultAggregator(): Promise<DictionaryAggregator> {
   );
 
   aggregator.registerProvider(
-    collinsConfig.id,
-    collins.search,
-    collinsConfig,
+    vocabularyConfig.id,
+    vocabulary.search,
+    vocabularyConfig,
   );
 
   return aggregator;

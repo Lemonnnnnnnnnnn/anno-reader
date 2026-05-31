@@ -46,17 +46,15 @@ function makeEtymResult(word: string, etymology: string): AggregatedDictionaryRe
   };
 }
 
-function makeCollinsResult(word: string, definition: string, partOfSpeech?: string): AggregatedDictionaryResult {
+function makeVocabularyResult(word: string): AggregatedDictionaryResult {
   return {
     word,
     results: [
       {
-        source: "collins",
+        source: "vocabulary",
         word,
         found: true,
-        data: {
-          sections: [{ partOfSpeech: partOfSpeech ?? "", definition }],
-        },
+        data: { short: "brief def", long: "extended def" },
       },
     ],
     successCount: 1,
@@ -215,9 +213,9 @@ describe("ContextService", () => {
       expect(aggregator.search).toHaveBeenCalledWith("hello");
     });
 
-    it("formats Collins dictionary results", async () => {
+    it("formats Vocabulary.com dictionary results", async () => {
       const aggregator = makeAggregator(async (word) =>
-        makeCollinsResult(word, "a greeting", "noun"),
+        makeVocabularyResult(word),
       );
       const service = new ContextService(aggregator);
       const modules = [makeModule({ type: "dictionary" })];
@@ -225,8 +223,8 @@ describe("ContextService", () => {
       const result = await service.getContext("hello", null, modules);
 
       expect(result.text).toContain("[Definition]");
-      expect(result.text).toContain("(noun)");
-      expect(result.text).toContain("a greeting");
+      expect(result.text).toContain("brief def");
+      expect(result.text).toContain("extended def");
     });
 
     it("caps dictionary context at 1500 characters", async () => {

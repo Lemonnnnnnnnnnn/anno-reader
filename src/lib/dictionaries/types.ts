@@ -11,7 +11,7 @@ import type { DictionaryError } from "./errors";
 // ---------------------------------------------------------------------------
 
 /** Supported dictionary provider types. */
-export type DictionaryProviderType = "etymonline" | "collins";
+export type DictionaryProviderType = "etymonline" | "vocabulary";
 
 /**
  * Configuration for a single dictionary provider.
@@ -41,7 +41,7 @@ export interface DictionaryConfig {
  * All provider-specific results extend this interface.
  */
 export interface DictionaryResult {
-  /** The dictionary source name (e.g. "etymonline", "collins") */
+  /** The dictionary source name (e.g. "etymonline", "vocabulary") */
   source: string;
   /** The word that was looked up */
   word: string;
@@ -74,26 +74,13 @@ export interface EtymonlineResult extends DictionaryResult {
 }
 
 /**
- * A single section of a Collins dictionary entry.
+ * Result from the Vocabulary.com dictionary provider.
  */
-export interface CollinsSection {
-  /** Part of speech (e.g. "noun", "verb") */
-  partOfSpeech: string;
-  /** The definition text */
-  definition: string;
-  /** Example usage sentence */
-  example?: string;
-  /** Usage register/label (e.g. "formal", "informal") */
-  register?: string;
-}
-
-/**
- * Result from the Collins dictionary provider.
- */
-export interface CollinsResult extends DictionaryResult {
-  source: "collins";
+export interface VocabularyResult extends DictionaryResult {
+  source: "vocabulary";
   data: {
-    sections: CollinsSection[];
+    short: string;
+    long: string;
   };
 }
 
