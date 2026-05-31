@@ -25,6 +25,7 @@ const mockRequest: TranslationRequest = {
   context: "A greeting",
   targetLanguage: "Chinese",
   promptId: "default-translation",
+  renderedPrompt: "Translate Hello world to Chinese.",
 };
 
 function mockResponseOk(body: unknown): Response {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 import {
-  BUILTIN_PARAGRAPH_CONTEXT,
+  BUILTIN_SENTENCE_CONTEXT,
   DEFAULT_TRANSLATION_PROMPT,
 } from "@/lib/ai/types";
 import type { AIProvider, AIPrompt } from "@/lib/ai/types";
@@ -42,8 +42,8 @@ function resetStore() {
       providers: [],
       selectedProviderId: null,
       contextConfig: {
-        modules: [BUILTIN_PARAGRAPH_CONTEXT],
-        selectedModuleIds: [BUILTIN_PARAGRAPH_CONTEXT.id],
+        modules: [BUILTIN_SENTENCE_CONTEXT],
+        selectedModuleIds: [BUILTIN_SENTENCE_CONTEXT.id],
       },
       prompts: [
         {
@@ -98,10 +98,10 @@ describe("useAIConfigStore", () => {
       expect(selectedProviderId).toBeNull();
     });
 
-    it("includes BUILTIN_PARAGRAPH_CONTEXT in modules", () => {
+    it("includes BUILTIN_SENTENCE_CONTEXT in modules", () => {
       const { modules, selectedModuleIds } = useAIConfigStore.getState().config.contextConfig;
-      expect(modules).toContainEqual(BUILTIN_PARAGRAPH_CONTEXT);
-      expect(selectedModuleIds).toContain(BUILTIN_PARAGRAPH_CONTEXT.id);
+      expect(modules).toContainEqual(BUILTIN_SENTENCE_CONTEXT);
+      expect(selectedModuleIds).toContain(BUILTIN_SENTENCE_CONTEXT.id);
     });
 
     it("has DEFAULT_TRANSLATION_PROMPT as the default prompt", () => {
@@ -199,7 +199,7 @@ describe("useAIConfigStore", () => {
       const { contextConfig } = useAIConfigStore.getState().config;
       expect(contextConfig.selectedModuleIds).toEqual([]);
       // modules should still be intact
-      expect(contextConfig.modules).toContainEqual(BUILTIN_PARAGRAPH_CONTEXT);
+      expect(contextConfig.modules).toContainEqual(BUILTIN_SENTENCE_CONTEXT);
     });
   });
 
@@ -312,8 +312,8 @@ describe("useAIConfigStore", () => {
         providers: [SAMPLE_PROVIDER],
         selectedProviderId: "provider-1",
         contextConfig: {
-          modules: [BUILTIN_PARAGRAPH_CONTEXT],
-          selectedModuleIds: [BUILTIN_PARAGRAPH_CONTEXT.id],
+          modules: [BUILTIN_SENTENCE_CONTEXT],
+          selectedModuleIds: [BUILTIN_SENTENCE_CONTEXT.id],
         },
         prompts: [
           {
@@ -380,7 +380,7 @@ describe("useAIConfigStore", () => {
       const { config } = useAIConfigStore.getState();
       expect(config.providers).toHaveLength(1);
       // contextConfig should be merged from defaults
-      expect(config.contextConfig.modules).toContainEqual(BUILTIN_PARAGRAPH_CONTEXT);
+      expect(config.contextConfig.modules).toContainEqual(BUILTIN_SENTENCE_CONTEXT);
       // prompts should fall back to defaults
       expect(config.prompts).toHaveLength(1);
       expect(config.prompts[0].id).toBe(DEFAULT_TRANSLATION_PROMPT.id);

@@ -106,7 +106,7 @@ export interface PromptTemplate {
 // ---------------------------------------------------------------------------
 
 /** Types of context that can be supplied alongside a translation request. */
-export type ContextType = "paragraph" | "chapter" | "custom";
+export type ContextType = "sentence" | "custom";
 
 /**
  * A context module that provides surrounding text or metadata
@@ -175,19 +175,13 @@ export const DEFAULT_TRANSLATION_PROMPT: PromptTemplate = {
   id: "default-translation",
   name: "Translation",
   content:
-    "Translate the following text to {targetLanguage}. Use the provided context for better accuracy.\n\nContext:\n{context}\n\nText to translate:\n{selectedText}",
+    "Translate the following text to {targetLanguage}. Provide a concise interpretation that captures the meaning and nuance in context, not just a literal translation.\n\nText to translate:\n{selectedText}",
   variables: [
     {
       name: "selectedText",
       description: "The text selected by the user",
       defaultValue: "",
       isRequired: true,
-    },
-    {
-      name: "context",
-      description: "The surrounding paragraph context",
-      defaultValue: "",
-      isRequired: false,
     },
     {
       name: "targetLanguage",
@@ -199,12 +193,11 @@ export const DEFAULT_TRANSLATION_PROMPT: PromptTemplate = {
   category: "translation",
 };
 
-/** Built-in context module that extracts the paragraph around the selection. */
-export const BUILTIN_PARAGRAPH_CONTEXT: ContextModule = {
-  id: "builtin-paragraph",
-  name: "Paragraph Context",
-  type: "paragraph",
-  content:
-    " Automatically extracts the full paragraph surrounding the selected text.",
+/** Built-in context module that uses the selected sentence as context. */
+export const BUILTIN_SENTENCE_CONTEXT: ContextModule = {
+  id: "builtin-sentence",
+  name: "Sentence Context",
+  type: "sentence",
+  content: "Uses the selected text itself as context.",
   isEnabled: true,
 };

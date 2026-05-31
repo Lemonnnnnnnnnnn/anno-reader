@@ -12,6 +12,8 @@ export interface TranslationRequest {
   targetLanguage: string;
   /** ID of the prompt template to use */
   promptId: string;
+  /** The fully rendered prompt to send to the provider */
+  renderedPrompt: string;
 }
 
 /**

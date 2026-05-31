@@ -169,25 +169,3 @@ export function injectSelectionScript(srcdoc: string): string {
   }
   return srcdoc.slice(0, idx) + SELECTION_DETECTOR_SCRIPT + srcdoc.slice(idx);
 }
-
-/**
- * Strip HTML tags and extract plain text from an HTML string.
- * Used to extract chapter content for AI translation context.
- *
- * @param html - The HTML string to extract text from
- * @returns Plain text with tags removed and whitespace normalized
- */
-export function stripHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}

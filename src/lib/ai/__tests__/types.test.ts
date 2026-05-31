@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_TRANSLATION_PROMPT,
-  BUILTIN_PARAGRAPH_CONTEXT,
+  BUILTIN_SENTENCE_CONTEXT,
   type ProviderType,
   type AIProvider,
   type ProviderStatus,
@@ -28,7 +28,7 @@ import {
   const _variable: PromptVariable = {} as PromptVariable;
   const _prompt: AIPrompt = {} as AIPrompt;
   const _template: PromptTemplate = {} as PromptTemplate;
-  const _contextType: ContextType = "paragraph";
+  const _contextType: ContextType = "sentence";
   const _contextModule: ContextModule = {} as ContextModule;
   const _contextConfig: ContextConfig = {} as ContextConfig;
   const _contextData: ContextData = {} as ContextData;
@@ -62,15 +62,14 @@ describe("DEFAULT_TRANSLATION_PROMPT", () => {
     expect(DEFAULT_TRANSLATION_PROMPT.category).toBe("translation");
   });
 
-  it("contains all required variable placeholders in content", () => {
+  it("contains required variable placeholders in content", () => {
     const { content } = DEFAULT_TRANSLATION_PROMPT;
     expect(content).toContain("{selectedText}");
-    expect(content).toContain("{context}");
     expect(content).toContain("{targetLanguage}");
   });
 
-  it("defines exactly three variables", () => {
-    expect(DEFAULT_TRANSLATION_PROMPT.variables).toHaveLength(3);
+  it("defines exactly two variables", () => {
+    expect(DEFAULT_TRANSLATION_PROMPT.variables).toHaveLength(2);
   });
 
   it("has 'selectedText' as a required variable with empty default", () => {
@@ -81,15 +80,6 @@ describe("DEFAULT_TRANSLATION_PROMPT", () => {
     expect(v!.isRequired).toBe(true);
     expect(v!.defaultValue).toBe("");
     expect(v!.description).toBe("The text selected by the user");
-  });
-
-  it("has 'context' as an optional variable with empty default", () => {
-    const v = DEFAULT_TRANSLATION_PROMPT.variables.find(
-      (x) => x.name === "context",
-    );
-    expect(v).toBeDefined();
-    expect(v!.isRequired).toBe(false);
-    expect(v!.defaultValue).toBe("");
   });
 
   it("has 'targetLanguage' as a required variable defaulting to Chinese", () => {
@@ -119,35 +109,35 @@ describe("DEFAULT_TRANSLATION_PROMPT", () => {
 });
 
 // ---------------------------------------------------------------------------
-// BUILTIN_PARAGRAPH_CONTEXT
+// BUILTIN_SENTENCE_CONTEXT
 // ---------------------------------------------------------------------------
 
-describe("BUILTIN_PARAGRAPH_CONTEXT", () => {
+describe("BUILTIN_SENTENCE_CONTEXT", () => {
   it("has the correct id", () => {
-    expect(BUILTIN_PARAGRAPH_CONTEXT.id).toBe("builtin-paragraph");
+    expect(BUILTIN_SENTENCE_CONTEXT.id).toBe("builtin-sentence");
   });
 
   it("has the correct name", () => {
-    expect(BUILTIN_PARAGRAPH_CONTEXT.name).toBe("Paragraph Context");
+    expect(BUILTIN_SENTENCE_CONTEXT.name).toBe("Sentence Context");
   });
 
-  it("has type 'paragraph'", () => {
-    expect(BUILTIN_PARAGRAPH_CONTEXT.type).toBe("paragraph");
+  it("has type 'sentence'", () => {
+    expect(BUILTIN_SENTENCE_CONTEXT.type).toBe("sentence");
   });
 
   it("is enabled by default", () => {
-    expect(BUILTIN_PARAGRAPH_CONTEXT.isEnabled).toBe(true);
+    expect(BUILTIN_SENTENCE_CONTEXT.isEnabled).toBe(true);
   });
 
   it("has non-empty content description", () => {
-    expect(BUILTIN_PARAGRAPH_CONTEXT.content.length).toBeGreaterThan(0);
+    expect(BUILTIN_SENTENCE_CONTEXT.content.length).toBeGreaterThan(0);
   });
 
   it("matches the ContextModule shape at runtime", () => {
-    const m = BUILTIN_PARAGRAPH_CONTEXT;
+    const m = BUILTIN_SENTENCE_CONTEXT;
     expect(typeof m.id).toBe("string");
     expect(typeof m.name).toBe("string");
-    expect(["paragraph", "chapter", "custom"]).toContain(m.type);
+    expect(["sentence", "custom"]).toContain(m.type);
     expect(typeof m.content).toBe("string");
     expect(typeof m.isEnabled).toBe("boolean");
   });
@@ -170,11 +160,10 @@ describe("ProviderType", () => {
 // ---------------------------------------------------------------------------
 
 describe("ContextType", () => {
-  it("allows 'paragraph', 'chapter', and 'custom'", () => {
-    const types: ContextType[] = ["paragraph", "chapter", "custom"];
-    expect(types).toHaveLength(3);
-    expect(types).toContain("paragraph");
-    expect(types).toContain("chapter");
+  it("allows 'sentence' and 'custom'", () => {
+    const types: ContextType[] = ["sentence", "custom"];
+    expect(types).toHaveLength(2);
+    expect(types).toContain("sentence");
     expect(types).toContain("custom");
   });
 });

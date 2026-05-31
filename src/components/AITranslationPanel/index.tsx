@@ -8,7 +8,6 @@ import { createNote } from "@/lib/annotations";
 interface AITranslationPanelProps {
   selectedText: string;
   chapterHref: string;
-  fullContext: string;
   cfiRange: string;
   startOffset: number;
   endOffset: number;
@@ -161,7 +160,6 @@ export function AITranslationPanelView({
 export function AITranslationPanel({
   selectedText,
   chapterHref,
-  fullContext,
   cfiRange,
   onClose,
 }: AITranslationPanelProps) {
@@ -181,7 +179,6 @@ export function AITranslationPanel({
       const service = new TranslationService();
       const response = await service.translate(
         selectedText,
-        fullContext,
         "Chinese",
         config,
       );
@@ -193,7 +190,7 @@ export function AITranslationPanel({
       setError(message);
       setStatus("error");
     }
-  }, [selectedText, fullContext, config]);
+  }, [selectedText, config]);
 
   useEffect(() => {
     translate();

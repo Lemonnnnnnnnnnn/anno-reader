@@ -6,7 +6,7 @@ import { TranslationCache } from "@/lib/ai/cache";
 import { AIErrorHandler } from "@/lib/ai/error-handler";
 import { AIServiceError } from "@/lib/ai/service";
 import type { AIConfig, AIProvider, ContextModule, AIPrompt } from "@/lib/ai/types";
-import { DEFAULT_TRANSLATION_PROMPT, BUILTIN_PARAGRAPH_CONTEXT } from "@/lib/ai/types";
+import { DEFAULT_TRANSLATION_PROMPT, BUILTIN_SENTENCE_CONTEXT } from "@/lib/ai/types";
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -34,7 +34,7 @@ const testPrompt: AIPrompt = {
 };
 
 const testContextModule: ContextModule = {
-  ...BUILTIN_PARAGRAPH_CONTEXT,
+  ...BUILTIN_SENTENCE_CONTEXT,
 };
 
 function makeConfig(overrides?: Partial<AIConfig>): AIConfig {
@@ -49,12 +49,6 @@ function makeConfig(overrides?: Partial<AIConfig>): AIConfig {
     ...overrides,
   };
 }
-
-const sampleFullContext = `First paragraph of the chapter.
-
-The quick brown fox jumps over the lazy dog. This is the sentence we want to translate.
-
-Third paragraph continues here.`;
 
 const selectedText = "The quick brown fox jumps over the lazy dog.";
 
@@ -105,7 +99,6 @@ describe("AI Translation Integration", () => {
 
       const result = await service.translate(
         selectedText,
-        sampleFullContext,
         "Chinese",
         config,
       );
@@ -136,19 +129,18 @@ describe("AI Translation Integration", () => {
   // ---- Test 2: Context extraction + prompt rendering --------------------
 
   describe("Context extraction + prompt rendering", () => {
-    it("should extract paragraph context and render it into the prompt", () => {
+    it("should use selected text as context and render it into the prompt", () => {
       const contextService = new ContextService();
       const promptService = new PromptService();
 
       // Extract context
       const contextData = contextService.getContext(
         selectedText,
-        sampleFullContext,
         [testContextModule],
       );
 
-      // Context should contain the paragraph with the selected text
-      expect(contextData.text).toContain(selectedText);
+      // Context should be the selected text itself (sentence mode)
+      expect(contextData.text).toBe(selectedText);
       expect(contextData.metadata.selectedText).toBe(selectedText);
       expect(contextData.source).toBe(testContextModule.id);
 
@@ -161,18 +153,15 @@ describe("AI Translation Integration", () => {
         prompt!.variables,
         {
           selectedText,
-          context: contextData.text,
           targetLanguage: "Chinese",
         },
       );
 
-      // The rendered prompt should contain all the pieces
+      // The rendered prompt should contain the selected text and target language
       expect(rendered).toContain(selectedText);
-      expect(rendered).toContain(contextData.text);
       expect(rendered).toContain("Chinese");
       // Should not have unreplaced placeholders
       expect(rendered).not.toContain("{selectedText}");
-      expect(rendered).not.toContain("{context}");
       expect(rendered).not.toContain("{targetLanguage}");
     });
 
@@ -183,13 +172,13 @@ describe("AI Translation Integration", () => {
       const service = new TranslationService();
       const config = makeConfig();
 
-      await service.translate(selectedText, sampleFullContext, "Chinese", config);
+      await service.translate(selectedText, "Chinese", config);
 
-      // The API call should have received context in the user message
+      // The API call should have received the rendered prompt
       const body = JSON.parse(mockFn.mock.calls[0][1].body as string);
       const userMessage: string = body.messages[1].content;
-      expect(userMessage).toContain("Context:");
       expect(userMessage).toContain(selectedText);
+      expect(userMessage).toContain("Chinese");
     });
   });
 
@@ -207,7 +196,6 @@ describe("AI Translation Integration", () => {
       // First call — API hit
       const result1 = await service.translate(
         selectedText,
-        sampleFullContext,
         "Chinese",
         config,
       );
@@ -256,13 +244,12 @@ describe("AI Translation Integration", () => {
 
       // Translation should throw
       await expect(
-        service.translate(selectedText, sampleFullContext, "Chinese", config),
+        service.translate(selectedText, "Chinese", config),
       ).rejects.toThrow(AIServiceError);
 
       try {
         await service.translate(
           selectedText,
-          sampleFullContext,
           "Chinese",
           config,
         );
@@ -288,7 +275,6 @@ describe("AI Translation Integration", () => {
       try {
         await service.translate(
           selectedText,
-          sampleFullContext,
           "Chinese",
           config,
         );
@@ -311,7 +297,6 @@ describe("AI Translation Integration", () => {
       try {
         await service.translate(
           selectedText,
-          sampleFullContext,
           "Chinese",
           config,
         );
@@ -328,7 +313,7 @@ describe("AI Translation Integration", () => {
       const config = makeConfig({ selectedProviderId: null });
 
       await expect(
-        service.translate(selectedText, sampleFullContext, "Chinese", config),
+        service.translate(selectedText, "Chinese", config),
       ).rejects.toThrow(AIServiceError);
     });
   });
@@ -364,7 +349,6 @@ describe("AI Translation Integration", () => {
 
       const result = await service.translateWithRetry(
         selectedText,
-        sampleFullContext,
         "Chinese",
         config,
         3, // maxRetries
@@ -387,7 +371,6 @@ describe("AI Translation Integration", () => {
       await expect(
         service.translateWithRetry(
           selectedText,
-          sampleFullContext,
           "Chinese",
           config,
           2, // maxRetries
@@ -404,7 +387,6 @@ describe("AI Translation Integration", () => {
       await expect(
         service.translateWithRetry(
           selectedText,
-          sampleFullContext,
           "Chinese",
           config,
           3,

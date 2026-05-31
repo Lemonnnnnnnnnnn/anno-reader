@@ -12,15 +12,17 @@ describe("TranslationRequest", () => {
   it("should have all required fields", () => {
     const request: TranslationRequest = {
       text: "Hello world",
-      context: "Surrounding paragraph",
+      context: "Hello world",
       targetLanguage: "Chinese",
       promptId: "default-translation",
+      renderedPrompt: "Translate Hello world to Chinese.",
     };
 
     expect(request.text).toBe("Hello world");
-    expect(request.context).toBe("Surrounding paragraph");
+    expect(request.context).toBe("Hello world");
     expect(request.targetLanguage).toBe("Chinese");
     expect(request.promptId).toBe("default-translation");
+    expect(request.renderedPrompt).toBe("Translate Hello world to Chinese.");
   });
 });
 

@@ -52,16 +52,16 @@ const mockPromptVariable: PromptVariable = {
 const mockPrompt: AIPrompt = {
   id: "default-translation",
   name: "Translation",
-  content: "Translate {selectedText} to {targetLanguage}. Context: {context}",
+  content: "Translate {selectedText} to {targetLanguage}.",
   variables: [mockPromptVariable],
   isDefault: true,
   isEnabled: true,
 };
 
 const mockContextData: ContextData = {
-  text: "Surrounding paragraph context",
+  text: "Hello world",
   metadata: { selectedText: "Hello world", moduleCount: "1" },
-  source: "builtin-paragraph",
+  source: "builtin-sentence",
 };
 
 const mockConfig: AIConfig = {
@@ -70,14 +70,14 @@ const mockConfig: AIConfig = {
   contextConfig: {
     modules: [
       {
-        id: "builtin-paragraph",
-        name: "Paragraph Context",
-        type: "paragraph",
-        content: "Extracts paragraph",
+        id: "builtin-sentence",
+        name: "Sentence Context",
+        type: "sentence",
+        content: "Uses selected text as context",
         isEnabled: true,
       },
     ],
-    selectedModuleIds: ["builtin-paragraph"],
+    selectedModuleIds: ["builtin-sentence"],
   },
   prompts: [mockPrompt],
 };
@@ -101,36 +101,36 @@ describe("TranslationService", () => {
     it("should call provider with correct request", async () => {
       mockGetContext.mockReturnValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
-      mockRenderPrompt.mockReturnValue("Translate Hello world to Chinese. Context: Surrounding paragraph context");
+      mockRenderPrompt.mockReturnValue("Translate Hello world to Chinese.");
       mockTranslate.mockResolvedValue(mockResponse);
 
-      const result = await service.translate("Hello world", "Full chapter text", "Chinese", mockConfig);
+      const result = await service.translate("Hello world", "Chinese", mockConfig);
 
       expect(result).toEqual(mockResponse);
       expect(mockTranslate).toHaveBeenCalledTimes(1);
       expect(mockTranslate).toHaveBeenCalledWith(
         {
           text: "Hello world",
-          context: "Surrounding paragraph context",
+          context: "Hello world",
           targetLanguage: "Chinese",
           promptId: "default-translation",
+          renderedPrompt: "Translate Hello world to Chinese.",
         },
         mockProvider,
       );
     });
 
-    it("should extract context from fullText", async () => {
+    it("should extract context from selected text", async () => {
       mockGetContext.mockReturnValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered");
       mockTranslate.mockResolvedValue(mockResponse);
 
-      await service.translate("Hello world", "Full chapter text", "Chinese", mockConfig);
+      await service.translate("Hello world", "Chinese", mockConfig);
 
       expect(mockGetContext).toHaveBeenCalledTimes(1);
       expect(mockGetContext).toHaveBeenCalledWith(
         "Hello world",
-        "Full chapter text",
         mockConfig.contextConfig.modules,
       );
     });
@@ -141,7 +141,7 @@ describe("TranslationService", () => {
       mockRenderPrompt.mockReturnValue("rendered prompt");
       mockTranslate.mockResolvedValue(mockResponse);
 
-      await service.translate("Hello world", "Full chapter text", "Chinese", mockConfig);
+      await service.translate("Hello world", "Chinese", mockConfig);
 
       expect(mockRenderPrompt).toHaveBeenCalledTimes(1);
       expect(mockRenderPrompt).toHaveBeenCalledWith(
@@ -149,7 +149,6 @@ describe("TranslationService", () => {
         mockPrompt.variables,
         {
           selectedText: "Hello world",
-          context: "Surrounding paragraph context",
           targetLanguage: "Chinese",
         },
       );
@@ -162,7 +161,7 @@ describe("TranslationService", () => {
       };
 
       try {
-        await service.translate("Hello world", "Full chapter text", "Chinese", configNoProvider);
+        await service.translate("Hello world", "Chinese", configNoProvider);
         expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
@@ -179,7 +178,7 @@ describe("TranslationService", () => {
       };
 
       try {
-        await service.translate("Hello world", "Full chapter text", "Chinese", configDisabled);
+        await service.translate("Hello world", "Chinese", configDisabled);
         expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
@@ -193,7 +192,7 @@ describe("TranslationService", () => {
       mockGetDefaultPrompt.mockReturnValue(undefined);
 
       try {
-        await service.translate("Hello world", "Full chapter text", "Chinese", mockConfig);
+        await service.translate("Hello world", "Chinese", mockConfig);
         expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
@@ -210,7 +209,7 @@ describe("TranslationService", () => {
       mockRenderPrompt.mockReturnValue("rendered");
       mockTranslate.mockResolvedValue(mockResponse);
 
-      const result = await service.translateWithRetry("Hello world", "Full chapter text", "Chinese", mockConfig);
+      const result = await service.translateWithRetry("Hello world", "Chinese", mockConfig);
 
       expect(result).toEqual(mockResponse);
       expect(mockTranslate).toHaveBeenCalledTimes(1);
@@ -227,7 +226,7 @@ describe("TranslationService", () => {
         .mockRejectedValueOnce(retryableError)
         .mockResolvedValueOnce(mockResponse);
 
-      const result = await service.translateWithRetry("Hello world", "Full chapter text", "Chinese", mockConfig, 3);
+      const result = await service.translateWithRetry("Hello world", "Chinese", mockConfig, 3);
 
       expect(result).toEqual(mockResponse);
       expect(mockTranslate).toHaveBeenCalledTimes(3);
@@ -242,7 +241,7 @@ describe("TranslationService", () => {
       mockTranslate.mockRejectedValue(nonRetryableError);
 
       try {
-        await service.translateWithRetry("Hello world", "Full chapter text", "Chinese", mockConfig, 3);
+        await service.translateWithRetry("Hello world", "Chinese", mockConfig, 3);
         expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
@@ -262,7 +261,7 @@ describe("TranslationService", () => {
       mockTranslate.mockRejectedValue(retryableError);
 
       try {
-        await service.translateWithRetry("Hello world", "Full chapter text", "Chinese", mockConfig, 2);
+        await service.translateWithRetry("Hello world", "Chinese", mockConfig, 2);
         expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
@@ -282,7 +281,7 @@ describe("TranslationService", () => {
       mockTranslate.mockRejectedValue(genericError);
 
       await expect(
-        service.translateWithRetry("Hello world", "Full chapter text", "Chinese", mockConfig, 3),
+        service.translateWithRetry("Hello world", "Chinese", mockConfig, 3),
       ).rejects.toThrow("Something unexpected");
 
       expect(mockTranslate).toHaveBeenCalledTimes(1);
@@ -303,7 +302,7 @@ describe("TranslationService", () => {
 
       const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
 
-      await service.translateWithRetry("Hello world", "Full chapter text", "Chinese", mockConfig, 3);
+      await service.translateWithRetry("Hello world", "Chinese", mockConfig, 3);
 
       // Should have called setTimeout twice (for 2 retries)
       expect(setTimeoutSpy).toHaveBeenCalledTimes(2);

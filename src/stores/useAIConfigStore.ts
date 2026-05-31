@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { AIConfig, AIProvider, AIPrompt, ContextConfig } from "@/lib/ai/types";
-import { DEFAULT_TRANSLATION_PROMPT, BUILTIN_PARAGRAPH_CONTEXT } from "@/lib/ai/types";
+import { DEFAULT_TRANSLATION_PROMPT, BUILTIN_SENTENCE_CONTEXT } from "@/lib/ai/types";
 import { readConfig } from "@/lib/storage/config";
 import { writeTextFile, readTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 
@@ -34,8 +34,8 @@ const DEFAULT_CONFIG: AIConfig = {
   providers: [],
   selectedProviderId: null,
   contextConfig: {
-    modules: [BUILTIN_PARAGRAPH_CONTEXT],
-    selectedModuleIds: [BUILTIN_PARAGRAPH_CONTEXT.id],
+    modules: [BUILTIN_SENTENCE_CONTEXT],
+    selectedModuleIds: [BUILTIN_SENTENCE_CONTEXT.id],
   },
   prompts: [
     {

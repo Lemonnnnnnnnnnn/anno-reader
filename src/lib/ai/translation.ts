@@ -27,14 +27,12 @@ export class TranslationService {
    * Translate text using the configured AI provider.
    *
    * @param text - The text to translate
-   * @param fullContext - The full chapter text for context extraction
    * @param targetLanguage - Target language (e.g., "Chinese")
    * @param config - AI configuration with provider and prompt settings
    * @returns Translation response with the translated text
    */
   async translate(
     text: string,
-    fullContext: string,
     targetLanguage: string,
     config: AIConfig,
   ): Promise<TranslationResponse> {
@@ -53,22 +51,21 @@ export class TranslationService {
     // Extract context
     const contextData = this.contextService.getContext(
       text,
-      fullContext,
       config.contextConfig.modules,
     );
 
-    // Get and render prompt
+    // Get prompt
     const prompt = this.promptService.getDefaultPrompt(config.prompts);
     if (!prompt) {
       throw new AIServiceError("UNKNOWN_ERROR", "No prompt template configured");
     }
 
+    // Render prompt
     const renderedPrompt = this.promptService.renderPrompt(
       prompt.content,
       prompt.variables,
       {
         selectedText: text,
-        context: contextData.text,
         targetLanguage,
       },
     );
@@ -79,6 +76,7 @@ export class TranslationService {
       context: contextData.text,
       targetLanguage,
       promptId: prompt.id,
+      renderedPrompt,
     };
 
     // Call provider
@@ -95,7 +93,6 @@ export class TranslationService {
    */
   async translateWithRetry(
     text: string,
-    fullContext: string,
     targetLanguage: string,
     config: AIConfig,
     maxRetries = 3,
@@ -104,7 +101,7 @@ export class TranslationService {
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await this.translate(text, fullContext, targetLanguage, config);
+        return await this.translate(text, targetLanguage, config);
       } catch (error) {
         if (error instanceof AIServiceError) {
           lastError = error;
