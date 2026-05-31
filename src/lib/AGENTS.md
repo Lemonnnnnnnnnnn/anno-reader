@@ -15,6 +15,7 @@ Domain-specific modules for EPUB processing. Each module has barrel export (`ind
 | `images/` | 4 | Resolve paths + convert to base64 |
 | `fonts/` | 4 | Extract + inject fonts (custom, epubix doesn't do this) |
 | `selection.ts` | 1 | Text selection detection (injected iframe script) |
+| `ai/` | 8 | AI translation: providers, prompts, context, caching |
 
 ## CONVENTIONS
 
@@ -39,12 +40,18 @@ Domain-specific modules for EPUB processing. Each module has barrel export (`ind
 | Resolve images | `images/resolve.ts` | Relative → base64 |
 | Inject fonts | `fonts/inject.ts` | Into iframe srcdoc |
 | Selection script | `selection.ts` | `SELECTION_DETECTOR_SCRIPT` |
+| AI translation | `ai/translation.ts` | Core orchestrator |
+| AI providers | `ai/providers/` | OpenAI-compatible backends |
+| AI prompts | `ai/prompts.ts` | Template rendering |
+| AI context | `ai/context.ts` | Surrounding text extraction |
 
 ## ANTI-PATTERNS
 
 - **DO NOT** use epubix `getCoverImageData()` for EPUB 3 — use direct OPF parsing
 - **DO NOT** assume `n.properties` exists on epubix manifest items — it's always undefined
 - **DO NOT** import from `@tauri-apps/api` directly — use plugin packages
+- **DO NOT** call AI providers directly — go through `TranslationService.translate()` for caching and retry
+- **DO NOT** hardcode prompt variables — use `PromptService.renderPrompt()` with template interpolation
 
 ## KEY TYPES
 
@@ -70,4 +77,5 @@ Import: import/dialog → import/fileReader → epub/parser → stores
 Render: epub/parser → css/extract → images/resolve → fonts/extract → css/inject + images/resolve + fonts/inject → iframe srcdoc
 Annotate: selection.ts → annotations/index → stores → annotations/persistence
 Progress: progress/tracker → stores → progress/persistence
+Translate: selection.ts → ai/context → ai/prompts → ai/providers → ai/cache
 ```

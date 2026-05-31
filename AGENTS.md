@@ -44,6 +44,9 @@ anno-reader/
 | Font extraction | `src/lib/fonts/` | Custom (epubix doesn't extract) |
 | Metadata/cover | `src/lib/metadata/` | 4-level cover fallback |
 | Text selection | `src/lib/selection.ts` | Iframe postMessage pattern |
+| AI translation | `src/lib/ai/` | Provider integration, context, prompts, caching |
+| AI config page | `src/pages/AIConfigPage/` | Provider setup and prompt config UI |
+| AI translation panel | `src/components/AITranslationPanel/` | Floating panel shown on text selection |
 | Global state | `src/stores/useBookStore.ts` | Zustand store |
 | Rust commands | `src-tauri/src/lib.rs` | Register new commands here |
 | Tauri permissions | `src-tauri/capabilities/default.json` | Add plugin permissions |
