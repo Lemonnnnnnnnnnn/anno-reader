@@ -48,6 +48,13 @@ export function useToolbarActions({
   }, [setMode]);
 
   /**
+   * Handle "Translate" action — show translate mode.
+   */
+  const handleTranslate = useCallback(() => {
+    setMode("translate");
+  }, [setMode]);
+
+  /**
    * Create a highlight with the selected color.
    */
   const handleCreateHighlight = useCallback(
@@ -118,6 +125,7 @@ export function useToolbarActions({
     handleAddNote,
     handleHighlight,
     handleCreateHighlight,
+    handleTranslate,
     handleSubmitNote,
     handleCancel,
   };

@@ -26,4 +26,4 @@ export const HIGHLIGHT_COLORS = [
   { name: "Orange", value: "#fed7aa" },
 ] as const;
 
-export type ToolbarMode = "default" | "note" | "highlight";
+export type ToolbarMode = "default" | "note" | "highlight" | "translate";

@@ -13,7 +13,8 @@ interface IconProps {
     | "highlight"
     | "settings"
     | "list"
-    | "annotation";
+    | "annotation"
+    | "translate";
   size?: number;
   className?: string;
 }
@@ -93,6 +94,16 @@ const icons = {
   annotation: (
     <>
       <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+    </>
+  ),
+  translate: (
+    <>
+      <path d="m5 8 6 6" />
+      <path d="m4 14 6-6 2-3" />
+      <path d="M2 5h12" />
+      <path d="M7 2h1" />
+      <path d="m22 22-5-10-5 10" />
+      <path d="M14 18h6" />
     </>
   ),
 };

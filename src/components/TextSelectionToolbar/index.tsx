@@ -31,11 +31,19 @@ interface TextSelectionToolbarProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   /** Current chapter href (for annotation association) */
   chapterHref: string;
+  /** Callback when user confirms translation — receives selection data for AITranslationPanel */
+  onTranslate?: (data: {
+    selectedText: string;
+    chapterHref: string;
+    startOffset: number;
+    endOffset: number;
+  }) => void;
 }
 
 export function TextSelectionToolbar({
   containerRef,
   chapterHref,
+  onTranslate,
 }: TextSelectionToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +61,7 @@ export function TextSelectionToolbar({
     handleAddNote,
     handleHighlight,
     handleCreateHighlight,
+    handleTranslate,
     handleSubmitNote,
     handleCancel,
   } = useToolbarActions({
@@ -93,6 +102,14 @@ export function TextSelectionToolbar({
             >
               <Icon name="highlight" size={14} className="shrink-0 opacity-70" />
               Highlight
+            </button>
+            <div className="w-px h-5 bg-border mx-0.5" />
+            <button
+              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg transition-colors"
+              onClick={handleTranslate}
+              title="Translate selection"
+            >
+              <Icon name="translate" size={14} className="shrink-0 opacity-70" />
             </button>
           </div>
         )}
@@ -135,6 +152,36 @@ export function TextSelectionToolbar({
                 disabled={isCreating}
               />
             ))}
+          </div>
+        )}
+
+        {mode === "translate" && (
+          <div className="p-2 flex flex-col gap-2 min-w-[280px]">
+            <div className="px-1 py-1 text-xs text-text-muted leading-[1.4] max-h-[5rem] overflow-y-auto">
+              {selection.text}
+            </div>
+            <div className="flex justify-end gap-1.5">
+              <Button variant="secondary" size="sm" onClick={handleCancel}>
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  if (onTranslate && selection) {
+                    onTranslate({
+                      selectedText: selection.text,
+                      chapterHref,
+                      startOffset: selection.startOffset,
+                      endOffset: selection.endOffset,
+                    });
+                    resetSelection();
+                  }
+                }}
+              >
+                Translate
+              </Button>
+            </div>
           </div>
         )}
 
