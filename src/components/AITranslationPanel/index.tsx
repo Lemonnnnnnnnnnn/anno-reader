@@ -1,10 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
 import { Button, TextArea, Icon, ErrorBanner } from "@/components/primitives";
-import { TranslationService } from "@/lib/ai/translation";
-import { useBookStore } from "@/stores/useBookStore";
-import { useAIConfigStore } from "@/stores/useAIConfigStore";
-import { createNote } from "@/lib/annotations";
 import type { PreviewData } from "@/lib/ai/service";
+import { useTranslation, useNoteSaving } from "./hooks";
+import type { PanelStatus } from "./hooks";
 
 interface AITranslationPanelProps {
   selectedText: string;
@@ -16,7 +13,7 @@ interface AITranslationPanelProps {
   onClose: () => void;
 }
 
-export type PanelStatus = "previewing" | "loading" | "success" | "error";
+export type { PanelStatus };
 
 /**
  * Pure view component — exported for direct testing with renderToString.
@@ -331,82 +328,25 @@ export function AITranslationPanel({
   cfiRange,
   onClose,
 }: AITranslationPanelProps) {
-  const [status, setStatus] = useState<PanelStatus>("loading");
-  const [translationText, setTranslationText] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
+  const {
+    status,
+    translationText,
+    setTranslationText,
+    error,
+    setError,
+    previewData,
+    translate,
+    preview,
+  } = useTranslation({ selectedText, chapterText });
 
-  const currentBook = useBookStore((s) => s.currentBook);
-  const config = useAIConfigStore((s) => s.config);
-
-  const service = new TranslationService();
-
-  // Auto-preview on mount
-  const preview = useCallback(async () => {
-    setStatus("loading");
-    setError(null);
-
-    try {
-      const data = await service.previewTranslate(
-        selectedText,
-        "Chinese",
-        config,
-        chapterText,
-      );
-      setPreviewData(data);
-      setStatus("previewing");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Preview failed";
-      setError(message);
-      setStatus("error");
-    }
-  }, [selectedText, chapterText, config]);
-
-  useEffect(() => {
-    preview();
-  }, [preview]);
-
-  const translate = useCallback(async () => {
-    setStatus("loading");
-    setError(null);
-
-    try {
-      const response = await service.translate(
-        selectedText,
-        "Chinese",
-        config,
-        chapterText,
-      );
-      setTranslationText(response.translation);
-      setStatus("success");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Translation failed";
-      setError(message);
-      setStatus("error");
-    }
-  }, [selectedText, chapterText, config]);
-
-  const handleAddNote = async () => {
-    if (!currentBook) return;
-    setIsSaving(true);
-    try {
-      await createNote(
-        currentBook.id,
-        chapterHref,
-        cfiRange,
-        selectedText,
-        translationText,
-      );
-      onClose();
-    } catch {
-      setError("Failed to save note");
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  const { isSaving, handleAddNote } = useNoteSaving({
+    chapterHref,
+    cfiRange,
+    selectedText,
+    translationText,
+    onClose,
+    onError: setError,
+  });
 
   return (
     <AITranslationPanelView

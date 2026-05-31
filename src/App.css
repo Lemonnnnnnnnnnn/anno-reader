@@ -108,9 +108,125 @@ body,
   }
 }
 
+/* Markdown note content in annotation popover */
+.markdown-note p {
+  margin: 0;
+}
+.markdown-note p + p {
+  margin-top: 0.5em;
+}
+.markdown-note ul,
+.markdown-note ol {
+  margin: 0.25em 0;
+  padding-left: 1.25em;
+}
+.markdown-note li {
+  margin: 0.125em 0;
+}
+.markdown-note li > ul,
+.markdown-note li > ol {
+  margin: 0;
+}
+.markdown-note code {
+  background: #f3f4f6;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+.markdown-note pre {
+  margin: 0.5em 0;
+  padding: 0.5em;
+  background: #f3f4f6;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.markdown-note pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.8em;
+}
+.markdown-note blockquote {
+  border-left: 2px solid #e5e5e5;
+  padding-left: 0.5em;
+  margin: 0.25em 0;
+  color: #6b7280;
+}
+.markdown-note h1,
+.markdown-note h2,
+.markdown-note h3 {
+  font-weight: 600;
+  margin: 0.5em 0 0.25em;
+}
+.markdown-note h1 {
+  font-size: 1em;
+}
+.markdown-note h2 {
+  font-size: 0.9em;
+}
+.markdown-note h3 {
+  font-size: 0.85em;
+}
+.markdown-note a {
+  color: #374151;
+  text-decoration: underline;
+}
+.markdown-note hr {
+  border: none;
+  border-top: 1px solid #e5e5e5;
+  margin: 0.5em 0;
+}
+.markdown-note img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+.markdown-note table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 0.875em;
+}
+.markdown-note th,
+.markdown-note td {
+  border: 1px solid #e5e5e5;
+  padding: 0.25em 0.5em;
+  text-align: left;
+}
+.markdown-note th {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color: #f6f6f6;
     background-color: #2f2f2f;
+  }
+
+  .markdown-note code {
+    background: #3a3a3a;
+  }
+  .markdown-note pre {
+    background: #3a3a3a;
+  }
+  .markdown-note pre code {
+    background: none;
+  }
+  .markdown-note blockquote {
+    border-left-color: #555;
+    color: #9ca3af;
+  }
+  .markdown-note a {
+    color: #9ca3af;
+  }
+  .markdown-note hr {
+    border-top-color: #555;
+  }
+  .markdown-note th,
+  .markdown-note td {
+    border-color: #555;
+  }
+  .markdown-note th {
+    background: #3a3a3a;
   }
 }

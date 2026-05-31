@@ -19,6 +19,8 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useBookStore } from "@/stores/useBookStore";
 import { Button, TextArea, Icon } from "@/components/primitives";
 import { deleteNote, updateNote } from "@/lib/annotations";
@@ -113,7 +115,7 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
   return (
     <div
       ref={popoverRef}
-      className="absolute z-50 w-[280px] bg-surface border border-border rounded-lg shadow-lg overflow-hidden font-serif"
+      className="absolute z-50 w-96 max-h-[calc(100vh-4rem)] bg-surface border border-border rounded-lg shadow-lg overflow-hidden font-serif flex flex-col"
       style={{
         top: position.top,
         right: 16,
@@ -121,7 +123,7 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
       }}
     >
       {/* Quoted selected text */}
-      <div className="px-3 pt-3 pb-2 border-b border-border flex items-start gap-2">
+      <div className="shrink-0 px-3 pt-3 pb-2 border-b border-border flex items-start gap-2">
         <p className="m-0 text-xs text-text-secondary italic leading-snug overflow-hidden text-ellipsis line-clamp-3 flex-1">
           &ldquo;{note.text}&rdquo;
         </p>
@@ -136,7 +138,7 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
       </div>
 
       {/* Note content */}
-      <div className="px-3 py-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
         {isEditing ? (
           <div className="flex flex-col gap-2">
             <TextArea
@@ -162,15 +164,15 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
             </div>
           </div>
         ) : (
-          <p className="m-0 text-sm text-text leading-relaxed break-words">
-            {note.content}
-          </p>
+          <div className="m-0 text-sm text-text leading-relaxed break-words markdown-note">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
+          </div>
         )}
       </div>
 
       {/* Actions */}
       {!isEditing && (
-        <div className="flex items-center justify-end gap-0.5 px-2 pb-2">
+        <div className="shrink-0 flex items-center justify-end gap-0.5 px-2 pb-2">
           <Button
             variant="icon"
             onClick={handleStartEdit}
@@ -189,7 +191,7 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
       )}
 
       {/* Timestamp */}
-      <div className="px-3 pb-2 border-t border-border">
+      <div className="shrink-0 px-3 pb-2 border-t border-border">
         <span className="text-[0.72rem] text-text-muted">
           {new Date(note.createdAt).toLocaleDateString(undefined, {
             month: "short",
