@@ -21,9 +21,12 @@ export function SettingsPage() {
       {/* Content */}
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-[600px] mx-auto flex flex-col gap-6">
-          <p className="text-sm text-text-secondary text-center py-12">
-            No settings available yet.
-          </p>
+          <button
+            onClick={() => navigate("/ai-config")}
+            className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface border border-border rounded-md hover:border-accent transition-colors cursor-pointer"
+          >
+            AI 配置
+          </button>
         </div>
       </main>
     </div>

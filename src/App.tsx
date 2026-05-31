@@ -4,6 +4,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { BookshelfPage } from "./pages/BookshelfPage";
 import { ReaderPage } from "./pages/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { AIConfigPage } from "./pages/AIConfigPage";
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route path="/bookshelf" element={<BookshelfPage />} />
           <Route path="/reader" element={<ReaderPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/ai-config" element={<AIConfigPage />} />
           <Route path="/" element={<Navigate to="/bookshelf" replace />} />
           <Route path="*" element={<Navigate to="/bookshelf" replace />} />
         </Routes>
