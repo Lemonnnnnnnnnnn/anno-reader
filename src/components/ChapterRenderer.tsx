@@ -24,8 +24,9 @@ import { ChapterNavigation } from "./ChapterNavigation";
 /**
  * Extract plain text from HTML content.
  * Strips all HTML tags and normalizes whitespace.
+ * Exported for testing.
  */
-function extractPlainText(html: string): string {
+export function extractPlainText(html: string): string {
   return html
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
