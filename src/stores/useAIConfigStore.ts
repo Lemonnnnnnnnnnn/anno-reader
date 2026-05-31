@@ -49,19 +49,31 @@ const DEFAULT_CONFIG: AIConfig = {
   ],
 };
 
+/**
+ * Helper to persist config after a state mutation.
+ * Fire-and-forget — logs errors but doesn't block UI.
+ */
+function persistAfterSet(get: () => AIConfigStore) {
+  get().persistConfig().catch((err) => {
+    console.error("Failed to persist AI config:", err);
+  });
+}
+
 export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
   config: DEFAULT_CONFIG,
   isLoaded: false,
 
-  addProvider: (provider) =>
+  addProvider: (provider) => {
     set((state) => ({
       config: {
         ...state.config,
         providers: [...state.config.providers, provider],
       },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
-  updateProvider: (id, updates) =>
+  updateProvider: (id, updates) => {
     set((state) => ({
       config: {
         ...state.config,
@@ -69,9 +81,11 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
           p.id === id ? { ...p, ...updates } : p
         ),
       },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
-  removeProvider: (id) =>
+  removeProvider: (id) => {
     set((state) => ({
       config: {
         ...state.config,
@@ -79,30 +93,38 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
         selectedProviderId:
           state.config.selectedProviderId === id ? null : state.config.selectedProviderId,
       },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
-  setSelectedProvider: (id) =>
+  setSelectedProvider: (id) => {
     set((state) => ({
       config: { ...state.config, selectedProviderId: id },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
-  updateContextConfig: (contextUpdates) =>
+  updateContextConfig: (contextUpdates) => {
     set((state) => ({
       config: {
         ...state.config,
         contextConfig: { ...state.config.contextConfig, ...contextUpdates },
       },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
-  addPrompt: (prompt) =>
+  addPrompt: (prompt) => {
     set((state) => ({
       config: {
         ...state.config,
         prompts: [...state.config.prompts, prompt],
       },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
-  updatePrompt: (id, updates) =>
+  updatePrompt: (id, updates) => {
     set((state) => ({
       config: {
         ...state.config,
@@ -110,17 +132,21 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
           p.id === id ? { ...p, ...updates } : p
         ),
       },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
-  removePrompt: (id) =>
+  removePrompt: (id) => {
     set((state) => ({
       config: {
         ...state.config,
         prompts: state.config.prompts.filter((p) => p.id !== id),
       },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
-  setDefaultPrompt: (id) =>
+  setDefaultPrompt: (id) => {
     set((state) => ({
       config: {
         ...state.config,
@@ -129,7 +155,9 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
           isDefault: p.id === id,
         })),
       },
-    })),
+    }));
+    persistAfterSet(get);
+  },
 
   persistConfig: async () => {
     const config = await readConfig();

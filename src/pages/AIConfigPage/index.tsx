@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 import type { AIProvider, AIPrompt, ProviderType } from "@/lib/ai/types";
@@ -34,6 +34,11 @@ const EMPTY_PROMPT: Omit<AIPrompt, "id"> = {
 export function AIConfigPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>("provider");
+  const loadConfig = useAIConfigStore((s) => s.loadConfig);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
