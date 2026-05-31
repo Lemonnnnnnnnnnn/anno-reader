@@ -28,10 +28,10 @@ export interface AIProvider {
   apiKey: string;
   /** Model identifier (e.g. gpt-4o) */
   model: string;
-  /** Maximum tokens per request */
-  maxTokens: number;
-  /** Sampling temperature (0–2) */
-  temperature: number;
+  /** Maximum tokens per request (optional, uses API default if omitted) */
+  maxTokens?: number;
+  /** Sampling temperature 0–2 (optional, uses API default if omitted) */
+  temperature?: number;
   /** Whether this provider is active */
   enabled: boolean;
 }

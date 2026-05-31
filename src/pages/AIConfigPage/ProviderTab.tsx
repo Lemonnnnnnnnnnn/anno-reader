@@ -131,31 +131,6 @@ export function ProviderTab() {
             />
           </label>
 
-          <div className="flex gap-4">
-            <label className="flex flex-col gap-1 flex-1">
-              <span className="text-xs font-sans text-text-secondary">Max Tokens</span>
-              <input
-                type="number"
-                value={form.maxTokens}
-                onChange={(e) => setForm({ ...form, maxTokens: Number(e.target.value) })}
-                className="px-3 py-1.5 text-sm font-sans bg-surface border border-border rounded-md outline-none focus:border-accent"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 flex-1">
-              <span className="text-xs font-sans text-text-secondary">Temperature</span>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="2"
-                value={form.temperature}
-                onChange={(e) => setForm({ ...form, temperature: Number(e.target.value) })}
-                className="px-3 py-1.5 text-sm font-sans bg-surface border border-border rounded-md outline-none focus:border-accent"
-              />
-            </label>
-          </div>
-
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="secondary" onClick={resetForm}>
               Cancel

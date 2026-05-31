@@ -20,8 +20,6 @@ export const EMPTY_PROVIDER: Omit<AIProvider, "id"> = {
   baseUrl: "https://api.openai.com/v1",
   apiKey: "",
   model: "gpt-4o",
-  maxTokens: 2048,
-  temperature: 0.3,
   enabled: true,
 };
 

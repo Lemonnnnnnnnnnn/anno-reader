@@ -33,7 +33,7 @@ export function useProviderForm() {
       maxTokens: provider.maxTokens,
       temperature: provider.temperature,
       enabled: provider.enabled,
-    });
+    } as typeof form);
     setShowForm(true);
   };
 

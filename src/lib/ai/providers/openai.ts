@@ -30,8 +30,8 @@ export class OpenAIProvider implements AITranslationService {
             { role: "system", content: systemMessage },
             { role: "user", content: userMessage },
           ],
-          max_tokens: provider.maxTokens,
-          temperature: provider.temperature,
+          ...(provider.maxTokens !== undefined && { max_tokens: provider.maxTokens }),
+          ...(provider.temperature !== undefined && { temperature: provider.temperature }),
         }),
       });
 
