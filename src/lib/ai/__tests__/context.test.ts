@@ -1,19 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { ContextService } from "../context";
 import type { ContextModule } from "../types";
-
-// Mock DictionaryAggregator for dictionary module tests
-vi.mock("@/lib/dictionaries", () => ({
-  DictionaryAggregator: vi.fn().mockImplementation(() => ({
-    search: vi.fn().mockResolvedValue({
-      word: "test",
-      results: [],
-      successCount: 0,
-      errors: [],
-      duration: 10,
-    }),
-  })),
-}));
+import type { DictionaryAggregator, AggregatedDictionaryResult } from "@/lib/dictionaries";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,15 +19,70 @@ function makeModule(
   };
 }
 
+function makeAggregator(
+  searchFn: (word: string) => Promise<AggregatedDictionaryResult>,
+): DictionaryAggregator {
+  return {
+    search: vi.fn(searchFn),
+    registerProvider: vi.fn(),
+    searchSingle: vi.fn(),
+  } as unknown as DictionaryAggregator;
+}
+
+function makeEtymResult(word: string, etymology: string): AggregatedDictionaryResult {
+  return {
+    word,
+    results: [
+      {
+        source: "etymonline",
+        word,
+        found: true,
+        data: { items: [{ etymology }] },
+      },
+    ],
+    successCount: 1,
+    errors: [],
+    duration: 50,
+  };
+}
+
+function makeCollinsResult(word: string, definition: string, partOfSpeech?: string): AggregatedDictionaryResult {
+  return {
+    word,
+    results: [
+      {
+        source: "collins",
+        word,
+        found: true,
+        data: {
+          sections: [{ partOfSpeech: partOfSpeech ?? "", definition }],
+        },
+      },
+    ],
+    successCount: 1,
+    errors: [],
+    duration: 60,
+  };
+}
+
+function makeEmptyAggResult(word: string): AggregatedDictionaryResult {
+  return {
+    word,
+    results: [],
+    successCount: 0,
+    errors: [],
+    duration: 10,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // ContextService — getContext()
 // ---------------------------------------------------------------------------
 
 describe("ContextService", () => {
-  const service = new ContextService();
-
   describe("getContext()", () => {
     it("returns selected text with a sentence module when no chapterText", async () => {
+      const service = new ContextService();
       const modules = [makeModule({ type: "sentence" })];
       const selectedText = "She walked through the garden";
 
@@ -52,6 +95,7 @@ describe("ContextService", () => {
     });
 
     it("extracts surrounding sentences from chapterText for sentence module", async () => {
+      const service = new ContextService();
       const modules = [makeModule({ type: "sentence" })];
       const selectedText = "walked through the garden";
       const chapterText = "It was a beautiful morning. She walked through the garden and admired the flowers. The birds were singing in the trees.";
@@ -65,6 +109,7 @@ describe("ContextService", () => {
     });
 
     it("returns module content with a custom module", async () => {
+      const service = new ContextService();
       const customContent = "This is a glossary of literary terms.";
       const modules = [
         makeModule({ type: "custom", content: customContent }),
@@ -77,6 +122,7 @@ describe("ContextService", () => {
     });
 
     it("combines context from multiple enabled modules", async () => {
+      const service = new ContextService();
       const modules = [
         makeModule({ type: "sentence", id: "s1" }),
         makeModule({
@@ -100,6 +146,7 @@ describe("ContextService", () => {
     });
 
     it("returns empty context when no modules are enabled", async () => {
+      const service = new ContextService();
       const modules = [
         makeModule({ type: "sentence", isEnabled: false }),
       ];
@@ -112,6 +159,7 @@ describe("ContextService", () => {
     });
 
     it("ignores disabled modules and only processes enabled ones", async () => {
+      const service = new ContextService();
       const modules = [
         makeModule({ type: "sentence", isEnabled: false, id: "disabled" }),
         makeModule({
@@ -130,6 +178,7 @@ describe("ContextService", () => {
     });
 
     it("caps sentence context at 500 characters", async () => {
+      const service = new ContextService();
       const modules = [makeModule({ type: "sentence" })];
       const selectedText = "short";
       // Create a chapter with very long sentences
@@ -141,7 +190,8 @@ describe("ContextService", () => {
       expect(result.text.length).toBeLessThanOrEqual(500);
     });
 
-    it("skips dictionary modules (placeholder)", async () => {
+    it("returns empty text for dictionary module without aggregator", async () => {
+      const service = new ContextService();
       const modules = [makeModule({ type: "dictionary" })];
 
       const result = await service.getContext("test", null, modules);
@@ -151,7 +201,98 @@ describe("ContextService", () => {
       expect(result.source).toBe("mod-dictionary");
     });
 
+    it("queries aggregator for dictionary module", async () => {
+      const aggregator = makeAggregator(async (word) =>
+        makeEtymResult(word, `Origin of ${word} from Latin.`),
+      );
+      const service = new ContextService(aggregator);
+      const modules = [makeModule({ type: "dictionary" })];
+
+      const result = await service.getContext("hello", null, modules);
+
+      expect(result.text).toContain("[Etymology]");
+      expect(result.text).toContain("Origin of hello from Latin.");
+      expect(aggregator.search).toHaveBeenCalledWith("hello");
+    });
+
+    it("formats Collins dictionary results", async () => {
+      const aggregator = makeAggregator(async (word) =>
+        makeCollinsResult(word, "a greeting", "noun"),
+      );
+      const service = new ContextService(aggregator);
+      const modules = [makeModule({ type: "dictionary" })];
+
+      const result = await service.getContext("hello", null, modules);
+
+      expect(result.text).toContain("[Definition]");
+      expect(result.text).toContain("(noun)");
+      expect(result.text).toContain("a greeting");
+    });
+
+    it("caps dictionary context at 1500 characters", async () => {
+      const longDefinition = "word ".repeat(500); // ~2500 chars
+      const aggregator = makeAggregator(async (word) =>
+        makeEtymResult(word, longDefinition),
+      );
+      const service = new ContextService(aggregator);
+      const modules = [makeModule({ type: "dictionary" })];
+
+      const result = await service.getContext("test", null, modules);
+
+      expect(result.text.length).toBeLessThanOrEqual(1500);
+    });
+
+    it("gracefully handles dictionary aggregator failure", async () => {
+      const aggregator = makeAggregator(async () => {
+        throw new Error("Network error");
+      });
+      const service = new ContextService(aggregator);
+      const modules = [
+        makeModule({ type: "dictionary", id: "dict" }),
+        makeModule({ type: "custom", id: "ctx", content: "Fallback context." }),
+      ];
+
+      const result = await service.getContext("test", null, modules);
+
+      // Dictionary failure should not prevent other modules
+      expect(result.text).toContain("Fallback context.");
+      // Dictionary part should be empty
+      expect(result.text).not.toContain("[Etymology]");
+      expect(result.text).not.toContain("[Definition]");
+    });
+
+    it("returns null dictionary context when aggregator returns no results", async () => {
+      const aggregator = makeAggregator(async (word) =>
+        makeEmptyAggResult(word),
+      );
+      const service = new ContextService(aggregator);
+      const modules = [makeModule({ type: "dictionary" })];
+
+      const result = await service.getContext("test", null, modules);
+
+      expect(result.text).toBe("");
+    });
+
+    it("combines dictionary and sentence context", async () => {
+      const aggregator = makeAggregator(async (word) =>
+        makeEtymResult(word, `Etymology of ${word}.`),
+      );
+      const service = new ContextService(aggregator);
+      const modules = [
+        makeModule({ type: "sentence", id: "sent" }),
+        makeModule({ type: "dictionary", id: "dict" }),
+      ];
+
+      const result = await service.getContext("walked", "She walked.", modules);
+
+      // Should contain both sentence context and dictionary context
+      expect(result.text).toContain("walked");
+      expect(result.text).toContain("[Etymology]");
+      expect(result.text).toContain("\n\n");
+    });
+
     it("returns a Promise from getContext", () => {
+      const service = new ContextService();
       const modules = [makeModule({ type: "sentence" })];
       const result = service.getContext("test", null, modules);
 
@@ -159,6 +300,7 @@ describe("ContextService", () => {
     });
 
     it("extracts sentences containing 'shining' and 'garden' from chapter text", async () => {
+      const service = new ContextService();
       const modules = [makeModule({ type: "sentence" })];
       const selectedText = "She walked through the garden";
       const chapterText =

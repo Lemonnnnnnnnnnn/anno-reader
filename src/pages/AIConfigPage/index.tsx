@@ -300,6 +300,9 @@ function ContextTab() {
   const { config, updateContextConfig } = useAIConfigStore();
   const { modules, selectedModuleIds } = config.contextConfig;
 
+  const sentenceModules = modules.filter((m) => m.type === "sentence");
+  const dictionaryModules = modules.filter((m) => m.type === "dictionary");
+
   const toggleModule = (moduleId: string) => {
     const isSelected = selectedModuleIds.includes(moduleId);
     updateContextConfig({
@@ -309,19 +312,21 @@ function ContextTab() {
     });
   };
 
+  const toggleDictionary = (moduleId: string) => {
+    const updatedModules = modules.map((m) =>
+      m.id === moduleId ? { ...m, isEnabled: !m.isEnabled } : m,
+    );
+    updateContextConfig({ modules: updatedModules });
+  };
+
   return (
     <div className="flex flex-col gap-4" role="tabpanel" aria-label="Context configuration">
       <p className="text-sm text-text-secondary">
         Enable context modules to provide surrounding text for better translation quality.
       </p>
 
-      {modules.length === 0 && (
-        <p className="text-sm text-text-secondary text-center py-8">
-          No context modules available.
-        </p>
-      )}
-
-      {modules.map((module) => {
+      {/* Sentence Context */}
+      {sentenceModules.map((module) => {
         const isEnabled = selectedModuleIds.includes(module.id);
         return (
           <div
@@ -359,6 +364,53 @@ function ContextTab() {
           </div>
         );
       })}
+
+      {/* Dictionary Context */}
+      {dictionaryModules.length > 0 && (
+        <>
+          <h3 className="text-sm font-sans font-semibold text-text mt-2 m-0">
+            词典查询
+          </h3>
+          {dictionaryModules.map((module) => (
+            <div
+              key={module.id}
+              className="bg-surface border border-border rounded-md p-4 flex items-center justify-between"
+            >
+              <div className="flex flex-col gap-1">
+                <span className="text-sm font-sans font-medium text-text">
+                  {module.name}
+                </span>
+                <span className="text-xs font-sans text-text-secondary">
+                  {module.content}
+                </span>
+              </div>
+              <button
+                onClick={() => toggleDictionary(module.id)}
+                className={`
+                  relative w-11 h-6 rounded-full transition-colors cursor-pointer border-0
+                  ${module.isEnabled ? "bg-accent" : "bg-border"}
+                `}
+                role="switch"
+                aria-checked={module.isEnabled}
+                aria-label={`Toggle ${module.name}`}
+              >
+                <span
+                  className={`
+                    absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm
+                    ${module.isEnabled ? "translate-x-5" : "translate-x-0"}
+                  `}
+                />
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+
+      {modules.length === 0 && (
+        <p className="text-sm text-text-secondary text-center py-8">
+          No context modules available.
+        </p>
+      )}
     </div>
   );
 }

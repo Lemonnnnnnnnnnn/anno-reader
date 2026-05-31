@@ -1,13 +1,28 @@
 import type { ContextModule, ContextData } from "./types";
+import type { DictionaryAggregator } from "@/lib/dictionaries";
+import type {
+  DictionaryResult,
+  EtymonlineResult,
+  CollinsResult,
+} from "@/lib/dictionaries";
 
 /** Maximum character length for sentence context. */
 const MAX_SENTENCE_CONTEXT_CHARS = 500;
+
+/** Maximum character length for dictionary context. */
+const MAX_DICTIONARY_CONTEXT_CHARS = 1500;
 
 /**
  * Service for extracting context to improve translation quality.
  * Extracts surrounding sentences from chapter text for richer context.
  */
 export class ContextService {
+  private dictionaryAggregator: DictionaryAggregator | null;
+
+  constructor(dictionaryAggregator?: DictionaryAggregator) {
+    this.dictionaryAggregator = dictionaryAggregator ?? null;
+  }
+
   /**
    * Get context data based on selected text and available modules.
    *
@@ -34,9 +49,13 @@ export class ContextService {
           contextParts.push(sentenceContext);
           break;
         }
-        case "dictionary":
-          // Placeholder: dictionary query will be integrated in Task 17
+        case "dictionary": {
+          const dictionaryContext = await this.queryDictionary(selectedText);
+          if (dictionaryContext) {
+            contextParts.push(dictionaryContext);
+          }
           break;
+        }
         case "custom":
           contextParts.push(module.content);
           break;
@@ -51,6 +70,103 @@ export class ContextService {
       },
       source: enabledModules.map((m) => m.id).join(","),
     };
+  }
+
+  /**
+   * Query dictionary aggregator for the selected text.
+   * Returns formatted dictionary context, or null if no aggregator
+   * configured or all queries fail.
+   *
+   * @param selectedText - The text to look up
+   * @returns Formatted dictionary context string, or null
+   */
+  private async queryDictionary(selectedText: string): Promise<string | null> {
+    if (!this.dictionaryAggregator) {
+      return null;
+    }
+
+    try {
+      const result = await this.dictionaryAggregator.search(selectedText);
+
+      if (result.results.length === 0) {
+        return null;
+      }
+
+      const formatted = this.formatDictionaryResults(result.results);
+      if (!formatted) {
+        return null;
+      }
+
+      // Cap at MAX_DICTIONARY_CONTEXT_CHARS
+      if (formatted.length > MAX_DICTIONARY_CONTEXT_CHARS) {
+        return formatted.slice(0, MAX_DICTIONARY_CONTEXT_CHARS);
+      }
+
+      return formatted;
+    } catch (error) {
+      // Graceful degradation: log warning, continue without dictionary context
+      console.warn(
+        `[ContextService] Dictionary lookup failed for "${selectedText}":`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Format dictionary results into a readable text for translation context.
+   */
+  private formatDictionaryResults(results: DictionaryResult[]): string {
+    const parts: string[] = [];
+
+    for (const result of results) {
+      if (!result.found) continue;
+
+      switch (result.source) {
+        case "etymonline": {
+          const etymResult = result as EtymonlineResult;
+          const items = etymResult.data.items;
+          if (items.length === 0) break;
+
+          const etymParts = items.map((item) => {
+            const clean = this.stripHTML(item.etymology);
+            if (item.firstUse) {
+              return `${clean} (first use: ${item.firstUse})`;
+            }
+            return clean;
+          });
+          parts.push(`[Etymology] ${etymParts.join("; ")}`);
+          break;
+        }
+        case "collins": {
+          const collinsResult = result as CollinsResult;
+          const sections = collinsResult.data.sections;
+          if (sections.length === 0) break;
+
+          const defParts = sections.map((s) => {
+            let text = s.definition;
+            if (s.partOfSpeech) {
+              text = `(${s.partOfSpeech}) ${text}`;
+            }
+            if (s.example) {
+              text += ` — e.g. "${s.example}"`;
+            }
+            return text;
+          });
+          parts.push(`[Definition] ${defParts.join("; ")}`);
+          break;
+        }
+      }
+    }
+
+    return parts.join("\n");
+  }
+
+  /**
+   * Strip HTML tags from a string.
+   */
+  private stripHTML(html: string): string {
+    return html.replace(/<[^>]*>/g, "").trim();
   }
 
   /**

@@ -5,6 +5,7 @@ import { OpenAIProvider } from "./providers/openai";
 import { ContextService } from "./context";
 import { PromptService } from "./prompts";
 import { TranslationCache } from "./cache";
+import type { DictionaryAggregator } from "@/lib/dictionaries";
 
 /**
  * Core translation service that orchestrates context extraction,
@@ -12,15 +13,41 @@ import { TranslationCache } from "./cache";
  */
 export class TranslationService {
   private provider: OpenAIProvider;
-  private contextService: ContextService;
   private promptService: PromptService;
   private cache: TranslationCache;
+  private dictionaryAggregator: DictionaryAggregator | null = null;
+  private dictionaryAggregatorPromise: Promise<DictionaryAggregator> | null =
+    null;
 
   constructor() {
     this.provider = new OpenAIProvider();
-    this.contextService = new ContextService();
     this.promptService = new PromptService();
     this.cache = new TranslationCache();
+  }
+
+  /**
+   * Lazy-initialize the DictionaryAggregator.
+   * Uses dynamic import to avoid circular dependencies.
+   * Caches the promise so multiple calls share the same initialization.
+   */
+  private async getDictionaryAggregator(): Promise<DictionaryAggregator> {
+    if (this.dictionaryAggregator) {
+      return this.dictionaryAggregator;
+    }
+
+    if (!this.dictionaryAggregatorPromise) {
+      this.dictionaryAggregatorPromise = (async () => {
+        const { createDefaultAggregator } = await import(
+          "@/lib/dictionaries"
+        );
+        const aggregator = await createDefaultAggregator();
+        this.dictionaryAggregator = aggregator;
+        this.dictionaryAggregatorPromise = null;
+        return aggregator;
+      })();
+    }
+
+    return this.dictionaryAggregatorPromise;
   }
 
   /**
@@ -50,8 +77,11 @@ export class TranslationService {
       throw new AIServiceError("UNKNOWN_ERROR", "No AI provider configured");
     }
 
+    // Initialize dictionary aggregator (if needed) and create context service
+    const contextService = await this.getContextService(config);
+
     // Extract context
-    const contextData = await this.contextService.getContext(
+    const contextData = await contextService.getContext(
       text,
       chapterText,
       config.contextConfig.modules,
@@ -123,6 +153,35 @@ export class TranslationService {
     }
 
     throw lastError;
+  }
+
+  /**
+   * Create a ContextService with the dictionary aggregator if any
+   * dictionary modules are enabled.
+   *
+   * @param config - AI configuration
+   * @returns Configured ContextService
+   */
+  private async getContextService(config: AIConfig): Promise<ContextService> {
+    const hasDictionaryModule = config.contextConfig.modules.some(
+      (m) => m.type === "dictionary" && m.isEnabled,
+    );
+
+    if (!hasDictionaryModule) {
+      return new ContextService();
+    }
+
+    try {
+      const aggregator = await this.getDictionaryAggregator();
+      return new ContextService(aggregator);
+    } catch (error) {
+      // Graceful degradation: if aggregator creation fails, continue without
+      console.warn(
+        "[TranslationService] Dictionary aggregator initialization failed:",
+        error,
+      );
+      return new ContextService();
+    }
   }
 
   private getSelectedProvider(config: AIConfig): AIProvider | undefined {
