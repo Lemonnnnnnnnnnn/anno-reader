@@ -106,7 +106,7 @@ export interface PromptTemplate {
 // ---------------------------------------------------------------------------
 
 /** Types of context that can be supplied alongside a translation request. */
-export type ContextType = "sentence" | "custom";
+export type ContextType = "sentence" | "dictionary" | "custom";
 
 /**
  * A context module that provides surrounding text or metadata
@@ -198,6 +198,24 @@ export const BUILTIN_SENTENCE_CONTEXT: ContextModule = {
   id: "builtin-sentence",
   name: "Sentence Context",
   type: "sentence",
-  content: "Uses the selected text itself as context.",
+  content: "Extracts the surrounding paragraph from chapter text for richer context.",
   isEnabled: true,
 };
+
+/** Built-in dictionary context modules. */
+export const BUILTIN_DICTIONARY_MODULES: ContextModule[] = [
+  {
+    id: "builtin-etymonline",
+    name: "Etymonline (词源)",
+    type: "dictionary",
+    content: "Etymology and word origins from Etymonline",
+    isEnabled: true,
+  },
+  {
+    id: "builtin-collins",
+    name: "Collins COBUILD",
+    type: "dictionary",
+    content: "Definitions from Collins COBUILD dictionary",
+    isEnabled: true,
+  },
+];
