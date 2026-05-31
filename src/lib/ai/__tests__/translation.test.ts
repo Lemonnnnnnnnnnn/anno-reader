@@ -99,7 +99,7 @@ describe("TranslationService", () => {
 
   describe("translate()", () => {
     it("should call provider with correct request", async () => {
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("Translate Hello world to Chinese.");
       mockTranslate.mockResolvedValue(mockResponse);
@@ -121,7 +121,7 @@ describe("TranslationService", () => {
     });
 
     it("should extract context from selected text", async () => {
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered");
       mockTranslate.mockResolvedValue(mockResponse);
@@ -131,12 +131,29 @@ describe("TranslationService", () => {
       expect(mockGetContext).toHaveBeenCalledTimes(1);
       expect(mockGetContext).toHaveBeenCalledWith(
         "Hello world",
+        null,
+        mockConfig.contextConfig.modules,
+      );
+    });
+
+    it("should pass chapterText to context service", async () => {
+      mockGetContext.mockResolvedValue(mockContextData);
+      mockGetDefaultPrompt.mockReturnValue(mockPrompt);
+      mockRenderPrompt.mockReturnValue("rendered");
+      mockTranslate.mockResolvedValue(mockResponse);
+
+      const chapterText = "It was a beautiful morning. Hello world in the garden.";
+      await service.translate("Hello world", "Chinese", mockConfig, chapterText);
+
+      expect(mockGetContext).toHaveBeenCalledWith(
+        "Hello world",
+        chapterText,
         mockConfig.contextConfig.modules,
       );
     });
 
     it("should render prompt with variables", async () => {
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered prompt");
       mockTranslate.mockResolvedValue(mockResponse);
@@ -188,7 +205,7 @@ describe("TranslationService", () => {
     });
 
     it("should throw when no prompt configured", async () => {
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(undefined);
 
       try {
@@ -204,7 +221,7 @@ describe("TranslationService", () => {
 
   describe("translateWithRetry()", () => {
     it("should return on first successful attempt", async () => {
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered");
       mockTranslate.mockResolvedValue(mockResponse);
@@ -218,7 +235,7 @@ describe("TranslationService", () => {
     it("should retry on retryable errors", async () => {
       const retryableError = new AIServiceError("RATE_LIMITED", "Rate limit exceeded", true);
 
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered");
       mockTranslate
@@ -235,7 +252,7 @@ describe("TranslationService", () => {
     it("should NOT retry on non-retryable errors", async () => {
       const nonRetryableError = new AIServiceError("AUTH_ERROR", "Invalid API key", false);
 
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered");
       mockTranslate.mockRejectedValue(nonRetryableError);
@@ -255,7 +272,7 @@ describe("TranslationService", () => {
     it("should throw after max retries exhausted", async () => {
       const retryableError = new AIServiceError("NETWORK_ERROR", "Connection failed", true);
 
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered");
       mockTranslate.mockRejectedValue(retryableError);
@@ -275,7 +292,7 @@ describe("TranslationService", () => {
     it("should re-throw non-AIServiceError without retrying", async () => {
       const genericError = new Error("Something unexpected");
 
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered");
       mockTranslate.mockRejectedValue(genericError);
@@ -290,7 +307,7 @@ describe("TranslationService", () => {
     it("should use exponential backoff between retries", async () => {
       const retryableError = new AIServiceError("RATE_LIMITED", "Rate limit exceeded", true);
 
-      mockGetContext.mockReturnValue(mockContextData);
+      mockGetContext.mockResolvedValue(mockContextData);
       mockGetDefaultPrompt.mockReturnValue(mockPrompt);
       mockRenderPrompt.mockReturnValue("rendered");
 

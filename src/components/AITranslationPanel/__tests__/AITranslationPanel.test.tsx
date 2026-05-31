@@ -17,19 +17,33 @@ const viewDefaults = {
   setTranslationText: vi.fn(),
   error: null,
   isSaving: false,
+  previewData: null,
   onClose: vi.fn(),
   onRetry: vi.fn(),
   onAddNote: vi.fn(),
+  onTranslate: vi.fn(),
+  onPreview: vi.fn(),
 };
 
 // Mock external dependencies for the stateful component
+const mockTranslate = vi.fn().mockResolvedValue({
+  translation: "你好世界这是选定的文本",
+  originalText: "Hello world",
+});
+const mockPreviewTranslate = vi.fn().mockResolvedValue({
+  selectedText: "Hello world",
+  targetLanguage: "Chinese",
+  renderedPrompt: "Translate the following text to Chinese...",
+  systemMessage: "You are a professional translator.",
+  userMessage: "Text to translate:\nHello world",
+  contextSources: [],
+});
+
 vi.mock("@/lib/ai/translation", () => ({
-  TranslationService: vi.fn().mockImplementation(() => ({
-    translate: vi.fn().mockResolvedValue({
-      translation: "你好世界这是选定的文本",
-      originalText: "Hello world",
-    }),
-  })),
+  TranslationService: class MockTranslationService {
+    translate = mockTranslate;
+    previewTranslate = mockPreviewTranslate;
+  },
 }));
 
 vi.mock("@/lib/annotations", () => ({

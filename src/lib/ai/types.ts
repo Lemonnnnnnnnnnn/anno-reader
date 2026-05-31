@@ -123,6 +123,8 @@ export interface ContextModule {
   content: string;
   /** Whether this module is active */
   isEnabled: boolean;
+  /** For dictionary type: specific provider ID to query (optional) */
+  providerId?: string;
 }
 
 /**
@@ -136,6 +138,18 @@ export interface ContextConfig {
 }
 
 /**
+ * Debug information from dictionary query.
+ */
+export interface DictionaryDebugInfo {
+  /** Results from each dictionary provider */
+  results: import("@/lib/dictionaries").DictionaryResult[];
+  /** Errors from failed providers */
+  errors: import("@/lib/dictionaries").AggregatedDictionaryError[];
+  /** Total query duration in milliseconds */
+  duration: number;
+}
+
+/**
  * Resolved context data ready to be injected into a prompt.
  */
 export interface ContextData {
@@ -145,6 +159,13 @@ export interface ContextData {
   metadata: Record<string, string>;
   /** Which module or source produced this context */
   source: string;
+  /** Debug information (optional, for preview mode) */
+  debug?: {
+    /** Dictionary query results */
+    dictionary?: DictionaryDebugInfo;
+    /** Sentence context before truncation */
+    sentenceContext?: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +231,7 @@ export const BUILTIN_DICTIONARY_MODULES: ContextModule[] = [
     type: "dictionary",
     content: "Etymology and word origins from Etymonline",
     isEnabled: true,
+    providerId: "etymonline",
   },
   {
     id: "builtin-collins",
@@ -217,5 +239,6 @@ export const BUILTIN_DICTIONARY_MODULES: ContextModule[] = [
     type: "dictionary",
     content: "Definitions from Collins COBUILD dictionary",
     isEnabled: true,
+    providerId: "collins",
   },
 ];

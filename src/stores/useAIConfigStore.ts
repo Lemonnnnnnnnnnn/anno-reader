@@ -194,12 +194,52 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
 
       const json = await readTextFile(filePath);
       const parsed = JSON.parse(json) as Partial<AIConfig>;
+
+      // Merge context modules: always keep built-in modules, apply user's enabled/disabled state
+      const builtinModuleIds = new Set(
+        DEFAULT_CONFIG.contextConfig.modules.map((m) => m.id),
+      );
+
+      // Build map of user's module states (enabled/disabled)
+      const userModuleStates = new Map(
+        (parsed.contextConfig?.modules ?? []).map((m) => [m.id, m.isEnabled]),
+      );
+
+      // Built-in modules: keep defaults, apply user's state if exists
+      const mergedBuiltinModules = DEFAULT_CONFIG.contextConfig.modules.map(
+        (m) => ({
+          ...m,
+          isEnabled: userModuleStates.has(m.id)
+            ? userModuleStates.get(m.id)!
+            : m.isEnabled,
+        }),
+      );
+
+      // User's custom modules (non-built-in)
+      const customModules = (parsed.contextConfig?.modules ?? []).filter(
+        (m) => !builtinModuleIds.has(m.id),
+      );
+
+      const mergedModules = [...mergedBuiltinModules, ...customModules];
+
+      // Merge selectedModuleIds: keep user's selection, ensure built-in IDs are valid
+      const userSelectedIds = parsed.contextConfig?.selectedModuleIds ?? [];
+      const validSelectedIds = userSelectedIds.filter((id) =>
+        mergedModules.some((m) => m.id === id),
+      );
+
+      // If no valid selection, default to sentence context
+      const selectedModuleIds =
+        validSelectedIds.length > 0
+          ? validSelectedIds
+          : [BUILTIN_SENTENCE_CONTEXT.id];
+
       const merged: AIConfig = {
         ...DEFAULT_CONFIG,
         ...parsed,
         contextConfig: {
-          ...DEFAULT_CONFIG.contextConfig,
-          ...(parsed.contextConfig ?? {}),
+          modules: mergedModules,
+          selectedModuleIds,
         },
         prompts: parsed.prompts ?? DEFAULT_CONFIG.prompts,
       };

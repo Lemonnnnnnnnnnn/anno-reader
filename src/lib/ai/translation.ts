@@ -1,5 +1,5 @@
 import type { AIConfig, AIProvider } from "./types";
-import type { TranslationRequest, TranslationResponse } from "./service";
+import type { TranslationRequest, TranslationResponse, PreviewData } from "./service";
 import { AIServiceError } from "./service";
 import { OpenAIProvider } from "./providers/openai";
 import { ContextService } from "./context";
@@ -87,6 +87,7 @@ export class TranslationService {
       config.contextConfig.modules,
     );
 
+
     // Get prompt
     const prompt = this.promptService.getDefaultPrompt(config.prompts);
     if (!prompt) {
@@ -119,6 +120,77 @@ export class TranslationService {
     this.cache.set(text, targetLanguage, response);
 
     return response;
+  }
+
+  /**
+   * Get preview data without sending to LLM.
+   * Shows dictionary results, context, and rendered prompt for debugging.
+   *
+   * @param text - The text to translate
+   * @param targetLanguage - Target language (e.g., "Chinese")
+   * @param config - AI configuration with provider and prompt settings
+   * @param chapterText - Plain text content of the current chapter (null if unavailable)
+   * @returns Preview data with context and prompt information
+   */
+  async previewTranslate(
+    text: string,
+    targetLanguage: string,
+    config: AIConfig,
+    chapterText: string | null = null,
+  ): Promise<PreviewData> {
+    // Get selected provider
+    const provider = this.getSelectedProvider(config);
+    if (!provider) {
+      throw new AIServiceError("UNKNOWN_ERROR", "No AI provider configured");
+    }
+
+    // Initialize dictionary aggregator (if needed) and create context service
+    const contextService = await this.getContextService(config);
+
+    // Extract context with debug info
+    const contextData = await contextService.getContext(
+      text,
+      chapterText,
+      config.contextConfig.modules,
+      true, // includeDebug
+    );
+
+    // Get prompt
+    const prompt = this.promptService.getDefaultPrompt(config.prompts);
+    if (!prompt) {
+      throw new AIServiceError("UNKNOWN_ERROR", "No prompt template configured");
+    }
+
+    // Render prompt
+    const renderedPrompt = this.promptService.renderPrompt(
+      prompt.content,
+      prompt.variables,
+      {
+        selectedText: text,
+        targetLanguage,
+      },
+    );
+
+    // Build messages as OpenAI provider would
+    const systemMessage = `You are a professional translator. Translate the following text to ${targetLanguage}. Use the context if provided for better accuracy.`;
+    const userMessage = contextData.text
+      ? `Context:\n${contextData.text}\n\nText to translate:\n${text}`
+      : `Text to translate:\n${text}`;
+
+    // Get enabled module names
+    const enabledModules = config.contextConfig.modules.filter((m) => m.isEnabled);
+    const contextSources = enabledModules.map((m) => m.name);
+
+    return {
+      selectedText: text,
+      targetLanguage,
+      renderedPrompt,
+      systemMessage,
+      userMessage,
+      dictionary: contextData.debug?.dictionary,
+      contextSources,
+      sentenceContext: contextData.debug?.sentenceContext,
+    };
   }
 
   /**

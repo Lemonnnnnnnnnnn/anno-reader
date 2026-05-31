@@ -3,6 +3,11 @@
  * Uses native browser APIs — no external dependencies.
  */
 
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+
+/** Whether running in Tauri environment */
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
 /**
  * Extract text content from a DOM element.
  *
@@ -80,18 +85,41 @@ export function resolveRelativeUrl(baseUrl: string, relativeUrl: string): string
 }
 
 /**
- * Fetch with timeout enforcement via AbortController.
+ * Fetch with timeout enforcement.
+ *
+ * Uses Tauri's HTTP plugin in Tauri environment (bypasses CORS),
+ * falls back to browser fetch in development/SSR.
  *
  * @param url - URL to fetch
  * @param options - Standard RequestInit plus optional timeout in ms (default 10000)
  * @returns Response promise
- * @throws AbortedError on timeout
+ * @throws Error on timeout
  */
 export async function fetchWithTimeout(
   url: string,
   options?: RequestInit & { timeout?: number },
 ): Promise<Response> {
   const { timeout = 10000, ...fetchOptions } = options ?? {};
+
+  // Use Tauri HTTP plugin when available (bypasses CORS)
+  if (isTauri) {
+    try {
+      const response = await tauriFetch(url, {
+        ...fetchOptions,
+        timeout,
+        // Tauri expects headers as Record<string, string>
+        headers: normalizeHeaders(fetchOptions.headers),
+      });
+      return response;
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("timeout")) {
+        throw new Error(`Fetch timed out after ${timeout}ms: ${url}`);
+      }
+      throw err;
+    }
+  }
+
+  // Fallback: browser fetch with AbortController
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
 
@@ -105,6 +133,29 @@ export async function fetchWithTimeout(
   } finally {
     clearTimeout(id);
   }
+}
+
+/**
+ * Normalize HeadersInit to Record<string, string> for Tauri HTTP plugin.
+ */
+function normalizeHeaders(
+  headers?: HeadersInit,
+): Record<string, string> | undefined {
+  if (!headers) return undefined;
+
+  if (headers instanceof Headers) {
+    const result: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      result[key] = value;
+    });
+    return result;
+  }
+
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+
+  return headers as Record<string, string>;
 }
 
 /**

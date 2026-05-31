@@ -4,6 +4,7 @@ import type {
   DictionaryResult,
   EtymonlineResult,
   CollinsResult,
+  AggregatedDictionaryResult,
 } from "@/lib/dictionaries";
 
 /** Maximum character length for sentence context. */
@@ -29,15 +30,18 @@ export class ContextService {
    * @param selectedText - The text the user selected
    * @param chapterText - Plain text content of the current chapter (null if unavailable)
    * @param modules - Available context modules
+   * @param includeDebug - Whether to include debug information (for preview)
    * @returns Combined context data from all enabled modules
    */
   async getContext(
     selectedText: string,
     chapterText: string | null,
     modules: ContextModule[],
+    includeDebug = false,
   ): Promise<ContextData> {
     const enabledModules = modules.filter((m) => m.isEnabled);
     const contextParts: string[] = [];
+    const debug: ContextData["debug"] = includeDebug ? {} : undefined;
 
     for (const module of enabledModules) {
       switch (module.type) {
@@ -46,13 +50,36 @@ export class ContextService {
             selectedText,
             chapterText,
           );
+          if (includeDebug && debug) {
+            debug.sentenceContext = sentenceContext;
+          }
           contextParts.push(sentenceContext);
           break;
         }
         case "dictionary": {
-          const dictionaryContext = await this.queryDictionary(selectedText);
-          if (dictionaryContext) {
-            contextParts.push(dictionaryContext);
+          const result = await this.queryDictionaryWithDebug(
+            selectedText,
+            module.providerId,
+          );
+          if (result.formatted) {
+            contextParts.push(result.formatted);
+          }
+          if (includeDebug && debug && result.raw) {
+            // Merge dictionary debug info if multiple dictionary modules
+            if (debug.dictionary) {
+              debug.dictionary.results.push(...result.raw.results);
+              debug.dictionary.errors.push(...result.raw.errors);
+              debug.dictionary.duration = Math.max(
+                debug.dictionary.duration,
+                result.raw.duration,
+              );
+            } else {
+              debug.dictionary = {
+                results: result.raw.results,
+                errors: result.raw.errors,
+                duration: result.raw.duration,
+              };
+            }
           }
           break;
         }
@@ -69,47 +96,71 @@ export class ContextService {
         moduleCount: enabledModules.length.toString(),
       },
       source: enabledModules.map((m) => m.id).join(","),
+      debug,
     };
   }
 
   /**
-   * Query dictionary aggregator for the selected text.
-   * Returns formatted dictionary context, or null if no aggregator
-   * configured or all queries fail.
+   * Query dictionary aggregator with debug information.
+   * Returns both raw result and formatted context.
    *
    * @param selectedText - The text to look up
-   * @returns Formatted dictionary context string, or null
+   * @param providerId - Optional specific provider ID to query
+   * @returns Object with formatted text and raw dictionary result
    */
-  private async queryDictionary(selectedText: string): Promise<string | null> {
+  private async queryDictionaryWithDebug(
+    selectedText: string,
+    providerId?: string,
+  ): Promise<{
+    formatted: string | null;
+    raw: AggregatedDictionaryResult | null;
+  }> {
     if (!this.dictionaryAggregator) {
-      return null;
+      return { formatted: null, raw: null };
     }
 
     try {
-      const result = await this.dictionaryAggregator.search(selectedText);
+      // Query specific provider or all providers
+      let result: AggregatedDictionaryResult;
+      if (providerId) {
+        const singleResult = await this.dictionaryAggregator.searchSingle(
+          selectedText,
+          providerId,
+        );
+        result = {
+          word: selectedText,
+          results: [singleResult],
+          successCount: singleResult.found ? 1 : 0,
+          errors: [],
+          duration: 0,
+        };
+      } else {
+        result = await this.dictionaryAggregator.search(selectedText);
+      }
 
       if (result.results.length === 0) {
-        return null;
+        return { formatted: null, raw: result };
       }
 
       const formatted = this.formatDictionaryResults(result.results);
       if (!formatted) {
-        return null;
+        return { formatted: null, raw: result };
       }
 
       // Cap at MAX_DICTIONARY_CONTEXT_CHARS
-      if (formatted.length > MAX_DICTIONARY_CONTEXT_CHARS) {
-        return formatted.slice(0, MAX_DICTIONARY_CONTEXT_CHARS);
-      }
+      const capped =
+        formatted.length > MAX_DICTIONARY_CONTEXT_CHARS
+          ? formatted.slice(0, MAX_DICTIONARY_CONTEXT_CHARS)
+          : formatted;
 
-      return formatted;
+      return { formatted: capped, raw: result };
     } catch (error) {
       // Graceful degradation: log warning, continue without dictionary context
       console.warn(
         `[ContextService] Dictionary lookup failed for "${selectedText}":`,
         error,
       );
-      return null;
+      return { formatted: null, raw: null };
     }
   }
 

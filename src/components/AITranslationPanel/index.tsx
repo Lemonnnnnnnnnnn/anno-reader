@@ -4,6 +4,7 @@ import { TranslationService } from "@/lib/ai/translation";
 import { useBookStore } from "@/stores/useBookStore";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 import { createNote } from "@/lib/annotations";
+import type { PreviewData } from "@/lib/ai/service";
 
 interface AITranslationPanelProps {
   selectedText: string;
@@ -15,7 +16,7 @@ interface AITranslationPanelProps {
   onClose: () => void;
 }
 
-export type PanelStatus = "loading" | "success" | "error";
+export type PanelStatus = "previewing" | "loading" | "success" | "error";
 
 /**
  * Pure view component — exported for direct testing with renderToString.
@@ -27,9 +28,12 @@ export function AITranslationPanelView({
   setTranslationText,
   error,
   isSaving,
+  previewData,
   onClose,
   onRetry,
   onAddNote,
+  onTranslate,
+  onPreview,
 }: {
   status: PanelStatus;
   selectedText: string;
@@ -37,9 +41,12 @@ export function AITranslationPanelView({
   setTranslationText: (v: string) => void;
   error: string | null;
   isSaving: boolean;
+  previewData: PreviewData | null;
   onClose: () => void;
   onRetry: () => void;
   onAddNote: () => void;
+  onTranslate: () => void;
+  onPreview: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -48,7 +55,7 @@ export function AITranslationPanelView({
         onClick={onClose}
         aria-label="Close"
       />
-      <div className="relative w-full max-w-lg mx-4 bg-surface rounded-lg shadow-xl border border-border flex flex-col max-h-[80vh]">
+      <div className="relative w-full max-w-2xl mx-4 bg-surface rounded-lg shadow-xl border border-border flex flex-col max-h-[85vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
@@ -78,7 +85,12 @@ export function AITranslationPanelView({
             </p>
           </div>
 
-          {/* Translation area */}
+          {/* Preview panel */}
+          {status === "previewing" && previewData && (
+            <PreviewPanel data={previewData} />
+          )}
+
+          {/* Loading state */}
           {status === "loading" && (
             <div className="flex items-center gap-2 py-6 justify-center">
               <svg
@@ -106,6 +118,7 @@ export function AITranslationPanelView({
             </div>
           )}
 
+          {/* Error state */}
           {status === "error" && (
             <div className="space-y-3">
               <ErrorBanner message={error ?? "Translation failed"} />
@@ -119,6 +132,7 @@ export function AITranslationPanelView({
             </div>
           )}
 
+          {/* Success state */}
           {status === "success" && (
             <div>
               <label className="block text-xs font-medium text-text-secondary mb-1 font-sans">
@@ -139,6 +153,24 @@ export function AITranslationPanelView({
           <Button variant="secondary" size="sm" onClick={onClose}>
             Close
           </Button>
+          {status === "previewing" && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onTranslate}
+              >
+                Skip Preview & Translate
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onTranslate}
+              >
+                Translate
+              </Button>
+            </>
+          )}
           {status === "success" && (
             <Button
               variant="primary"
@@ -156,6 +188,144 @@ export function AITranslationPanelView({
 }
 
 /**
+ * Preview panel showing dictionary results and prompt before translation.
+ */
+function PreviewPanel({ data }: { data: PreviewData }) {
+  return (
+    <div className="space-y-3">
+      {/* Context sources */}
+      <div className="flex flex-wrap gap-1.5">
+        <span className="text-xs font-sans text-text-secondary">Context:</span>
+        {data.contextSources.map((source) => (
+          <span
+            key={source}
+            className="text-xs font-sans px-2 py-0.5 bg-accent/10 text-accent rounded"
+          >
+            {source}
+          </span>
+        ))}
+      </div>
+
+      {/* Sentence context */}
+      {data.sentenceContext && (
+        <details className="group">
+          <summary className="cursor-pointer text-xs font-sans text-text-secondary hover:text-text">
+            Sentence Context
+          </summary>
+          <p className="mt-1 text-xs font-sans text-text bg-bg rounded p-2">
+            {data.sentenceContext}
+          </p>
+        </details>
+      )}
+
+      {/* Dictionary results */}
+      {data.dictionary && (
+        <details className="group" open>
+          <summary className="cursor-pointer text-xs font-sans text-text-secondary hover:text-text">
+            Dictionary Results ({data.dictionary.duration}ms)
+            {data.dictionary.errors.length > 0 && (
+              <span className="text-red-500 ml-1">
+                ({data.dictionary.errors.length} errors)
+              </span>
+            )}
+          </summary>
+          <div className="mt-1 space-y-1">
+            {data.dictionary.results.map((result, i) => (
+              <div
+                key={i}
+                className="text-xs font-sans bg-bg rounded p-2"
+              >
+                <span className="font-medium text-text-secondary">
+                  [{result.source}]
+                </span>{" "}
+                {result.found ? (
+                  <span className="text-text">
+                    {formatDictionaryResult(result)}
+                  </span>
+                ) : (
+                  <span className="text-text-muted italic">not found</span>
+                )}
+              </div>
+            ))}
+            {data.dictionary.errors.map((err, i) => (
+              <div
+                key={`err-${i}`}
+                className="text-xs font-sans bg-red-50 text-red-700 rounded p-2"
+              >
+                [{err.source}] {err.error.message}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {/* Rendered prompt */}
+      <details className="group">
+        <summary className="cursor-pointer text-xs font-sans text-text-secondary hover:text-text">
+          Rendered Prompt
+        </summary>
+        <pre className="mt-1 text-xs font-mono text-text bg-bg rounded p-2 whitespace-pre-wrap overflow-x-auto">
+          {data.renderedPrompt}
+        </pre>
+      </details>
+
+      {/* LLM Messages */}
+      <details className="group">
+        <summary className="cursor-pointer text-xs font-sans text-text-secondary hover:text-text">
+          LLM Messages (what will be sent)
+        </summary>
+        <div className="mt-1 space-y-1">
+          <div className="text-xs font-sans">
+            <span className="font-medium text-accent">system:</span>
+            <pre className="mt-0.5 font-mono text-text bg-bg rounded p-2 whitespace-pre-wrap">
+              {data.systemMessage}
+            </pre>
+          </div>
+          <div className="text-xs font-sans">
+            <span className="font-medium text-accent">user:</span>
+            <pre className="mt-0.5 font-mono text-text bg-bg rounded p-2 whitespace-pre-wrap">
+              {data.userMessage}
+            </pre>
+          </div>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+/**
+ * Format a dictionary result for display.
+ */
+function formatDictionaryResult(result: import("@/lib/dictionaries").DictionaryResult): string {
+  if (!result.found) return "";
+
+  switch (result.source) {
+    case "etymonline": {
+      const data = result.data as { items: { etymology: string; firstUse?: string }[] };
+      return data.items
+        .map((item) => {
+          const clean = item.etymology.replace(/<[^>]*>/g, "").trim();
+          return item.firstUse ? `${clean} (${item.firstUse})` : clean;
+        })
+        .join("; ");
+    }
+    case "collins": {
+      const data = result.data as { sections: { partOfSpeech?: string; definition: string; example?: string }[] };
+      return data.sections
+        .map((s) => {
+          let text = s.definition;
+          if (s.partOfSpeech) text = `(${s.partOfSpeech}) ${text}`;
+          if (s.example) text += ` — e.g. "${s.example}"`;
+          return text;
+        })
+        .join("; ");
+    }
+    default:
+      return JSON.stringify(result.data);
+  }
+}
+
+/**
  * Stateful wrapper — mounts, auto-translates, wires up store actions.
  */
 export function AITranslationPanel({
@@ -169,16 +339,44 @@ export function AITranslationPanel({
   const [translationText, setTranslationText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
 
   const currentBook = useBookStore((s) => s.currentBook);
   const config = useAIConfigStore((s) => s.config);
+
+  const service = new TranslationService();
+
+  // Auto-preview on mount
+  const preview = useCallback(async () => {
+    setStatus("loading");
+    setError(null);
+
+    try {
+      const data = await service.previewTranslate(
+        selectedText,
+        "Chinese",
+        config,
+        chapterText,
+      );
+      setPreviewData(data);
+      setStatus("previewing");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Preview failed";
+      setError(message);
+      setStatus("error");
+    }
+  }, [selectedText, chapterText, config]);
+
+  useEffect(() => {
+    preview();
+  }, [preview]);
 
   const translate = useCallback(async () => {
     setStatus("loading");
     setError(null);
 
     try {
-      const service = new TranslationService();
       const response = await service.translate(
         selectedText,
         "Chinese",
@@ -194,10 +392,6 @@ export function AITranslationPanel({
       setStatus("error");
     }
   }, [selectedText, chapterText, config]);
-
-  useEffect(() => {
-    translate();
-  }, [translate]);
 
   const handleAddNote = async () => {
     if (!currentBook) return;
@@ -226,9 +420,12 @@ export function AITranslationPanel({
       setTranslationText={setTranslationText}
       error={error}
       isSaving={isSaving}
+      previewData={previewData}
       onClose={onClose}
-      onRetry={translate}
+      onRetry={preview}
       onAddNote={handleAddNote}
+      onTranslate={translate}
+      onPreview={preview}
     />
   );
 }

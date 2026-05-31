@@ -29,6 +29,26 @@
     {
       "identifier": "fs:allow-mkdir",
       "allow": [{ "path": "**" }]
+    },
+    "http:default",
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [
+        { "url": "https://www.collinsdictionary.com/**" },
+        { "url": "https://www.etymonline.com/**" }
+      ]
+    },
+    {
+      "identifier": "http:allow-fetch-cancel",
+      "allow": [{ "url": "**" }]
+    },
+    {
+      "identifier": "http:allow-fetch-read-body",
+      "allow": [{ "url": "**" }]
+    },
+    {
+      "identifier": "http:allow-fetch-send",
+      "allow": [{ "url": "**" }]
     }
   ]
 }
