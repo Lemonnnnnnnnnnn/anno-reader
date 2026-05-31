@@ -164,6 +164,7 @@ describe("AITranslationPanel (stateful)", () => {
     const html = renderToString(
       <AITranslationPanel
         selectedText="Test text"
+        chapterText={null}
         chapterHref="chapter1.xhtml"
         cfiRange="epubcfi(/6/4[chap01]!/4/2:0,5)"
         startOffset={0}
@@ -182,6 +183,7 @@ describe("AITranslationPanel (stateful)", () => {
     const html = renderToString(
       <AITranslationPanel
         selectedText="Test"
+        chapterText={null}
         chapterHref="chapter1.xhtml"
         cfiRange="epubcfi(/6/4[chap01]!/4/2:0,4)"
         startOffset={0}
@@ -197,6 +199,7 @@ describe("AITranslationPanel (stateful)", () => {
     const html = renderToString(
       <AITranslationPanel
         selectedText="Test"
+        chapterText={null}
         chapterHref="chapter1.xhtml"
         cfiRange="epubcfi(/6/4[chap01]!/4/2:0,4)"
         startOffset={0}

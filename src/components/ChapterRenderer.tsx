@@ -21,6 +21,17 @@ import { extractFonts, buildFontFaceCss } from "@/lib/fonts";
 import { VerticalScroller } from "./VerticalScroller";
 import { ChapterNavigation } from "./ChapterNavigation";
 
+/**
+ * Extract plain text from HTML content.
+ * Strips all HTML tags and normalizes whitespace.
+ */
+function extractPlainText(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 interface ChapterRendererProps {
   /** Array of chapters in reading order */
   chapters: EpubChapterInfo[];
@@ -72,6 +83,12 @@ export function ChapterRenderer({ chapters, resources, opfFolder, manifestHrefs,
     return html;
   }, [currentChapter, resources, opfFolder]);
 
+  // Extract plain text from chapter content for AI translation context
+  const chapterText = useMemo(() => {
+    if (!currentChapter) return null;
+    return extractPlainText(currentChapter.content);
+  }, [currentChapter]);
+
   if (!currentChapter) {
     return (
       <div className="flex items-center justify-center h-full text-text-muted">
@@ -94,6 +111,7 @@ export function ChapterRenderer({ chapters, resources, opfFolder, manifestHrefs,
       {/* Chapter content with vertical scrolling */}
       <VerticalScroller
         srcdoc={srcdoc}
+        chapterText={chapterText}
         chapterIndex={currentChapterIndex}
         chapterHref={currentChapter.href}
         title={currentChapter.title || `Chapter ${currentChapterIndex + 1}`}

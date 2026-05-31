@@ -29,12 +29,14 @@ export class TranslationService {
    * @param text - The text to translate
    * @param targetLanguage - Target language (e.g., "Chinese")
    * @param config - AI configuration with provider and prompt settings
+   * @param chapterText - Plain text content of the current chapter (null if unavailable)
    * @returns Translation response with the translated text
    */
   async translate(
     text: string,
     targetLanguage: string,
     config: AIConfig,
+    chapterText: string | null = null,
   ): Promise<TranslationResponse> {
     // Check cache first
     const cached = this.cache.get(text, targetLanguage);
@@ -49,8 +51,9 @@ export class TranslationService {
     }
 
     // Extract context
-    const contextData = this.contextService.getContext(
+    const contextData = await this.contextService.getContext(
       text,
+      chapterText,
       config.contextConfig.modules,
     );
 
@@ -96,12 +99,13 @@ export class TranslationService {
     targetLanguage: string,
     config: AIConfig,
     maxRetries = 3,
+    chapterText: string | null = null,
   ): Promise<TranslationResponse> {
     let lastError: AIServiceError | null = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        return await this.translate(text, targetLanguage, config);
+        return await this.translate(text, targetLanguage, config, chapterText);
       } catch (error) {
         if (error instanceof AIServiceError) {
           lastError = error;

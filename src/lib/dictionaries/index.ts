@@ -43,3 +43,5 @@ export {
 } from "./errors";
 
 export type { DictionaryErrorCode } from "./errors";
+
+export { DictionaryAggregator, createDefaultAggregator } from "./aggregator";

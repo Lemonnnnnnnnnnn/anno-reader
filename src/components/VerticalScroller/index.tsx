@@ -32,6 +32,8 @@ import { injectScrollScript } from "./hooks/useScrollTracking";
 interface VerticalScrollerProps {
   /** Complete HTML string for the iframe srcdoc */
   srcdoc: string;
+  /** Plain text content of the chapter (for AI translation context) */
+  chapterText: string | null;
   /** Current chapter index (triggers scroll restoration on change) */
   chapterIndex: number;
   /** Current chapter href (for progress tracking) */
@@ -44,6 +46,7 @@ interface VerticalScrollerProps {
 
 export function VerticalScroller({
   srcdoc,
+  chapterText,
   chapterIndex,
   chapterHref,
   title,
@@ -141,6 +144,7 @@ export function VerticalScroller({
       {translationPanel && (
         <AITranslationPanel
           selectedText={translationPanel.selectedText}
+          chapterText={chapterText}
           chapterHref={translationPanel.chapterHref}
           cfiRange={generateCfiRange(
             translationPanel.chapterHref,
