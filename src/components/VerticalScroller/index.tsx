@@ -127,7 +127,7 @@ export function VerticalScroller({
         ref={iframeRef}
         srcDoc={srcdocWithTracking}
         title={title || `Chapter ${chapterIndex + 1}`}
-        className="w-full h-full border-none bg-[#fafafa]"
+        className="w-full h-full border-none bg-bg"
         sandbox="allow-same-origin allow-scripts"
         onLoad={handleIframeLoad}
       />

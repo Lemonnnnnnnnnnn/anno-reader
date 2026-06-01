@@ -15,7 +15,7 @@ import { useMemo } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 import type { EpubChapterInfo } from "@/lib/epub";
 import type { EpubResource } from "epubix";
-import { buildSrcdoc, DEFAULT_BASE_CSS } from "@/lib/css";
+import { buildSrcdoc } from "@/lib/css";
 import { resolveImagePaths } from "@/lib/images";
 import { extractFonts, buildFontFaceCss } from "@/lib/fonts";
 import { VerticalScroller } from "./VerticalScroller";
@@ -52,6 +52,7 @@ export function ChapterRenderer({ chapters, resources, opfFolder, manifestHrefs,
   const currentChapterIndex = useBookStore(
     (state) => state.ui.currentChapterIndex,
   );
+  const theme = useBookStore((state) => state.ui.theme);
 
   const currentChapter = chapters[currentChapterIndex] ?? null;
 
@@ -75,10 +76,10 @@ export function ChapterRenderer({ chapters, resources, opfFolder, manifestHrefs,
     const fontFaceCss = fonts.length > 0 ? buildFontFaceCss(fonts) : undefined;
 
     const { html } = buildSrcdoc(contentWithImages, {
-      baseCss: DEFAULT_BASE_CSS,
       epubCss: currentChapter.cssContent,
       fontFaceCss,
       isolateEpubCss: true,
+      theme,
     });
 
     return html;

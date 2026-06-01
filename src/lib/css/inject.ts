@@ -66,15 +66,62 @@ export const DEFAULT_BASE_CSS = `
 `;
 
 /**
+ * Dark theme base CSS for the reader iframe.
+ * Same layout/typography as DEFAULT_BASE_CSS with inverted colors.
+ */
+export const DARK_BASE_CSS = `
+  body {
+    margin: 0;
+    padding: 2rem 3rem;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.8;
+    color: #e5e5e5;
+    background: #1a1a1a;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1em auto;
+    object-fit: contain;
+  }
+
+  img[loading="lazy"] {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+  }
+
+  img.loaded,
+  img[loading="lazy"]:not([src^="data:image/svg"]) {
+    opacity: 1;
+  }
+
+  p {
+    margin-bottom: 1em;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    line-height: 1.3;
+  }
+`;
+
+/**
  * Build a complete HTML document for iframe srcdoc with layered CSS.
  *
  * CSS injection order:
- * 1. Base reader CSS (typography, layout)
+ * 1. Base reader CSS (typography, layout) — selected by theme if baseCss not provided
  * 2. EPUB CSS (scoped if isolation enabled)
  * 3. Reader overrides (enforces critical properties with !important)
  *
  * @param htmlContent - The chapter HTML body content
- * @param options - CSS injection configuration
+ * @param options - CSS injection configuration (theme selects base CSS variant)
  * @returns SrcdocResult with the complete HTML string
  */
 export function buildSrcdoc(
@@ -82,11 +129,15 @@ export function buildSrcdoc(
   options: CssInjectionOptions,
 ): SrcdocResult {
   const {
-    baseCss = DEFAULT_BASE_CSS,
+    baseCss: explicitBaseCss,
     epubCss = [],
     fontFaceCss,
     isolateEpubCss: shouldIsolate = true,
+    theme = "light",
   } = options;
+
+  // Select base CSS: explicit override wins, otherwise theme-based selection
+  const baseCss = explicitBaseCss ?? (theme === "dark" ? DARK_BASE_CSS : DEFAULT_BASE_CSS);
 
   // Process EPUB CSS
   const processedEpubCss = epubCss.map((css) =>
@@ -94,7 +145,7 @@ export function buildSrcdoc(
   );
 
   const epubCssCombined = combineCss(processedEpubCss);
-  const readerOverrides = buildReaderOverrides();
+  const readerOverrides = buildReaderOverrides(theme);
 
   // Build the CSS injection order
   // Font-face rules go before EPUB CSS so fonts are available for EPUB styles

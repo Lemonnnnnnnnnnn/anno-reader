@@ -75,10 +75,13 @@ export function scopeCssToNamespace(css: string, namespace = ".epub-content"): s
  * Build a CSS override block that ensures reader-critical properties
  * are preserved even when EPUB CSS tries to change them.
  *
+ * @param theme - Theme mode ("light" or "dark"). Default: "light".
  * @returns CSS string with !important overrides for critical reader properties
  */
-export function buildReaderOverrides(): string {
-  return `
+export function buildReaderOverrides(
+  theme: "light" | "dark" = "light",
+): string {
+  const layoutOverrides = `
     /* Reader layout overrides - prevents EPUB CSS from breaking reading experience */
     body {
       max-width: 700px !important;
@@ -96,6 +99,28 @@ export function buildReaderOverrides(): string {
       height: auto !important;
     }
   `;
+
+  if (theme === "dark") {
+    return `
+      ${layoutOverrides}
+
+      /* Dark theme overrides - forces dark colors over hardcoded EPUB styles */
+      body {
+        color: #e5e5e5 !important;
+        background: #1a1a1a !important;
+      }
+
+      p, h1, h2, h3, h4, h5, h6, span, a, li, td, th, div {
+        color: #e5e5e5 !important;
+      }
+
+      a {
+        color: #60a5fa !important;
+      }
+    `;
+  }
+
+  return layoutOverrides;
 }
 
 /**

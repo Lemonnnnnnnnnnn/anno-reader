@@ -15,14 +15,16 @@ export interface EpubStyleSheet {
 
 /** Options for CSS injection into the iframe */
 export interface CssInjectionOptions {
-  /** Base/reader CSS to apply (always injected first) */
-  baseCss: string;
+  /** Base/reader CSS to apply (always injected first). Defaults to theme-appropriate CSS. */
+  baseCss?: string;
   /** EPUB-extracted CSS to inject after base CSS */
   epubCss: string[];
   /** @font-face CSS rules for EPUB fonts (injected before epubCss) */
   fontFaceCss?: string;
   /** Whether to scope EPUB CSS to prevent conflicts with reader defaults (default: true) */
   isolateEpubCss?: boolean;
+  /** Theme variant for the reader (default: "light") */
+  theme?: "light" | "dark";
 }
 
 /** Result of building an iframe srcdoc with CSS */

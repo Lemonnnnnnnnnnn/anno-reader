@@ -66,7 +66,7 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
         }}
       >
         {/* Cover image */}
-        <div className="w-full h-60 overflow-hidden bg-gray-50">
+        <div className="w-full h-60 overflow-hidden bg-bg">
           {book.coverUrl ? (
             <img
               src={book.coverUrl}
@@ -93,7 +93,7 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
           {/* Progress bar */}
           {book.progress && (
             <div className="flex items-center gap-2 mt-1">
-              <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+              <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
                 <div
                   className="h-full bg-accent rounded-full transition-all duration-200"
                   style={{ width: `${book.progress.percentage}%` }}

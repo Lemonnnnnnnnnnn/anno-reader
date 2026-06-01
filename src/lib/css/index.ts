@@ -43,6 +43,7 @@ export {
 // CSS injection
 export {
   DEFAULT_BASE_CSS,
+  DARK_BASE_CSS,
   buildSrcdoc,
   injectCssIntoIframe,
   injectMultipleCssIntoIframe,
