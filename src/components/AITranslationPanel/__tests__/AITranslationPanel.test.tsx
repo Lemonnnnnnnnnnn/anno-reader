@@ -18,6 +18,7 @@ const viewDefaults = {
   error: null,
   isSaving: false,
   previewData: null,
+  isOpen: true,
   onClose: vi.fn(),
   onRetry: vi.fn(),
   onAddNote: vi.fn(),
@@ -128,7 +129,7 @@ describe("AITranslationPanelView", () => {
     );
 
     expect(html).toContain(">Close<");
-    expect(html).toContain('aria-label="Close translation panel"');
+    expect(html).toContain('aria-label="Close drawer"');
   });
 
   it("shows Add as Note button in success state", () => {

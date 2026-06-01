@@ -1,6 +1,7 @@
 import { Button, TextArea, ErrorBanner } from "@/components/primitives";
-import { Loader2, Languages, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { PreviewData } from "@/lib/ai/service";
+import { Drawer } from "@/components/Drawer";
 import { useTranslation, useNoteSaving } from "./hooks";
 import type { PanelStatus } from "./hooks";
 
@@ -11,6 +12,7 @@ interface AITranslationPanelProps {
   cfiRange: string;
   startOffset: number;
   endOffset: number;
+  isOpen?: boolean;
   onClose: () => void;
 }
 
@@ -27,11 +29,12 @@ export function AITranslationPanelView({
   error,
   isSaving,
   previewData,
+  isOpen = true,
   onClose,
   onRetry,
   onAddNote,
   onTranslate,
-  onPreview,
+  onPreview: _onPreview,
 }: {
   status: PanelStatus;
   selectedText: string;
@@ -40,6 +43,7 @@ export function AITranslationPanelView({
   error: string | null;
   isSaving: boolean;
   previewData: PreviewData | null;
+  isOpen?: boolean;
   onClose: () => void;
   onRetry: () => void;
   onAddNote: () => void;
@@ -47,32 +51,10 @@ export function AITranslationPanelView({
   onPreview: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/30"
-        onClick={onClose}
-        aria-label="Close"
-      />
-      <div className="relative w-full max-w-2xl mx-4 bg-surface rounded-lg shadow-xl border border-border flex flex-col max-h-[85vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Languages size={18} className="text-text-secondary" />
-            <h2 className="text-base font-medium text-text font-sans">
-              AI Translation
-            </h2>
-          </div>
-          <Button
-            variant="icon"
-            onClick={onClose}
-            aria-label="Close translation panel"
-          >
-            <X size={18} />
-          </Button>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <Drawer isOpen={isOpen} onClose={onClose} title="AI Translation">
+      <div className="flex flex-col h-full">
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto space-y-4">
           {/* Original text */}
           <div>
             <label className="block text-xs font-medium text-text-secondary mb-1 font-sans">
@@ -129,7 +111,7 @@ export function AITranslationPanelView({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
+        <div className="shrink-0 flex items-center justify-end gap-2 pt-3 mt-2 border-t border-border">
           <Button variant="secondary" size="sm" onClick={onClose}>
             Close
           </Button>
@@ -163,7 +145,7 @@ export function AITranslationPanelView({
           )}
         </div>
       </div>
-    </div>
+    </Drawer>
   );
 }
 
@@ -309,6 +291,7 @@ export function AITranslationPanel({
   chapterText,
   chapterHref,
   cfiRange,
+  isOpen = true,
   onClose,
 }: AITranslationPanelProps) {
   const {
@@ -340,6 +323,7 @@ export function AITranslationPanel({
       error={error}
       isSaving={isSaving}
       previewData={previewData}
+      isOpen={isOpen}
       onClose={onClose}
       onRetry={preview}
       onAddNote={handleAddNote}

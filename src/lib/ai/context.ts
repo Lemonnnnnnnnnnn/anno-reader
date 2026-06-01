@@ -248,10 +248,8 @@ export class ContextService {
       return selectedText;
     }
 
-    // Get 1 sentence before and 1 sentence after
-    const start = Math.max(0, selectedIndex - 1);
-    const end = Math.min(sentences.length - 1, selectedIndex + 1);
-    const context = sentences.slice(start, end + 1).join(" ");
+    // Get only the current sentence
+    const context = sentences[selectedIndex];
 
     // Cap at MAX_SENTENCE_CONTEXT_CHARS
     if (context.length > MAX_SENTENCE_CONTEXT_CHARS) {

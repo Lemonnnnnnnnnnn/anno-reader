@@ -24,7 +24,7 @@
 import { useRef, useMemo, useEffect, useState, useCallback } from "react";
 import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
-import { AnnotationPopover } from "../AnnotationPopover";
+import { AnnotationDetailPanel } from "../AnnotationDetailPanel";
 import { AITranslationPanel } from "../AITranslationPanel";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
 import { injectScrollScript } from "./hooks/useScrollTracking";
@@ -56,7 +56,6 @@ export function VerticalScroller({
 
   // Annotation popover state
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
-  const [popoverPosition, setPopoverPosition] = useState<{ top: number } | null>(null);
 
   // AI translation panel state
   const [translationPanel, setTranslationPanel] = useState<{
@@ -85,7 +84,8 @@ export function VerticalScroller({
     function handleMessage(event: MessageEvent) {
       if (event.data?.type === "note-click" && event.data.noteId) {
         setActiveNoteId(event.data.noteId);
-        setPopoverPosition({ top: event.data.rect.top });
+        // Close translation panel (mutual exclusivity)
+        setTranslationPanel(null);
       }
     }
     window.addEventListener("message", handleMessage);
@@ -94,7 +94,6 @@ export function VerticalScroller({
 
   const handleClosePopover = useCallback(() => {
     setActiveNoteId(null);
-    setPopoverPosition(null);
   }, []);
 
   const handleTranslate = useCallback((data: {
@@ -104,6 +103,8 @@ export function VerticalScroller({
     endOffset: number;
   }) => {
     setTranslationPanel(data);
+    // Close annotation detail panel (mutual exclusivity)
+    setActiveNoteId(null);
   }, []);
 
   const handleCloseTranslationPanel = useCallback(() => {
@@ -136,26 +137,28 @@ export function VerticalScroller({
         chapterHref={chapterHref}
         onTranslate={handleTranslate}
       />
-      <AnnotationPopover
+      <AnnotationDetailPanel
         noteId={activeNoteId}
-        position={popoverPosition}
         onClose={handleClosePopover}
       />
-      {translationPanel && (
-        <AITranslationPanel
-          selectedText={translationPanel.selectedText}
-          chapterText={chapterText}
-          chapterHref={translationPanel.chapterHref}
-          cfiRange={generateCfiRange(
-            translationPanel.chapterHref,
-            translationPanel.startOffset,
-            translationPanel.endOffset,
-          )}
-          startOffset={translationPanel.startOffset}
-          endOffset={translationPanel.endOffset}
-          onClose={handleCloseTranslationPanel}
-        />
-      )}
+      <AITranslationPanel
+        selectedText={translationPanel?.selectedText ?? ""}
+        chapterText={chapterText}
+        chapterHref={translationPanel?.chapterHref ?? ""}
+        cfiRange={
+          translationPanel
+            ? generateCfiRange(
+                translationPanel.chapterHref,
+                translationPanel.startOffset,
+                translationPanel.endOffset,
+              )
+            : ""
+        }
+        startOffset={translationPanel?.startOffset ?? 0}
+        endOffset={translationPanel?.endOffset ?? 0}
+        isOpen={!!translationPanel}
+        onClose={handleCloseTranslationPanel}
+      />
     </div>
   );
 }
