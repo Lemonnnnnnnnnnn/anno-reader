@@ -17,7 +17,8 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { Drawer, Button, Icon, TextArea } from "@/components/primitives";
+import { Drawer, Button, TextArea } from "@/components/primitives";
+import { Pencil, Trash2 } from "lucide-react";
 import { useBookStore, type Note, type Highlight } from "@/stores/useBookStore";
 import { deleteNote, updateNote, deleteHighlight } from "@/lib/annotations";
 import type { EpubChapterInfo } from "@/lib/epub/types";
@@ -167,14 +168,14 @@ function NoteItem({ note, onNavigate, onClose, chapters }: NoteItemProps) {
             onClick={handleStartEdit}
             title="Edit note"
           >
-            <Icon name="edit" size={14} />
+            <Pencil size={14} />
           </Button>
           <Button
             variant="icon"
             onClick={handleDelete}
             title="Delete note"
           >
-            <Icon name="trash" size={14} />
+            <Trash2 size={14} />
           </Button>
         </div>
       )}
@@ -239,7 +240,7 @@ function HighlightItem({ highlight, onNavigate, onClose, chapters }: HighlightIt
           onClick={handleDelete}
           title="Delete highlight"
         >
-          <Icon name="trash" size={14} />
+          <Trash2 size={14} />
         </Button>
       </div>
     </div>

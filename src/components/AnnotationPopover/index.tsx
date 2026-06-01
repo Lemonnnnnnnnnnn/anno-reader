@@ -22,7 +22,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useBookStore } from "@/stores/useBookStore";
-import { Button, TextArea, Icon } from "@/components/primitives";
+import { Button, TextArea } from "@/components/primitives";
+import { X, Pencil, Trash2 } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
 
 interface PopoverPosition {
@@ -133,7 +134,7 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
           title="Close"
           className="shrink-0 -mt-0.5"
         >
-          <Icon name="close" size={14} />
+          <X size={14} />
         </Button>
       </div>
 
@@ -178,14 +179,14 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
             onClick={handleStartEdit}
             title="Edit note"
           >
-            <Icon name="edit" size={14} />
+            <Pencil size={14} />
           </Button>
           <Button
             variant="icon"
             onClick={handleDelete}
             title="Delete note"
           >
-            <Icon name="trash" size={14} />
+            <Trash2 size={14} />
           </Button>
         </div>
       )}

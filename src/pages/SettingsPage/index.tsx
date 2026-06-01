@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Button, Icon } from "@/components/primitives";
+import { ArrowLeft, Sun, Moon } from "lucide-react";
+import { Button } from "@/components/primitives";
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 
@@ -22,7 +23,7 @@ export function SettingsPage() {
       <header className="shrink-0 bg-surface border-b border-border">
         <div className="flex items-center gap-3 px-6 py-4 max-w-[1200px] mx-auto w-full">
           <Button variant="icon" onClick={() => navigate(-1)} aria-label="Go back">
-            <Icon name="arrow-left" size={18} />
+            <ArrowLeft size={18} />
           </Button>
           <h1 className="text-xl font-semibold text-text tracking-tight m-0">
             Settings
@@ -38,7 +39,7 @@ export function SettingsPage() {
             aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
             className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface border border-border rounded-md hover:border-accent transition-colors cursor-pointer flex items-center gap-3"
           >
-            <Icon name={theme === "light" ? "sun" : "moon"} size={18} />
+            {theme === "light" ? <Sun size={18} /> : <Moon size={18} />}
             <span>{theme === "light" ? "Light Mode" : "Dark Mode"}</span>
           </button>
           <button

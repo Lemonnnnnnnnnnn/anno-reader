@@ -14,7 +14,8 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { Button, Icon } from "@/components/primitives";
+import { CircleAlert } from "lucide-react";
+import { Button } from "@/components/primitives";
 
 interface ErrorBoundaryProps {
   /** Child components to wrap */
@@ -61,7 +62,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <div className="flex items-center justify-center h-screen w-screen bg-bg font-serif">
           <div className="flex flex-col items-center text-center p-8 max-w-[480px] bg-surface rounded-lg border border-border shadow-lg">
-            <Icon name="alert" size={48} className="text-error mb-4" />
+            <CircleAlert size={48} className="text-error mb-4" />
             <h2 className="text-xl font-semibold text-text mb-2">Something went wrong</h2>
             <p className="text-sm text-text-secondary leading-relaxed mb-4">
               An unexpected error occurred. This might be due to a corrupt

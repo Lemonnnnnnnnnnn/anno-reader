@@ -7,7 +7,8 @@
  */
 
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
-import { Button, Icon, TextArea } from "@/components/primitives";
+import { Pencil, Trash2 } from "lucide-react";
+import { Button, TextArea } from "@/components/primitives";
 import { useRoleForm, useContextModules } from "./hooks";
 
 export function AssistantTab() {
@@ -101,7 +102,7 @@ export function AssistantTab() {
                     onClick={() => handleEditRole(role)}
                     aria-label={`Edit ${role.name}`}
                   >
-                    <Icon name="edit" size={14} />
+                    <Pencil size={14} />
                   </Button>
                   {!role.isDefault && (
                     <Button
@@ -110,7 +111,7 @@ export function AssistantTab() {
                       onClick={() => removeRole(role.id)}
                       aria-label={`Delete ${role.name}`}
                     >
-                      <Icon name="trash" size={14} />
+                      <Trash2 size={14} />
                     </Button>
                   )}
                 </div>

@@ -14,7 +14,8 @@
 import { useState, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { writeConfig, ensureDataSubdirs } from "@/lib/storage/config";
-import { Button, Icon, ErrorBanner } from "@/components/primitives";
+import { Button, ErrorBanner } from "@/components/primitives";
+import { Folder } from "lucide-react";
 
 export function DataDirSetup({ onComplete }: { onComplete: () => void }) {
   const [loading, setLoading] = useState(false);
@@ -55,7 +56,7 @@ export function DataDirSetup({ onComplete }: { onComplete: () => void }) {
     <div className="flex items-center justify-center h-screen w-screen bg-bg text-text font-serif">
       <div className="flex flex-col items-center gap-4 p-8 text-center max-w-[360px]">
         {/* Folder icon */}
-        <Icon name="folder" size={64} className="text-text-muted opacity-50" />
+        <Folder size={64} className="text-text-muted opacity-50" />
 
         {/* Title */}
         <h1 className="text-xl font-semibold text-text tracking-tight m-0">

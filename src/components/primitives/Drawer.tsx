@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useCallback } from "react";
-import { Button, Icon } from "@/components/primitives";
+import { X } from "lucide-react";
+import { Button } from "@/components/primitives";
 
 interface DrawerProps {
   open: boolean;
@@ -53,7 +54,7 @@ export function Drawer({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="text-lg font-medium text-text font-sans">{title}</h2>
           <Button variant="icon" onClick={onClose} aria-label="Close drawer">
-            <Icon name="close" size={18} />
+            <X size={18} />
           </Button>
         </div>
 

@@ -1,4 +1,5 @@
-import { Button, TextArea, Icon, ErrorBanner } from "@/components/primitives";
+import { Button, TextArea, ErrorBanner } from "@/components/primitives";
+import { Loader2, Languages, X } from "lucide-react";
 import type { PreviewData } from "@/lib/ai/service";
 import { useTranslation, useNoteSaving } from "./hooks";
 import type { PanelStatus } from "./hooks";
@@ -56,7 +57,7 @@ export function AITranslationPanelView({
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <Icon name="translate" size={18} className="text-text-secondary" />
+            <Languages size={18} className="text-text-secondary" />
             <h2 className="text-base font-medium text-text font-sans">
               AI Translation
             </h2>
@@ -66,7 +67,7 @@ export function AITranslationPanelView({
             onClick={onClose}
             aria-label="Close translation panel"
           >
-            <Icon name="close" size={18} />
+            <X size={18} />
           </Button>
         </div>
 
@@ -90,25 +91,7 @@ export function AITranslationPanelView({
           {/* Loading state */}
           {status === "loading" && (
             <div className="flex items-center gap-2 py-6 justify-center">
-              <svg
-                className="animate-spin h-5 w-5 text-text-secondary"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
+              <Loader2 className="animate-spin h-5 w-5 text-text-secondary" />
               <span className="text-sm text-text-secondary font-sans">
                 Translating…
               </span>

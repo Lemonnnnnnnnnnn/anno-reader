@@ -11,7 +11,8 @@ import { useBookshelfStore } from "@/stores/useBookshelfStore";
 import { useBookStore } from "@/stores/useBookStore";
 import { importEpub, EpubImportError } from "@/lib/import";
 import { BookCard } from "@/components/BookCard";
-import { Button, Icon, ErrorBanner } from "@/components/primitives";
+import { Button, ErrorBanner } from "@/components/primitives";
+import { Settings, Book } from "lucide-react";
 import type { BookshelfItem } from "@/lib/bookshelf";
 
 export function BookshelfPage() {
@@ -97,7 +98,7 @@ export function BookshelfPage() {
               Import EPUB
             </Button>
             <Button variant="icon" onClick={() => navigate("/settings")} title="Settings">
-              <Icon name="settings" size={16} />
+              <Settings size={16} />
             </Button>
           </div>
         </div>
@@ -117,7 +118,7 @@ export function BookshelfPage() {
         {books.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
             <div className="text-text-muted opacity-50">
-              <Icon name="book" size={64} />
+              <Book size={64} />
             </div>
             <h2 className="text-xl font-semibold text-text m-0">
               Your bookshelf is empty

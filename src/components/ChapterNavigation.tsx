@@ -27,7 +27,8 @@
 import { useCallback } from "react";
 import { useBookStore, type ReadingProgress } from "@/stores/useBookStore";
 import type { EpubChapterInfo } from "@/lib/epub";
-import { Button, Icon } from "@/components/primitives";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/primitives";
 
 interface ChapterNavigationProps {
   /** Array of chapters in reading order */
@@ -145,10 +146,10 @@ export function ChapterNavigation({
         title={isFirstChapter ? "Already at first chapter" : "Previous chapter"}
       >
         {isCompact ? (
-          <Icon name="chevron-left" size={16} />
+          <ChevronLeft size={16} />
         ) : (
           <>
-            <Icon name="chevron-left" size={16} />
+            <ChevronLeft size={16} />
             <span className="leading-none">Prev</span>
           </>
         )}
@@ -194,11 +195,11 @@ export function ChapterNavigation({
         title={isLastChapter ? "Already at last chapter" : "Next chapter"}
       >
         {isCompact ? (
-          <Icon name="chevron-right" size={16} />
+          <ChevronRight size={16} />
         ) : (
           <>
             <span className="leading-none">Next</span>
-            <Icon name="chevron-right" size={16} />
+            <ChevronRight size={16} />
           </>
         )}
       </Button>

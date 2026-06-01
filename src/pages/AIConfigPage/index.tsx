@@ -10,7 +10,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
-import { Button, Icon } from "@/components/primitives";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/primitives";
 import type { TabId } from "./constants";
 import { TABS } from "./constants";
 import { ProviderTab } from "./ProviderTab";
@@ -31,7 +32,7 @@ export function AIConfigPage() {
       <header className="shrink-0 bg-surface border-b border-border">
         <div className="flex items-center gap-3 px-6 py-4 max-w-[1200px] mx-auto w-full">
           <Button variant="icon" onClick={() => navigate(-1)} aria-label="Go back">
-            <Icon name="arrow-left" size={18} />
+            <ArrowLeft size={18} />
           </Button>
           <h1 className="text-xl font-semibold text-text tracking-tight m-0">
             AI Configuration

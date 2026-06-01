@@ -13,13 +13,14 @@
 
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft, List, StickyNote, Settings, Book } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { TocDrawer } from "@/components/TocDrawer";
 import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DataDirSetup } from "@/components/DataDirSetup";
-import { Button, Icon } from "@/components/primitives";
+import { Button } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
 
 export function ReaderPage() {
@@ -90,7 +91,7 @@ export function ReaderPage() {
             onClick={() => navigate("/bookshelf")}
             title="Back to bookshelf"
           >
-            <Icon name="arrow-left" size={16} />
+            <ArrowLeft size={16} />
           </Button>
           {currentBook ? (
             <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -113,7 +114,7 @@ export function ReaderPage() {
                     onClick={() => setTocDrawerOpen(true)}
                     title="Table of Contents"
                   >
-                    <Icon name="list" size={16} />
+                    <List size={16} />
                   </Button>
                   <Button
                     variant="icon"
@@ -121,7 +122,7 @@ export function ReaderPage() {
                     onClick={() => setAnnotationDrawerOpen(true)}
                     title="Annotations"
                   >
-                    <Icon name="annotation" size={16} />
+                    <StickyNote size={16} />
                   </Button>
                   <Button
                     variant="icon"
@@ -129,7 +130,7 @@ export function ReaderPage() {
                     onClick={() => navigate("/settings")}
                     title="Settings"
                   >
-                    <Icon name="settings" size={16} />
+                    <Settings size={16} />
                   </Button>
                 </>
               )}
@@ -179,7 +180,7 @@ export function ReaderPage() {
         {!loading && !parsedEpub && !currentBook && (
           <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
             <div className="text-text-muted opacity-50">
-              <Icon name="book" size={64} />
+              <Book size={64} />
             </div>
             <h2 className="text-xl font-semibold text-text tracking-tight reader-empty-title">No book open</h2>
             <p className="text-sm text-text-secondary max-w-[280px] reader-empty-subtitle">

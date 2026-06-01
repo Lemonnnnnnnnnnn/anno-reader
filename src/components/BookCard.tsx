@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import type { BookshelfItem } from "@/lib/bookshelf";
-import { Icon } from "@/components/primitives";
+import { Book } from "lucide-react";
 
 interface BookCardProps {
   book: BookshelfItem;
@@ -76,7 +76,7 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full text-text-muted">
-              <Icon name="book" size={48} />
+              <Book size={48} />
             </div>
           )}
         </div>

@@ -18,7 +18,8 @@
  */
 
 import { useRef } from "react";
-import { Button, TextArea, Icon } from "@/components/primitives";
+import { Button, TextArea } from "@/components/primitives";
+import { Pencil, Highlighter, Languages } from "lucide-react";
 import { HIGHLIGHT_COLORS } from "./constants";
 import {
   useSelectionListener,
@@ -91,7 +92,7 @@ export function TextSelectionToolbar({
               onClick={handleAddNote}
               title="Add note to selection"
             >
-              <Icon name="edit" size={14} className="shrink-0 opacity-70" />
+              <Pencil size={14} className="shrink-0 opacity-70" />
               Note
             </button>
             <div className="w-px h-5 bg-border mx-0.5" />
@@ -100,7 +101,7 @@ export function TextSelectionToolbar({
               onClick={handleHighlight}
               title="Highlight selection"
             >
-              <Icon name="highlight" size={14} className="shrink-0 opacity-70" />
+              <Highlighter size={14} className="shrink-0 opacity-70" />
               Highlight
             </button>
             <div className="w-px h-5 bg-border mx-0.5" />
@@ -109,7 +110,7 @@ export function TextSelectionToolbar({
               onClick={handleTranslate}
               title="Translate selection"
             >
-              <Icon name="translate" size={14} className="shrink-0 opacity-70" />
+              <Languages size={14} className="shrink-0 opacity-70" />
             </button>
           </div>
         )}
