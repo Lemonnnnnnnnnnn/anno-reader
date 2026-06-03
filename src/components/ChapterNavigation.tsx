@@ -128,7 +128,7 @@ export function ChapterNavigation({
       className={
         isCompact
           ? "flex items-center gap-3"
-          : "flex items-center justify-between gap-4 py-3 px-4 bg-surface border-b border-border"
+          : "flex items-center justify-between gap-4 py-3 px-4 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark"
       }
     >
       {/* Previous button */}
@@ -136,7 +136,7 @@ export function ChapterNavigation({
         variant="nav"
         className={
           isCompact
-            ? "w-9 h-9 p-0 bg-transparent text-text text-xs font-medium"
+            ? "w-9 h-9 p-0 bg-transparent text-text dark:text-text-dark text-xs font-medium"
             : "gap-1 text-xs font-medium tracking-wide"
         }
         onClick={goToPrevious}
@@ -164,15 +164,15 @@ export function ChapterNavigation({
           }
         >
           {isCompact ? (
-            <span className="text-xs text-text-secondary font-normal tracking-wide tabular-nums">
+            <span className="text-xs text-text-secondary dark:text-text-secondary-dark font-normal tracking-wide tabular-nums">
               {currentChapterIndex + 1} / {totalChapters}
             </span>
           ) : (
             <>
-              <span className="text-sm text-text-secondary truncate max-w-[300px] text-center">
+              <span className="text-sm text-text-secondary dark:text-text-secondary-dark truncate max-w-[300px] text-center">
                 {chapterTitle}
               </span>
-              <span className="text-xs text-text-secondary font-normal tracking-wide tabular-nums">
+              <span className="text-xs text-text-secondary dark:text-text-secondary-dark font-normal tracking-wide tabular-nums">
                 {currentChapterIndex + 1} / {totalChapters}
               </span>
             </>
@@ -185,7 +185,7 @@ export function ChapterNavigation({
         variant="nav"
         className={
           isCompact
-            ? "w-9 h-9 p-0 bg-transparent text-text text-xs font-medium"
+            ? "w-9 h-9 p-0 bg-transparent text-text dark:text-text-dark text-xs font-medium"
             : "gap-1 text-xs font-medium tracking-wide"
         }
         onClick={goToNext}

@@ -53,18 +53,18 @@ export function DataDirSetup({ onComplete }: { onComplete: () => void }) {
   }, [onComplete]);
 
   return (
-    <div className="flex items-center justify-center h-screen w-screen bg-bg text-text font-serif">
+    <div className="flex items-center justify-center h-screen w-screen bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
       <div className="flex flex-col items-center gap-4 p-8 text-center max-w-[360px]">
         {/* Folder icon */}
-        <Folder size={64} className="text-text-muted opacity-50" />
+        <Folder size={64} className="text-text-muted dark:text-text-muted-dark opacity-50" />
 
         {/* Title */}
-        <h1 className="text-xl font-semibold text-text tracking-tight m-0">
+        <h1 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight m-0">
           Select Data Directory
         </h1>
 
         {/* Subtitle */}
-        <p className="text-sm text-text-secondary leading-relaxed m-0">
+        <p className="text-sm text-text-secondary dark:text-text-secondary-dark leading-relaxed m-0">
           Choose where to store your reading progress, notes, and highlights
         </p>
 
