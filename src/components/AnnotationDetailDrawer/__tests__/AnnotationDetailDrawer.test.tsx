@@ -1,5 +1,5 @@
 /**
- * Tests for the AnnotationDetailPanel component.
+ * Tests for the AnnotationDetailDrawer component.
  *
  * Uses renderToString (node env) to avoid jsdom ESM issues.
  * Tests structural rendering; interaction is covered by integration tests.
@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { renderToString } from "react-dom/server";
-import { AnnotationDetailPanel } from "..";
+import { AnnotationDetailDrawer } from "..";
 
 // Mock notes data
 const mockNote = {
@@ -48,10 +48,10 @@ vi.mock("@/stores/useBookStore", () => ({
     }),
 }));
 
-describe("AnnotationDetailPanel", () => {
+describe("AnnotationDetailDrawer", () => {
   it("renders nothing when noteId is null", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId={null} onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId={null} onClose={vi.fn()} />,
     );
 
     // Drawer returns null when isOpen=false
@@ -60,7 +60,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("renders drawer with note detail when noteId is provided", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
     );
 
     expect(html).toContain("Note Detail");
@@ -70,7 +70,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("renders the quoted original text", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
     );
 
     expect(html).toContain("Selected text in the book");
@@ -78,7 +78,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("renders close button with Drawer aria-label", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
     );
 
     expect(html).toContain('aria-label="Close drawer"');
@@ -86,7 +86,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("renders edit button", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
     );
 
     expect(html).toContain("Edit note");
@@ -94,7 +94,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("renders delete button", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
     );
 
     expect(html).toContain("Delete note");
@@ -102,7 +102,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("renders different note content when noteId changes", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-2" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-2" onClose={vi.fn()} />,
     );
 
     expect(html).toContain("Another selection");
@@ -111,7 +111,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("does not show edit/delete in editing mode (SSR default shows non-editing)", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
     );
 
     // In non-editing state, edit/delete buttons are shown
@@ -121,7 +121,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("renders timestamp", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
     );
 
     // Timestamp should be rendered as a date string
@@ -130,7 +130,7 @@ describe("AnnotationDetailPanel", () => {
 
   it("renders markdown note content", () => {
     const html = renderToString(
-      <AnnotationDetailPanel noteId="note-2" onClose={vi.fn()} />,
+      <AnnotationDetailDrawer noteId="note-2" onClose={vi.fn()} />,
     );
 
     // Markdown **bold** should be rendered as <strong>

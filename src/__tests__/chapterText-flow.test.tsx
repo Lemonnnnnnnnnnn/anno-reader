@@ -87,8 +87,8 @@ vi.mock("@/components/TextSelectionToolbar", () => ({
   TextSelectionToolbar: () => <div data-testid="text-selection-toolbar" />,
 }));
 
-vi.mock("@/components/AnnotationDetailPanel", () => ({
-  AnnotationDetailPanel: () => <div data-testid="annotation-detail-panel" />,
+vi.mock("@/components/AnnotationDetailDrawer", () => ({
+  AnnotationDetailDrawer: () => <div data-testid="annotation-detail-panel" />,
 }));
 
 vi.mock("@/lib/selection", () => ({

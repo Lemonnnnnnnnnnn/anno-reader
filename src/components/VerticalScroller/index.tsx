@@ -26,7 +26,7 @@ import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
 import { updateHighlight, deleteHighlight } from "@/lib/annotations";
 import { useBookStore } from "@/stores/useBookStore";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
-import { AnnotationDetailPanel } from "../AnnotationDetailPanel";
+import { AnnotationDetailDrawer } from "../AnnotationDetailDrawer";
 import { HighlightPopover } from "../HighlightPopover";
 import { AITranslationPanel } from "../AITranslationPanel";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
@@ -203,7 +203,7 @@ export function VerticalScroller({
         chapterHref={chapterHref}
         onTranslate={handleTranslate}
       />
-      <AnnotationDetailPanel
+      <AnnotationDetailDrawer
         noteId={activeNoteId}
         onClose={handleClosePopover}
       />

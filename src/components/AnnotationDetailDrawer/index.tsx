@@ -1,5 +1,5 @@
 /**
- * AnnotationDetailPanel component.
+ * AnnotationDetailDrawer component.
  *
  * Drawer-based panel that displays full note detail with edit and delete
  * actions. Uses the Drawer component as a container for consistent
@@ -7,7 +7,7 @@
  *
  * @example
  * ```tsx
- * <AnnotationDetailPanel
+ * <AnnotationDetailDrawer
  *   noteId={activeNoteId}
  *   onClose={() => setActiveNoteId(null)}
  * />
@@ -23,14 +23,14 @@ import { Button, TextArea } from "@/components/primitives";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
 
-interface AnnotationDetailPanelProps {
+interface AnnotationDetailDrawerProps {
   /** ID of the note to display, or null if closed */
   noteId: string | null;
   /** Callback when the panel should close */
   onClose: () => void;
 }
 
-export function AnnotationDetailPanel({ noteId, onClose }: AnnotationDetailPanelProps) {
+export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -87,7 +87,7 @@ export function AnnotationDetailPanel({ noteId, onClose }: AnnotationDetailPanel
   return (
     <Drawer isOpen={!!noteId} onClose={onClose} title="Note Detail">
       {note ? (
-        <div className="flex flex-col gap-4 font-serif">
+        <div className="flex-1 flex flex-col gap-4 font-serif min-h-0">
           {/* Quoted original text */}
           <div className="border-l-2 border-accent dark:border-accent-dark pl-3">
             <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug overflow-hidden text-ellipsis line-clamp-3">
@@ -97,18 +97,16 @@ export function AnnotationDetailPanel({ noteId, onClose }: AnnotationDetailPanel
 
           {/* Note content */}
           {isEditing ? (
-            <div className="flex flex-col gap-3">
-              <div className="max-h-[300px] overflow-y-auto">
-                <TextArea
-                  value={editText}
-                  onChange={(e) => setEditText(e.target.value)}
-                  onSubmit={handleSaveEdit}
-                  onCancel={handleCancelEdit}
-                  rows={6}
-                  placeholder="Write your note..."
-                />
-              </div>
-              <div className="flex justify-end gap-2">
+            <div className="flex-1 flex flex-col gap-3 min-h-0">
+              <TextArea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onSubmit={handleSaveEdit}
+                onCancel={handleCancelEdit}
+                className="flex-1 min-h-0"
+                placeholder="Write your note..."
+              />
+              <div className="flex justify-end gap-2 shrink-0">
                 <Button variant="secondary" size="sm" onClick={handleCancelEdit}>
                   Cancel
                 </Button>

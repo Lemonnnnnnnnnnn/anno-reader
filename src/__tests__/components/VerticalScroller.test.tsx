@@ -27,8 +27,8 @@ vi.mock("@/components/HighlightPopover", () => ({
   },
 }));
 
-vi.mock("@/components/AnnotationDetailPanel", () => ({
-  AnnotationDetailPanel: (props: Record<string, unknown>) => (
+vi.mock("@/components/AnnotationDetailDrawer", () => ({
+  AnnotationDetailDrawer: (props: Record<string, unknown>) => (
     <div
       data-testid="annotation-detail-panel"
       data-note-id={(props as { noteId: string | null }).noteId ?? ""}
