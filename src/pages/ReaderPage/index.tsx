@@ -13,7 +13,7 @@
 
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, List, StickyNote, Search, Settings, Book, Sun, Moon } from "lucide-react";
+import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
@@ -21,6 +21,7 @@ import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { TocDrawer } from "@/components/TocDrawer";
 import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DictionaryDrawer } from "@/components/DictionaryDrawer";
+import { ChatDrawer } from "@/components/ChatDrawer";
 import { DataDirSetup } from "@/components/DataDirSetup";
 import { Button } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
@@ -69,6 +70,7 @@ export function ReaderPage() {
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
   const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
   const [dictionaryDrawerOpen, setDictionaryDrawerOpen] = useState(false);
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
 
   // Return null if no book (before redirect completes)
   if (!guardedBook) {
@@ -125,7 +127,10 @@ export function ReaderPage() {
                   <Button
                     variant="icon"
                     className="ml-2"
-                    onClick={() => setTocDrawerOpen(true)}
+                    onClick={() => {
+                      setTocDrawerOpen(true);
+                      setChatDrawerOpen(false);
+                    }}
                     title="Table of Contents"
                   >
                     <List size={16} />
@@ -133,7 +138,10 @@ export function ReaderPage() {
                   <Button
                     variant="icon"
                     className="ml-2"
-                    onClick={() => setAnnotationDrawerOpen(true)}
+                    onClick={() => {
+                      setAnnotationDrawerOpen(true);
+                      setChatDrawerOpen(false);
+                    }}
                     title="Annotations"
                   >
                     <StickyNote size={16} />
@@ -141,7 +149,10 @@ export function ReaderPage() {
                   <Button
                     variant="icon"
                     className="ml-2"
-                    onClick={() => setDictionaryDrawerOpen(true)}
+                    onClick={() => {
+                      setDictionaryDrawerOpen(true);
+                      setChatDrawerOpen(false);
+                    }}
                     title="Dictionary"
                   >
                     <Search size={16} />
@@ -153,6 +164,19 @@ export function ReaderPage() {
                     title="Settings"
                   >
                     <Settings size={16} />
+                  </Button>
+                  <Button
+                    variant="icon"
+                    className="ml-2"
+                    onClick={() => {
+                      setChatDrawerOpen(true);
+                      setTocDrawerOpen(false);
+                      setAnnotationDrawerOpen(false);
+                      setDictionaryDrawerOpen(false);
+                    }}
+                    title="AI Chat"
+                  >
+                    <MessageSquare size={16} />
                   </Button>
                   <Button
                     variant="icon"
@@ -289,6 +313,10 @@ export function ReaderPage() {
       <DictionaryDrawer
         open={dictionaryDrawerOpen}
         onClose={() => setDictionaryDrawerOpen(false)}
+      />
+      <ChatDrawer
+        isOpen={chatDrawerOpen}
+        onClose={() => setChatDrawerOpen(false)}
       />
 
     </div>
