@@ -83,7 +83,7 @@ export function ChapterRenderer({ chapters, resources, opfFolder, manifestHrefs,
     });
 
     return html;
-  }, [currentChapter, resources, opfFolder]);
+  }, [currentChapter, resources, opfFolder, theme]);
 
   // Extract plain text from chapter content for AI translation context
   const chapterText = useMemo(() => {
