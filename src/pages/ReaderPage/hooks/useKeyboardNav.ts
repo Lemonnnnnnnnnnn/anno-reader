@@ -97,11 +97,11 @@ export function useKeyboardNav(parsedEpub: ParsedEpub | null) {
 
       const totalChapters = parsedEpub.chapters.length;
 
-      if (key === "ArrowLeft" || key === "ArrowUp") {
+      if (key === "ArrowLeft") {
         if (ui.currentChapterIndex > 0) {
           goToChapter(ui.currentChapterIndex - 1);
         }
-      } else if (key === "ArrowRight" || key === "ArrowDown") {
+      } else if (key === "ArrowRight") {
         if (ui.currentChapterIndex < totalChapters - 1) {
           goToChapter(ui.currentChapterIndex + 1);
         }
@@ -116,7 +116,7 @@ export function useKeyboardNav(parsedEpub: ParsedEpub | null) {
       // Skip if user is typing in an input field
       if (isTypingInInput()) return;
 
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
         e.preventDefault();
         handleNavigation(e.key);
       }
@@ -132,7 +132,7 @@ export function useKeyboardNav(parsedEpub: ParsedEpub | null) {
       const data = event.data as KeyboardMessage | undefined;
       if (!data || data.type !== "keydown") return;
 
-      if (data.key === "ArrowLeft" || data.key === "ArrowRight" || data.key === "ArrowUp" || data.key === "ArrowDown") {
+      if (data.key === "ArrowLeft" || data.key === "ArrowRight") {
         handleNavigation(data.key);
       }
     };
