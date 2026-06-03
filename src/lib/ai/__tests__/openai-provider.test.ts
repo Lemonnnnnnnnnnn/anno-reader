@@ -1,12 +1,43 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+/**
+ * @vitest-environment node
+ */
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { OpenAIProvider } from "../providers/openai";
 import { AIServiceError } from "../service";
 import type { AIProvider } from "../types";
 import type { TranslationRequest } from "../service";
 
-// Mock fetch globally
+// --- AI SDK mocks ---
+
+const mockGenerateText = vi.fn();
+const mockStreamText = vi.fn();
+const mockChatModel = vi.fn();
+
+vi.mock("@ai-sdk/openai-compatible", () => ({
+  createOpenAICompatible: vi.fn(() => ({
+    chatModel: mockChatModel,
+  })),
+}));
+
+vi.mock("ai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("ai")>();
+  return {
+    ...actual,
+    generateText: (...args: unknown[]) => mockGenerateText(...args),
+    streamText: (...args: unknown[]) => mockStreamText(...args),
+  };
+});
+
+// Import APICallError AFTER the mock is defined so we get the real class
+// (spread from importOriginal) that matches what the production code sees.
+import { APICallError } from "ai";
+
+// --- Raw fetch mock (for testConnection) ---
+
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
+
+// --- Test fixtures ---
 
 const mockProvider: AIProvider = {
   id: "test-openai",
@@ -24,27 +55,30 @@ const mockRequest: TranslationRequest = {
   text: "Hello world",
   context: "A greeting",
   targetLanguage: "Chinese",
-  systemMessage: "You are a professional translator. Translate the following text to Chinese.",
+  systemMessage:
+    "You are a professional translator. Translate the following text to Chinese.",
   userMessage: "Context:\nA greeting\n\nText to translate:\nHello world",
 };
 
-function mockResponseOk(body: unknown): Response {
-  return {
-    ok: true,
-    status: 200,
-    json: async () => body,
-    text: async () => JSON.stringify(body),
-  } as Response;
+// --- Helpers ---
+
+/** Build an APICallError with a given status code. */
+function makeApiCallError(statusCode: number, message = `HTTP ${statusCode}`) {
+  // Use the mocked module's APICallError so instanceof checks pass
+  // in the production code's toAIServiceError.
+  return new APICallError({
+    message,
+    statusCode,
+    url: "https://api.openai.com/v1/chat/completions",
+    requestBodyValues: {},
+    responseHeaders: {},
+    responseBody: "{}",
+    isRetryable: false,
+    cause: new Error(message),
+  });
 }
 
-function mockResponseError(status: number, body = "Error"): Response {
-  return {
-    ok: false,
-    status,
-    json: async () => ({ error: body }),
-    text: async () => body,
-  } as Response;
-}
+// --- Tests ---
 
 describe("OpenAIProvider", () => {
   let provider: OpenAIProvider;
@@ -52,84 +86,46 @@ describe("OpenAIProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     provider = new OpenAIProvider();
+    mockChatModel.mockReturnValue("mock-model");
   });
 
+  // =========================================================================
+  // translate()
+  // =========================================================================
   describe("translate()", () => {
-    it("should construct correct API request with URL, headers, and body", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponseOk({
-          choices: [{ message: { content: "你好世界" } }],
-        })
-      );
+    it("should call generateText with correct model, system, prompt, maxOutputTokens, and temperature", async () => {
+      mockGenerateText.mockResolvedValue({ text: "你好世界" });
 
       await provider.translate(mockRequest, mockProvider);
 
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      const [url, options] = mockFetch.mock.calls[0];
-
-      // Verify URL
-      expect(url).toBe("https://api.openai.com/v1/chat/completions");
-
-      // Verify method
-      expect(options.method).toBe("POST");
-
-      // Verify headers
-      expect(options.headers).toEqual({
-        "Content-Type": "application/json",
-        Authorization: "Bearer sk-test-key",
+      expect(mockGenerateText).toHaveBeenCalledTimes(1);
+      expect(mockGenerateText).toHaveBeenCalledWith({
+        model: "mock-model",
+        system: mockRequest.systemMessage,
+        prompt: mockRequest.userMessage,
+        maxOutputTokens: 4096,
+        temperature: 0.7,
       });
-
-      // Verify body
-      const body = JSON.parse(options.body);
-      expect(body.model).toBe("gpt-4o");
-      expect(body.max_tokens).toBe(4096);
-      expect(body.temperature).toBe(0.7);
-      expect(body.messages).toHaveLength(2);
-      expect(body.messages[0].role).toBe("system");
-      expect(body.messages[1].role).toBe("user");
     });
 
-    it("should include context in user message when provided", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponseOk({
-          choices: [{ message: { content: "你好世界" } }],
-        })
+    it("should create provider and model with correct config", async () => {
+      const { createOpenAICompatible } = await import(
+        "@ai-sdk/openai-compatible"
       );
+      mockGenerateText.mockResolvedValue({ text: "你好世界" });
 
       await provider.translate(mockRequest, mockProvider);
 
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      const userMessage = body.messages[1].content;
-
-      expect(userMessage).toContain("Context:");
-      expect(userMessage).toContain("A greeting");
-      expect(userMessage).toContain("Text to translate:");
-      expect(userMessage).toContain("Hello world");
-    });
-
-    it("should omit context section when context is empty", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponseOk({
-          choices: [{ message: { content: "你好世界" } }],
-        })
-      );
-
-      const requestNoContext = { ...mockRequest, context: "" };
-      await provider.translate(requestNoContext, mockProvider);
-
-      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-      const userMessage = body.messages[1].content;
-
-      expect(userMessage).not.toContain("Context:");
-      expect(userMessage).toBe("Text to translate:\nHello world");
+      expect(createOpenAICompatible).toHaveBeenCalledWith({
+        name: "Test OpenAI",
+        baseURL: "https://api.openai.com/v1",
+        apiKey: "sk-test-key",
+      });
+      expect(mockChatModel).toHaveBeenCalledWith("gpt-4o");
     });
 
     it("should return translation on successful response", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponseOk({
-          choices: [{ message: { content: "你好世界" } }],
-        })
-      );
+      mockGenerateText.mockResolvedValue({ text: "你好世界" });
 
       const result = await provider.translate(mockRequest, mockProvider);
 
@@ -139,15 +135,19 @@ describe("OpenAIProvider", () => {
       expect(result.cached).toBe(false);
     });
 
+    it("should trim whitespace from translation", async () => {
+      mockGenerateText.mockResolvedValue({ text: "  你好世界  " });
+
+      const result = await provider.translate(mockRequest, mockProvider);
+
+      expect(result.translation).toBe("你好世界");
+    });
+
     it("should throw API_ERROR for empty translation response", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponseOk({
-          choices: [{ message: { content: "" } }],
-        })
-      );
+      mockGenerateText.mockResolvedValue({ text: "" });
 
       await expect(
-        provider.translate(mockRequest, mockProvider)
+        provider.translate(mockRequest, mockProvider),
       ).rejects.toThrow(AIServiceError);
 
       try {
@@ -156,130 +156,131 @@ describe("OpenAIProvider", () => {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("API_ERROR");
         expect((error as AIServiceError).message).toBe(
-          "Empty translation response"
+          "Empty translation response",
         );
         expect((error as AIServiceError).retryable).toBe(false);
       }
     });
 
-    it("should throw API_ERROR for null choices response", async () => {
-      mockFetch.mockResolvedValue(
-        mockResponseOk({
-          choices: [],
-        })
+    it("should throw API_ERROR for whitespace-only translation response", async () => {
+      mockGenerateText.mockResolvedValue({ text: "   " });
+
+      await expect(
+        provider.translate(mockRequest, mockProvider),
+      ).rejects.toThrow(AIServiceError);
+    });
+
+    // ----- Error mapping -----
+
+    it("should throw AUTH_ERROR for 401 APICallError", async () => {
+      mockGenerateText.mockRejectedValue(makeApiCallError(401, "Unauthorized"));
+
+      try {
+        await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AIServiceError);
+        expect((error as AIServiceError).code).toBe("AUTH_ERROR");
+        expect((error as AIServiceError).retryable).toBe(false);
+      }
+    });
+
+    it("should throw AUTH_ERROR for 403 APICallError", async () => {
+      mockGenerateText.mockRejectedValue(makeApiCallError(403, "Forbidden"));
+
+      try {
+        await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AIServiceError);
+        expect((error as AIServiceError).code).toBe("AUTH_ERROR");
+        expect((error as AIServiceError).retryable).toBe(false);
+      }
+    });
+
+    it("should throw RATE_LIMITED for 429 APICallError (retryable)", async () => {
+      mockGenerateText.mockRejectedValue(
+        makeApiCallError(429, "Rate limit exceeded"),
       );
 
-      await expect(
-        provider.translate(mockRequest, mockProvider)
-      ).rejects.toThrow(AIServiceError);
-    });
-
-    it("should throw AUTH_ERROR for 401 response", async () => {
-      mockFetch.mockResolvedValue(mockResponseError(401));
-
-      await expect(
-        provider.translate(mockRequest, mockProvider)
-      ).rejects.toThrow(AIServiceError);
-
       try {
         await provider.translate(mockRequest, mockProvider);
-      } catch (error) {
-        expect(error).toBeInstanceOf(AIServiceError);
-        expect((error as AIServiceError).code).toBe("AUTH_ERROR");
-        expect((error as AIServiceError).message).toBe(
-          "Invalid API key or unauthorized access"
-        );
-        expect((error as AIServiceError).retryable).toBe(false);
-      }
-    });
-
-    it("should throw AUTH_ERROR for 403 response", async () => {
-      mockFetch.mockResolvedValue(mockResponseError(403));
-
-      try {
-        await provider.translate(mockRequest, mockProvider);
-      } catch (error) {
-        expect(error).toBeInstanceOf(AIServiceError);
-        expect((error as AIServiceError).code).toBe("AUTH_ERROR");
-        expect((error as AIServiceError).retryable).toBe(false);
-      }
-    });
-
-    it("should throw RATE_LIMITED for 429 response (retryable)", async () => {
-      mockFetch.mockResolvedValue(mockResponseError(429));
-
-      try {
-        await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("RATE_LIMITED");
-        expect((error as AIServiceError).message).toBe("Rate limit exceeded");
         expect((error as AIServiceError).retryable).toBe(true);
       }
     });
 
-    it("should throw API_ERROR for 500 response (retryable)", async () => {
-      mockFetch.mockResolvedValue(mockResponseError(500));
+    it("should throw API_ERROR for 500 APICallError (retryable)", async () => {
+      mockGenerateText.mockRejectedValue(
+        makeApiCallError(500, "Internal Server Error"),
+      );
 
       try {
         await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("API_ERROR");
-        expect((error as AIServiceError).message).toBe("Server error: 500");
         expect((error as AIServiceError).retryable).toBe(true);
       }
     });
 
-    it("should throw API_ERROR for 502 response (retryable)", async () => {
-      mockFetch.mockResolvedValue(mockResponseError(502));
+    it("should throw API_ERROR for 502 APICallError (retryable)", async () => {
+      mockGenerateText.mockRejectedValue(
+        makeApiCallError(502, "Bad Gateway"),
+      );
 
       try {
         await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("API_ERROR");
-        expect((error as AIServiceError).message).toBe("Server error: 502");
         expect((error as AIServiceError).retryable).toBe(true);
       }
     });
 
-    it("should throw API_ERROR for 400 response (non-retryable)", async () => {
-      mockFetch.mockResolvedValue(mockResponseError(400, "Bad request"));
+    it("should throw API_ERROR for 400 APICallError (non-retryable)", async () => {
+      mockGenerateText.mockRejectedValue(
+        makeApiCallError(400, "Bad request"),
+      );
 
       try {
         await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("API_ERROR");
-        expect((error as AIServiceError).message).toBe(
-          "API error 400: Bad request"
-        );
         expect((error as AIServiceError).retryable).toBe(false);
       }
     });
 
     it("should throw NETWORK_ERROR for network failure (retryable)", async () => {
-      mockFetch.mockRejectedValue(new Error("fetch failed"));
+      mockGenerateText.mockRejectedValue(new Error("fetch failed"));
 
       try {
         await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("NETWORK_ERROR");
         expect((error as AIServiceError).message).toContain(
-          "Failed to connect to provider"
+          "Failed to connect to provider",
         );
         expect((error as AIServiceError).message).toContain("fetch failed");
         expect((error as AIServiceError).retryable).toBe(true);
       }
     });
 
-    it("should handle non-Error thrown by fetch", async () => {
-      mockFetch.mockRejectedValue("string error");
+    it("should handle non-Error thrown by generateText", async () => {
+      mockGenerateText.mockRejectedValue("string error");
 
       try {
         await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("NETWORK_ERROR");
@@ -288,19 +289,151 @@ describe("OpenAIProvider", () => {
       }
     });
 
-    it("should re-throw AIServiceError from handleApiError without wrapping", async () => {
-      mockFetch.mockResolvedValue(mockResponseError(401));
+    it("should re-throw AIServiceError from toAIServiceError without wrapping", async () => {
+      const original = new AIServiceError("AUTH_ERROR", "Invalid API key", false);
+      mockGenerateText.mockRejectedValue(original);
 
       try {
         await provider.translate(mockRequest, mockProvider);
+        expect.fail("Should have thrown");
       } catch (error) {
-        // Should be the exact same error, not wrapped in another NETWORK_ERROR
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("AUTH_ERROR");
+        // Should be the exact same error object, not a new wrapped one
+        expect(error).toBe(original);
       }
     });
   });
 
+  // =========================================================================
+  // translateStream()
+  // =========================================================================
+  describe("translateStream()", () => {
+    it("should call streamText with correct parameters", async () => {
+      const chunks = ["你好", "世界"];
+      mockStreamText.mockReturnValue({
+        textStream: (async function* () {
+          for (const c of chunks) yield c;
+        })(),
+      });
+
+      await provider.translateStream(mockRequest, mockProvider);
+
+      expect(mockStreamText).toHaveBeenCalledTimes(1);
+      expect(mockStreamText).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: "mock-model",
+          system: mockRequest.systemMessage,
+          prompt: mockRequest.userMessage,
+          maxOutputTokens: 4096,
+          temperature: 0.7,
+        }),
+      );
+    });
+
+    it("should return StreamingTranslationResponse with textStream and provider", async () => {
+      const chunks = ["你好", "世界"];
+      mockStreamText.mockReturnValue({
+        textStream: (async function* () {
+          for (const c of chunks) yield c;
+        })(),
+      });
+
+      const result = await provider.translateStream(mockRequest, mockProvider);
+
+      expect(result.provider).toBe(mockProvider);
+      expect(result.textStream).toBeDefined();
+
+      // Consume the AsyncIterable to verify it yields correctly
+      const collected: string[] = [];
+      for await (const chunk of result.textStream) {
+        collected.push(chunk);
+      }
+      expect(collected).toEqual(["你好", "世界"]);
+    });
+
+    it("should pass abortSignal to streamText", async () => {
+      const controller = new AbortController();
+      mockStreamText.mockReturnValue({
+        textStream: (async function* () {})(),
+      });
+
+      await provider.translateStream(mockRequest, mockProvider, {
+        abortSignal: controller.signal,
+      });
+
+      expect(mockStreamText).toHaveBeenCalledWith(
+        expect.objectContaining({
+          abortSignal: controller.signal,
+        }),
+      );
+    });
+
+    it("should pass onError callback to streamText", async () => {
+      const onError = vi.fn();
+      mockStreamText.mockReturnValue({
+        textStream: (async function* () {})(),
+      });
+
+      await provider.translateStream(mockRequest, mockProvider, {
+        onError,
+      });
+
+      // Verify onError was passed to streamText
+      const callArgs = mockStreamText.mock.calls[0][0];
+      expect(callArgs.onError).toBeDefined();
+      expect(typeof callArgs.onError).toBe("function");
+    });
+
+    it("should wrap non-Error in onError callback as Error", async () => {
+      const onError = vi.fn();
+      let capturedOnError: ((args: { error: unknown }) => void) | undefined;
+
+      mockStreamText.mockImplementation((opts: Record<string, unknown>) => {
+        capturedOnError = opts.onError as (args: { error: unknown }) => void;
+        return {
+          textStream: (async function* () {})(),
+        };
+      });
+
+      await provider.translateStream(mockRequest, mockProvider, {
+        onError,
+      });
+
+      // Simulate streamText calling onError with a non-Error value
+      capturedOnError!({ error: "string error" });
+
+      expect(onError).toHaveBeenCalledTimes(1);
+      const passedError = onError.mock.calls[0][0];
+      expect(passedError).toBeInstanceOf(Error);
+      expect(passedError.message).toBe("string error");
+    });
+
+    it("should pass Error instances through onError callback unchanged", async () => {
+      const onError = vi.fn();
+      let capturedOnError: ((args: { error: unknown }) => void) | undefined;
+
+      mockStreamText.mockImplementation((opts: Record<string, unknown>) => {
+        capturedOnError = opts.onError as (args: { error: unknown }) => void;
+        return {
+          textStream: (async function* () {})(),
+        };
+      });
+
+      await provider.translateStream(mockRequest, mockProvider, {
+        onError,
+      });
+
+      const originalError = new Error("stream failed");
+      capturedOnError!({ error: originalError });
+
+      expect(onError).toHaveBeenCalledWith(originalError);
+    });
+  });
+
+  // =========================================================================
+  // testConnection()
+  // =========================================================================
   describe("testConnection()", () => {
     it("should return true for 200 response", async () => {
       mockFetch.mockResolvedValue({ ok: true, status: 200 } as Response);
@@ -314,7 +447,7 @@ describe("OpenAIProvider", () => {
           headers: {
             Authorization: "Bearer sk-test-key",
           },
-        }
+        },
       );
     });
 

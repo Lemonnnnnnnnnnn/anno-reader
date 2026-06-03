@@ -12,11 +12,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.48",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@tauri-apps/plugin-http": "^2.5.9",
     "@tauri-apps/plugin-opener": "^2",
+    "ai": "^6.0.194",
     "epubix": "^0.2.7",
     "lucide-react": "^1.17.0",
     "react": "^19.1.0",
@@ -24,6 +26,7 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.16.0",
     "remark-gfm": "^4.0.1",
+    "streamdown": "^2.5.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

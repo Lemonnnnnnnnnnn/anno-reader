@@ -7,12 +7,12 @@
  * - Translation state (status, text, error, preview data)
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { TranslationService } from "@/lib/ai/translation";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 import type { PreviewData } from "@/lib/ai/service";
 
-export type PanelStatus = "previewing" | "loading" | "success" | "error";
+export type PanelStatus = "previewing" | "loading" | "streaming" | "success" | "error";
 
 interface UseTranslationParams {
   selectedText: string;
@@ -22,11 +22,21 @@ interface UseTranslationParams {
 export function useTranslation({ selectedText, chapterText }: UseTranslationParams) {
   const [status, setStatus] = useState<PanelStatus>("loading");
   const [translationText, setTranslationText] = useState("");
+  const [streamingText, setStreamingText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
 
   const config = useAIConfigStore((s) => s.config);
-  const service = new TranslationService();
+  const serviceRef = useRef<TranslationService>(null);
+  if (!serviceRef.current) {
+    serviceRef.current = new TranslationService();
+  }
+  const service = serviceRef.current;
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Abort on unmount
+  useEffect(() => () => abortControllerRef.current?.abort(), []);
 
   const preview = useCallback(async () => {
     setStatus("loading");
@@ -56,32 +66,65 @@ export function useTranslation({ selectedText, chapterText }: UseTranslationPara
   const translate = useCallback(async () => {
     setStatus("loading");
     setError(null);
+    setStreamingText("");
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
-      const response = await service.translate(
+      const result = await service.translateStream(
         selectedText,
         "Chinese",
         config,
-        chapterText,
+        { abortSignal: abortController.signal, onError: (err) => setError(err.message) },
+        chapterText ?? undefined,
       );
-      setTranslationText(response.translation);
+
+      setStatus("streaming");
+      let accumulated = "";
+
+      for await (const chunk of result.textStream) {
+        if (abortController.signal.aborted) break;
+        accumulated += chunk;
+        setStreamingText(accumulated);
+      }
+
+      setTranslationText(accumulated);
       setStatus("success");
+
+      // Cache the streaming result for future non-streaming calls
+      service.cacheTranslation(
+        selectedText,
+        "Chinese",
+        accumulated,
+        result.provider,
+      );
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Translation failed";
-      setError(message);
-      setStatus("error");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setStatus("success");
+      } else {
+        const message =
+          err instanceof Error ? err.message : "Translation failed";
+        setError(message);
+        setStatus("error");
+      }
     }
   }, [selectedText, chapterText, config]);
+
+  const stopTranslation = useCallback(() => {
+    abortControllerRef.current?.abort();
+  }, []);
 
   return {
     status,
     translationText,
+    streamingText,
     setTranslationText,
     error,
     setError,
     previewData,
     translate,
+    stopTranslation,
     preview,
   };
 }

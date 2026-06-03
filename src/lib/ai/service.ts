@@ -32,6 +32,16 @@ export interface TranslationResponse {
 }
 
 /**
+ * Response from streaming AI translation.
+ */
+export interface StreamingTranslationResponse {
+  /** Async iterable of translated text chunks */
+  textStream: AsyncIterable<string>;
+  /** The provider used for translation */
+  provider: AIProvider;
+}
+
+/**
  * Dictionary query debug information.
  */
 export interface DictionaryDebugInfo {
@@ -102,6 +112,13 @@ export interface AITranslationService {
     request: TranslationRequest,
     provider: AIProvider
   ): Promise<TranslationResponse>;
+
+  /** Translate text with streaming response (optional, for providers that support it) */
+  translateStream?(
+    request: TranslationRequest,
+    provider: AIProvider,
+    options?: { abortSignal?: AbortSignal; onError?: (error: Error) => void }
+  ): Promise<StreamingTranslationResponse>;
 
   /** Test if a provider configuration is valid */
   testConnection(provider: AIProvider): Promise<boolean>;

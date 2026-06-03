@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TranslationService } from "@/lib/ai/translation";
 import { ContextService } from "@/lib/ai/context";
-import { PromptService } from "@/lib/ai/prompts";
 import { TranslationCache } from "@/lib/ai/cache";
 import { AIErrorHandler } from "@/lib/ai/error-handler";
 import { AIServiceError } from "@/lib/ai/service";
@@ -46,6 +45,8 @@ function makeConfig(overrides?: Partial<AIConfig>): AIConfig {
       selectedModuleIds: [testContextModule.id],
     },
     prompts: [testPrompt],
+    roles: [],
+    selectedRoleId: null,
     ...overrides,
   };
 }
@@ -129,13 +130,13 @@ describe("AI Translation Integration", () => {
   // ---- Test 2: Context extraction + prompt rendering --------------------
 
   describe("Context extraction + prompt rendering", () => {
-    it("should use selected text as context and render it into the prompt", () => {
+    it("should use selected text as context and render it into the prompt", async () => {
       const contextService = new ContextService();
-      const promptService = new PromptService();
 
       // Extract context
-      const contextData = contextService.getContext(
+      const contextData = await contextService.getContext(
         selectedText,
+        null,
         [testContextModule],
       );
 
@@ -144,18 +145,13 @@ describe("AI Translation Integration", () => {
       expect(contextData.metadata.selectedText).toBe(selectedText);
       expect(contextData.source).toBe(testContextModule.id);
 
-      // Render the prompt
-      const prompt = promptService.getDefaultPrompt([testPrompt]);
-      expect(prompt).toBeDefined();
-
-      const rendered = promptService.renderPrompt(
-        prompt!.content,
-        prompt!.variables,
-        {
-          selectedText,
-          targetLanguage: "Chinese",
-        },
-      );
+      // Render the prompt inline (same logic as the inlined renderPrompt)
+      const prompt = testPrompt;
+      let rendered = prompt.content;
+      for (const variable of prompt.variables) {
+        const value = ({ selectedText, targetLanguage: "Chinese" } as Record<string, string>)[variable.name] ?? variable.defaultValue;
+        rendered = rendered.replace(new RegExp(`\\{${variable.name}\\}`, "g"), value);
+      }
 
       // The rendered prompt should contain the selected text and target language
       expect(rendered).toContain(selectedText);

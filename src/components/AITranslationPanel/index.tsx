@@ -1,5 +1,6 @@
-import { Button, TextArea, ErrorBanner } from "@/components/primitives";
+import { Button, ErrorBanner } from "@/components/primitives";
 import { Loader2 } from "lucide-react";
+import { Streamdown } from "streamdown";
 import type { PreviewData } from "@/lib/ai/service";
 import { Drawer } from "@/components/Drawer";
 import { useTranslation, useNoteSaving } from "./hooks";
@@ -25,7 +26,7 @@ export function AITranslationPanelView({
   status,
   selectedText,
   translationText,
-  setTranslationText,
+  streamingText,
   error,
   isSaving,
   previewData,
@@ -35,11 +36,12 @@ export function AITranslationPanelView({
   onAddNote,
   onTranslate,
   onPreview: _onPreview,
+  onStop,
 }: {
   status: PanelStatus;
   selectedText: string;
   translationText: string;
-  setTranslationText: (v: string) => void;
+  streamingText: string;
   error: string | null;
   isSaving: boolean;
   previewData: PreviewData | null;
@@ -49,6 +51,7 @@ export function AITranslationPanelView({
   onAddNote: () => void;
   onTranslate: () => void;
   onPreview: () => void;
+  onStop: () => void;
 }) {
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="AI Translation">
@@ -80,6 +83,27 @@ export function AITranslationPanelView({
             </div>
           )}
 
+          {/* Streaming state */}
+          {status === "streaming" && (
+            <div className="space-y-3">
+              <label className="block text-xs font-medium text-text-secondary mb-1 font-sans">
+                Translation
+              </label>
+              <div className="text-sm text-text font-serif leading-relaxed">
+                <Streamdown mode="streaming" isAnimating={true}>
+                  {streamingText}
+                </Streamdown>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onStop}
+              >
+                Stop
+              </Button>
+            </div>
+          )}
+
           {/* Error state */}
           {status === "error" && (
             <div className="space-y-3">
@@ -100,12 +124,11 @@ export function AITranslationPanelView({
               <label className="block text-xs font-medium text-text-secondary mb-1 font-sans">
                 Translation
               </label>
-              <TextArea
-                value={translationText}
-                onChange={(e) => setTranslationText(e.target.value)}
-                rows={4}
-                aria-label="Translation result"
-              />
+              <div className="text-sm text-text font-serif leading-relaxed">
+                <Streamdown mode="static" isAnimating={false}>
+                  {translationText}
+                </Streamdown>
+              </div>
             </div>
           )}
         </div>
@@ -297,11 +320,12 @@ export function AITranslationPanel({
   const {
     status,
     translationText,
-    setTranslationText,
+    streamingText,
     error,
     setError,
     previewData,
     translate,
+    stopTranslation,
     preview,
   } = useTranslation({ selectedText, chapterText });
 
@@ -319,7 +343,7 @@ export function AITranslationPanel({
       status={status}
       selectedText={selectedText}
       translationText={translationText}
-      setTranslationText={setTranslationText}
+      streamingText={streamingText}
       error={error}
       isSaving={isSaving}
       previewData={previewData}
@@ -329,6 +353,7 @@ export function AITranslationPanel({
       onAddNote={handleAddNote}
       onTranslate={translate}
       onPreview={preview}
+      onStop={stopTranslation}
     />
   );
 }

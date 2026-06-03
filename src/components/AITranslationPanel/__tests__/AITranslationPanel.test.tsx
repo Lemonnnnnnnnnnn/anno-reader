@@ -14,7 +14,7 @@ import type { PanelStatus } from "..";
 const viewDefaults = {
   selectedText: "Hello world this is selected text",
   translationText: "",
-  setTranslationText: vi.fn(),
+  streamingText: "",
   error: null,
   isSaving: false,
   previewData: null,
@@ -24,6 +24,7 @@ const viewDefaults = {
   onAddNote: vi.fn(),
   onTranslate: vi.fn(),
   onPreview: vi.fn(),
+  onStop: vi.fn(),
 };
 
 // Mock external dependencies for the stateful component
@@ -94,7 +95,7 @@ describe("AITranslationPanelView", () => {
     );
 
     expect(html).toContain("Translation");
-    expect(html).toContain('aria-label="Translation result"');
+    expect(html).toContain("你好世界");
   });
 
   it("shows error state with retry button", () => {

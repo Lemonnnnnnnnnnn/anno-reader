@@ -1,67 +1,120 @@
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { generateText, streamText, APICallError } from "ai";
 import type { AIProvider } from "../types";
 import type {
   AITranslationService,
+  StreamingTranslationResponse,
   TranslationRequest,
   TranslationResponse,
 } from "../service";
 import { AIServiceError } from "../service";
 
 /**
+ * Create an AI SDK provider instance from our config shape.
+ * Reused per-call to pick up any config changes.
+ */
+function createProvider(config: AIProvider) {
+  return createOpenAICompatible({
+    name: config.name,
+    baseURL: config.baseUrl,
+    apiKey: config.apiKey,
+  });
+}
+
+/**
+ * Map AI SDK errors to our domain error codes.
+ */
+function toAIServiceError(error: unknown): AIServiceError {
+  if (error instanceof AIServiceError) {
+    return error;
+  }
+
+  if (error instanceof APICallError) {
+    const status = error.statusCode;
+    if (status === 401 || status === 403) {
+      return new AIServiceError("AUTH_ERROR", error.message);
+    }
+    if (status === 429) {
+      return new AIServiceError("RATE_LIMITED", error.message, true);
+    }
+    if (status !== undefined && status >= 500) {
+      return new AIServiceError("API_ERROR", error.message, true);
+    }
+    return new AIServiceError("API_ERROR", error.message, error.isRetryable);
+  }
+
+  // Network / abort / unknown
+  const message =
+    error instanceof Error ? error.message : "Unknown error";
+  return new AIServiceError("NETWORK_ERROR",
+    `Failed to connect to provider: ${message}`,
+    true,
+  );
+}
+
+/**
  * OpenAI-compatible provider for AI translation.
- * Works with OpenAI API and any compatible API (DeepSeek, etc.)
+ * Works with OpenAI API and any compatible API (DeepSeek, Ollama, etc.)
  */
 export class OpenAIProvider implements AITranslationService {
   async translate(
     request: TranslationRequest,
-    provider: AIProvider
+    provider: AIProvider,
   ): Promise<TranslationResponse> {
-    const { text, systemMessage, userMessage } = request;
-
     try {
-      const response = await fetch(`${provider.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${provider.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: provider.model,
-          messages: [
-            { role: "system", content: systemMessage },
-            { role: "user", content: userMessage },
-          ],
-          ...(provider.maxTokens !== undefined && { max_tokens: provider.maxTokens }),
-          ...(provider.temperature !== undefined && { temperature: provider.temperature }),
-        }),
+      const sdkProvider = createProvider(provider);
+      const model = sdkProvider.chatModel(provider.model);
+
+      const { text } = await generateText({
+        model,
+        system: request.systemMessage,
+        prompt: request.userMessage,
+        maxOutputTokens: provider.maxTokens,
+        temperature: provider.temperature,
       });
 
-      if (!response.ok) {
-        await this.handleApiError(response);
-      }
-
-      const data = await response.json();
-      const translation = data.choices?.[0]?.message?.content?.trim() ?? "";
-
-      if (!translation) {
+      const trimmed = text.trim();
+      if (!trimmed) {
         throw new AIServiceError("API_ERROR", "Empty translation response");
       }
 
       return {
-        translation,
-        originalText: text,
+        translation: trimmed,
+        originalText: request.text,
         provider,
         cached: false,
       };
     } catch (error) {
-      if (error instanceof AIServiceError) throw error;
-
-      // Network or other errors
-      throw new AIServiceError(
-        "NETWORK_ERROR",
-        `Failed to connect to provider: ${error instanceof Error ? error.message : "Unknown error"}`,
-        true
-      );
+      throw toAIServiceError(error);
     }
+  }
+
+  async translateStream(
+    request: TranslationRequest,
+    provider: AIProvider,
+    options?: { abortSignal?: AbortSignal; onError?: (error: Error) => void },
+  ): Promise<StreamingTranslationResponse> {
+    const sdkProvider = createProvider(provider);
+    const model = sdkProvider.chatModel(provider.model);
+
+    const result = streamText({
+      model,
+      system: request.systemMessage,
+      prompt: request.userMessage,
+      maxOutputTokens: provider.maxTokens,
+      temperature: provider.temperature,
+      abortSignal: options?.abortSignal,
+      onError: ({ error }) => {
+        options?.onError?.(
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      },
+    });
+
+    return {
+      textStream: result.textStream,
+      provider,
+    };
   }
 
   async testConnection(provider: AIProvider): Promise<boolean> {
@@ -75,29 +128,5 @@ export class OpenAIProvider implements AITranslationService {
     } catch {
       return false;
     }
-  }
-
-  private async handleApiError(response: Response): Promise<never> {
-    const status = response.status;
-
-    if (status === 401 || status === 403) {
-      throw new AIServiceError(
-        "AUTH_ERROR",
-        "Invalid API key or unauthorized access"
-      );
-    }
-    if (status === 429) {
-      throw new AIServiceError("RATE_LIMITED", "Rate limit exceeded", true);
-    }
-    if (status >= 500) {
-      throw new AIServiceError(
-        "API_ERROR",
-        `Server error: ${status}`,
-        true
-      );
-    }
-
-    const body = await response.text().catch(() => "Unknown error");
-    throw new AIServiceError("API_ERROR", `API error ${status}: ${body}`);
   }
 }
