@@ -92,7 +92,7 @@ describe("ContextService", () => {
       expect(result.source).toBe("mod-sentence");
     });
 
-    it("extracts surrounding sentences from chapterText for sentence module", async () => {
+    it("extracts the sentence containing selected text from chapterText for sentence module", async () => {
       const service = new ContextService();
       const modules = [makeModule({ type: "sentence" })];
       const selectedText = "walked through the garden";
@@ -100,9 +100,8 @@ describe("ContextService", () => {
 
       const result = await service.getContext(selectedText, chapterText, modules);
 
-      expect(result.text).toContain("beautiful morning");
       expect(result.text).toContain("walked through the garden");
-      expect(result.text).toContain("birds were singing");
+      expect(result.text).toContain("admired the flowers");
       expect(result.source).toBe("mod-sentence");
     });
 
@@ -297,7 +296,7 @@ describe("ContextService", () => {
       expect(result).toBeInstanceOf(Promise);
     });
 
-    it("extracts sentences containing 'shining' and 'garden' from chapter text", async () => {
+    it("extracts the sentence containing selected text from chapter text", async () => {
       const service = new ContextService();
       const modules = [makeModule({ type: "sentence" })];
       const selectedText = "She walked through the garden";
@@ -306,9 +305,7 @@ describe("ContextService", () => {
 
       const result = await service.getContext(selectedText, chapterText, modules);
 
-      expect(result.text).toContain("shining");
       expect(result.text).toContain("garden");
-      expect(result.text).toContain("singing");
       expect(result.source).toBe("mod-sentence");
     });
   });

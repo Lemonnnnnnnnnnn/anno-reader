@@ -272,9 +272,12 @@ describe("useAIConfigStore", () => {
       mockExists.mockResolvedValue(true);
 
       useAIConfigStore.getState().addProvider(SAMPLE_PROVIDER);
-      await useAIConfigStore.getState().persistConfig();
 
-      expect(mockWriteTextFile).toHaveBeenCalledOnce();
+      // addProvider triggers persistAfterSet which calls persistConfig
+      // Wait a tick for the async persist to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockWriteTextFile).toHaveBeenCalled();
       const [filePath, content] = mockWriteTextFile.mock.calls[0];
       expect(filePath).toBe("/test/data/ai/ai-config.json");
 

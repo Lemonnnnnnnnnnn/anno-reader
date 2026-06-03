@@ -42,7 +42,7 @@ export default defineConfig(async () => ({
   // Vitest configuration
   test: {
     globals: true,
-    environment: "jsdom",
+    environment: "happy-dom",
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["node_modules", "src-tauri"],
     setupFiles: [],
