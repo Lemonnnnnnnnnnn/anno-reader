@@ -1,12 +1,20 @@
 import "./App.css";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { BookshelfPage } from "./pages/BookshelfPage";
 import { ReaderPage } from "./pages/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AIConfigPage } from "./pages/AIConfigPage";
+import { useAIConfigStore } from "./stores/useAIConfigStore";
 
 function App() {
+  const loadConfig = useAIConfigStore((s) => s.loadConfig);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
+
   return (
     <ErrorBoundary>
       <BrowserRouter>
