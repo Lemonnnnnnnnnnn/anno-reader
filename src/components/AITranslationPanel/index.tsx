@@ -61,10 +61,10 @@ export function AITranslationPanelView({
         <div className="flex-1 overflow-y-auto space-y-4">
           {/* Original text */}
           <div>
-            <label className="block text-xs font-medium text-text-secondary mb-1 font-sans">
+            <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1 font-sans">
               Original
             </label>
-            <p className="text-sm text-text bg-bg rounded-md p-3 font-serif leading-relaxed">
+            <p className="text-sm text-text dark:text-text-dark bg-bg dark:bg-bg-dark rounded-md p-3 font-serif leading-relaxed">
               {selectedText}
             </p>
           </div>
@@ -77,8 +77,8 @@ export function AITranslationPanelView({
           {/* Loading state */}
           {status === "loading" && (
             <div className="flex items-center gap-2 py-6 justify-center">
-              <Loader2 className="animate-spin h-5 w-5 text-text-secondary" />
-              <span className="text-sm text-text-secondary font-sans">
+              <Loader2 className="animate-spin h-5 w-5 text-text-secondary dark:text-text-secondary-dark" />
+              <span className="text-sm text-text-secondary dark:text-text-secondary-dark font-sans">
                 Translating…
               </span>
             </div>
@@ -87,10 +87,10 @@ export function AITranslationPanelView({
           {/* Streaming state */}
           {status === "streaming" && (
             <div className="space-y-3">
-              <label className="block text-xs font-medium text-text-secondary mb-1 font-sans">
+              <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1 font-sans">
                 Translation
               </label>
-              <div className="text-sm text-text font-serif leading-relaxed">
+              <div className="text-sm text-text dark:text-text-dark font-serif leading-relaxed">
                 <Streamdown mode="streaming" isAnimating={true}>
                   {streamingText}
                 </Streamdown>
@@ -122,10 +122,10 @@ export function AITranslationPanelView({
           {/* Success state */}
           {status === "success" && (
             <div>
-              <label className="block text-xs font-medium text-text-secondary mb-1 font-sans">
+              <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1 font-sans">
                 Translation
               </label>
-              <div className="text-sm text-text font-serif leading-relaxed">
+              <div className="text-sm text-text dark:text-text-dark font-serif leading-relaxed">
                 <Streamdown mode="static" isAnimating={false}>
                   {translationText}
                 </Streamdown>
@@ -135,7 +135,7 @@ export function AITranslationPanelView({
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 flex items-center justify-end gap-2 pt-3 mt-2 border-t border-border">
+        <div className="shrink-0 flex items-center justify-end gap-2 pt-3 mt-2 border-t border-border dark:border-border-dark">
           <Button variant="secondary" size="sm" onClick={onClose}>
             Close
           </Button>
@@ -181,11 +181,11 @@ function PreviewPanel({ data }: { data: PreviewData }) {
     <div className="space-y-3">
       {/* Context sources */}
       <div className="flex flex-wrap gap-1.5">
-        <span className="text-xs font-sans text-text-secondary">Context:</span>
+        <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">Context:</span>
         {data.contextSources.map((source) => (
           <span
             key={source}
-            className="text-xs font-sans px-2 py-0.5 bg-accent/10 text-accent rounded"
+            className="text-xs font-sans px-2 py-0.5 bg-accent/10 dark:bg-accent-dark/10 text-accent dark:text-accent-dark rounded"
           >
             {source}
           </span>
@@ -195,10 +195,10 @@ function PreviewPanel({ data }: { data: PreviewData }) {
       {/* Sentence context */}
       {data.sentenceContext && (
         <details className="group">
-          <summary className="cursor-pointer text-xs font-sans text-text-secondary hover:text-text">
+          <summary className="cursor-pointer text-xs font-sans text-text-secondary dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark">
             Sentence Context
           </summary>
-          <p className="mt-1 text-xs font-sans text-text bg-bg rounded p-2">
+          <p className="mt-1 text-xs font-sans text-text dark:text-text-dark bg-bg dark:bg-bg-dark rounded p-2">
             {data.sentenceContext}
           </p>
         </details>
@@ -207,7 +207,7 @@ function PreviewPanel({ data }: { data: PreviewData }) {
       {/* Dictionary results */}
       {data.dictionary && (
         <details className="group" open>
-          <summary className="cursor-pointer text-xs font-sans text-text-secondary hover:text-text">
+          <summary className="cursor-pointer text-xs font-sans text-text-secondary dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark">
             Dictionary Results ({data.dictionary.duration}ms)
             {data.dictionary.errors.length > 0 && (
               <span className="text-red-500 ml-1">
@@ -219,17 +219,17 @@ function PreviewPanel({ data }: { data: PreviewData }) {
             {data.dictionary.results.map((result, i) => (
               <div
                 key={i}
-                className="text-xs font-sans bg-bg rounded p-2"
+                className="text-xs font-sans bg-bg dark:bg-bg-dark rounded p-2"
               >
-                <span className="font-medium text-text-secondary">
+                <span className="font-medium text-text-secondary dark:text-text-secondary-dark">
                   [{result.source}]
                 </span>{" "}
                 {result.found ? (
-                  <span className="text-text">
+                  <span className="text-text dark:text-text-dark">
                     {formatDictionaryResult(result)}
                   </span>
                 ) : (
-                  <span className="text-text-muted italic">not found</span>
+                  <span className="text-text-muted dark:text-text-muted-dark italic">not found</span>
                 )}
               </div>
             ))}
@@ -247,29 +247,29 @@ function PreviewPanel({ data }: { data: PreviewData }) {
 
       {/* Rendered prompt */}
       <details className="group">
-        <summary className="cursor-pointer text-xs font-sans text-text-secondary hover:text-text">
+        <summary className="cursor-pointer text-xs font-sans text-text-secondary dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark">
           Rendered Prompt
         </summary>
-        <pre className="mt-1 text-xs font-mono text-text bg-bg rounded p-2 whitespace-pre-wrap overflow-x-auto">
+        <pre className="mt-1 text-xs font-mono text-text dark:text-text-dark bg-bg dark:bg-bg-dark rounded p-2 whitespace-pre-wrap overflow-x-auto">
           {data.renderedPrompt}
         </pre>
       </details>
 
       {/* LLM Messages */}
       <details className="group">
-        <summary className="cursor-pointer text-xs font-sans text-text-secondary hover:text-text">
+        <summary className="cursor-pointer text-xs font-sans text-text-secondary dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark">
           LLM Messages (what will be sent)
         </summary>
         <div className="mt-1 space-y-1">
           <div className="text-xs font-sans">
-            <span className="font-medium text-accent">system:</span>
-            <pre className="mt-0.5 font-mono text-text bg-bg rounded p-2 whitespace-pre-wrap">
+            <span className="font-medium text-accent dark:text-accent-dark">system:</span>
+            <pre className="mt-0.5 font-mono text-text dark:text-text-dark bg-bg dark:bg-bg-dark rounded p-2 whitespace-pre-wrap">
               {data.systemMessage}
             </pre>
           </div>
           <div className="text-xs font-sans">
-            <span className="font-medium text-accent">user:</span>
-            <pre className="mt-0.5 font-mono text-text bg-bg rounded p-2 whitespace-pre-wrap">
+            <span className="font-medium text-accent dark:text-accent-dark">user:</span>
+            <pre className="mt-0.5 font-mono text-text dark:text-text-dark bg-bg dark:bg-bg-dark rounded p-2 whitespace-pre-wrap">
               {data.userMessage}
             </pre>
           </div>
