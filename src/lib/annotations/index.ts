@@ -9,7 +9,7 @@
  * ```ts
  * import {
  *   createNote, deleteNote, updateNote, getNotesForChapter, restoreNotes,
- *   createHighlight, deleteHighlight, getHighlightsForChapter, restoreHighlights,
+ *   createHighlight, deleteHighlight, updateHighlight, getHighlightsForChapter, restoreHighlights,
  * } from "@/lib/annotations";
  *
  * // When opening a book, restore saved notes & highlights
@@ -40,6 +40,11 @@ import {
   deleteHighlightsFile,
 } from "./persistence";
 import type { NoteData, HighlightData } from "./types";
+import {
+  findOverlappingHighlights,
+  mergeRanges,
+  parseCfiRange,
+} from "./overlap";
 
 /**
  * Generate a unique ID for a note.
@@ -314,14 +319,34 @@ export async function restoreHighlights(bookId: string): Promise<HighlightData[]
 }
 
 /**
+ * Build a CFI range string from a base CFI and a range tuple.
+ *
+ * Replaces the `:start,end)` suffix in the CFI with the new range values.
+ */
+function buildCfiRange(baseCfi: string, range: [number, number]): string {
+  return baseCfi.replace(/:\d+,\d+\)$/, `:${range[0]},${range[1]})`);
+}
+
+/**
  * Create a new highlight from text selection.
+ *
+ * If the new highlight overlaps existing highlights in the same chapter,
+ * all overlapping highlights are merged into one:
+ * - Overlapping highlights are deleted from the store
+ * - A new highlight is created with the union of all ranges
+ * - Texts are concatenated (sorted by range start) with space separator
+ * - The new highlight's color is used
+ * - A new ID is assigned (old IDs are discarded)
+ *
+ * Adjacent ranges `[10,50)` + `[50,80)` are NOT merged — only true overlaps.
+ * Merge repeats iteratively until no overlaps remain (handles transitive chains).
  *
  * @param bookId - The book ID.
  * @param chapterHref - The chapter href where the highlight is created.
  * @param cfiRange - The CFI range of the selected text.
  * @param text - The selected text being highlighted.
  * @param color - The highlight color.
- * @returns The created highlight.
+ * @returns The created (or merged) highlight.
  */
 export async function createHighlight(
   bookId: string,
@@ -330,25 +355,131 @@ export async function createHighlight(
   text: string,
   color: string
 ): Promise<Highlight> {
-  const now = Date.now();
-  const highlight: Highlight = {
-    id: generateHighlightId(),
+  const store = useBookStore.getState();
+
+  // Find overlapping highlights in the same chapter/book
+  const chapterHighlights = store.highlights.filter(
+    (h) => h.bookId === bookId && h.chapterHref === chapterHref
+  );
+
+  // Build a temporary highlight to use with findOverlappingHighlights
+  const candidate: Highlight = {
+    id: "",
     bookId,
     chapterHref,
     cfiRange,
     text,
     color,
+    createdAt: 0,
+  };
+
+  const overlapping = findOverlappingHighlights(candidate, chapterHighlights);
+
+  if (overlapping.length === 0) {
+    // No overlaps — create normally
+    const now = Date.now();
+    const highlight: Highlight = {
+      id: generateHighlightId(),
+      bookId,
+      chapterHref,
+      cfiRange,
+      text,
+      color,
+      createdAt: now,
+    };
+
+    store.addHighlight(highlight);
+    await persistHighlights(bookId);
+    return highlight;
+  }
+
+  // Merge overlapping highlights iteratively
+  let currentCfi = cfiRange;
+  let currentText = text;
+  let mergedIds = new Set(overlapping.map((h) => h.id));
+  let mergedTexts = new Map<string, { cfi: string; text: string }>();
+
+  // Seed map with overlapping highlights
+  for (const h of overlapping) {
+    mergedTexts.set(h.id, { cfi: h.cfiRange, text: h.text });
+  }
+  // Add the new highlight itself
+  mergedTexts.set("__new__", { cfi: cfiRange, text });
+
+  // Iterate until no more overlaps
+  let prevSize = 0;
+  while (mergedIds.size !== prevSize) {
+    prevSize = mergedIds.size;
+
+    // Collect all ranges from merged set
+    const ranges: Array<{ cfi: string; text: string; key: string }> = [];
+    for (const [key, val] of mergedTexts) {
+      if (key === "__new__" || mergedIds.has(key)) {
+        ranges.push({ cfi: val.cfi, text: val.text, key });
+      }
+    }
+
+    // Parse ranges and sort by start offset
+    const parsed = ranges
+      .map((r) => ({
+        ...r,
+        range: parseCfiRange(r.cfi),
+      }))
+      .filter((r) => r.range !== null) as Array<{
+      cfi: string;
+      text: string;
+      key: string;
+      range: [number, number];
+    }>;
+
+    parsed.sort((a, b) => a.range[0] - b.range[0]);
+
+    // Merge all ranges
+    const allRanges = parsed.map((p) => p.range);
+    const mergedRanges = mergeRanges(allRanges);
+    const mergedRange = mergedRanges[0];
+
+    // Build merged CFI and text
+    currentCfi = buildCfiRange(cfiRange, mergedRange);
+    currentText = parsed.map((p) => p.text).join(" ");
+
+    // Update the "__new__" entry with merged result
+    mergedTexts.set("__new__", { cfi: currentCfi, text: currentText });
+
+    // Check if the merged result overlaps any remaining highlights
+    const tempHighlight = { cfiRange: currentCfi };
+    const newOverlaps = findOverlappingHighlights(
+      tempHighlight,
+      chapterHighlights.filter((h) => !mergedIds.has(h.id))
+    );
+
+    for (const h of newOverlaps) {
+      mergedIds.add(h.id);
+      mergedTexts.set(h.id, { cfi: h.cfiRange, text: h.text });
+    }
+  }
+
+  // Delete all overlapping highlights from store
+  for (const id of mergedIds) {
+    store.removeHighlight(id);
+  }
+
+  // Create merged highlight
+  const now = Date.now();
+  const mergedHighlight: Highlight = {
+    id: generateHighlightId(),
+    bookId,
+    chapterHref,
+    cfiRange: currentCfi,
+    text: currentText,
+    color,
     createdAt: now,
   };
 
-  // Add to store
-  const store = useBookStore.getState();
-  store.addHighlight(highlight);
-
-  // Persist to disk
+  store.addHighlight(mergedHighlight);
   await persistHighlights(bookId);
 
-  return highlight;
+  return mergedHighlight;
 }
 
 /**
@@ -360,6 +491,25 @@ export async function createHighlight(
 export async function deleteHighlight(highlightId: string, bookId: string): Promise<void> {
   const store = useBookStore.getState();
   store.removeHighlight(highlightId);
+
+  // Persist to disk
+  await persistHighlights(bookId);
+}
+
+/**
+ * Update a highlight's color.
+ *
+ * @param highlightId - The highlight ID to update.
+ * @param updates - The updates to apply (currently only color).
+ * @param bookId - The book ID (for persistence).
+ */
+export async function updateHighlight(
+  highlightId: string,
+  updates: { color: string },
+  bookId: string
+): Promise<void> {
+  const store = useBookStore.getState();
+  store.updateHighlight(highlightId, updates);
 
   // Persist to disk
   await persistHighlights(bookId);

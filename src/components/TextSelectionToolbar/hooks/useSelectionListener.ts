@@ -40,6 +40,11 @@ export function useSelectionListener() {
           setMode("default");
           setNoteText("");
         }, 150);
+      } else if (data?.type === "highlight-click") {
+        // Dismiss text selection toolbar when a highlight is clicked
+        setSelection(null);
+        setMode("default");
+        setNoteText("");
       }
     };
 

@@ -130,7 +130,26 @@ export function buildAnnotationScript(
       var offsets = parseCfiOffsets(hl.cfiRange);
       if (!offsets) continue;
       wrapRange(offsets.start, offsets.end, 'anno-highlight',
-        'background-color: ' + hl.color + '; border-radius: 2px; padding: 1px 0;');
+        'background-color: ' + hl.color + '; border-radius: 2px; padding: 1px 0;',
+        { 'highlight-id': hl.id });
+
+      // Add click handler to the newly created span
+      // Use IIFE to capture highlightId in closure
+      (function(highlightId) {
+        var highlightSpans = document.querySelectorAll('.anno-highlight[data-highlight-id="' + highlightId + '"]');
+        highlightSpans.forEach(function(span) {
+          span.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var rect = span.getBoundingClientRect();
+            window.parent.postMessage({
+              type: 'highlight-click',
+              highlightId: highlightId,
+              rect: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height }
+            }, '*');
+          });
+        });
+      })(hl.id);
     }
   }
 

@@ -72,6 +72,7 @@ export interface BookStore {
   // Highlight actions
   addHighlight: (highlight: Highlight) => void;
   removeHighlight: (highlightId: string) => void;
+  updateHighlight: (highlightId: string, updates: Partial<Pick<Highlight, "color">>) => void;
 
   // UI actions
   setCurrentChapter: (chapter: string, index: number) => void;
@@ -130,6 +131,13 @@ export const useBookStore = create<BookStore>((set) => ({
   removeHighlight: (highlightId) =>
     set((state) => ({
       highlights: state.highlights.filter((h) => h.id !== highlightId),
+    })),
+
+  updateHighlight: (highlightId, updates) =>
+    set((state) => ({
+      highlights: state.highlights.map((h) =>
+        h.id === highlightId ? { ...h, ...updates } : h
+      ),
     })),
 
   // UI actions
