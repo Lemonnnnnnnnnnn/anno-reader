@@ -89,8 +89,8 @@ export function AnnotationDetailPanel({ noteId, onClose }: AnnotationDetailPanel
       {note ? (
         <div className="flex flex-col gap-4 font-serif">
           {/* Quoted original text */}
-          <div className="border-l-2 border-accent pl-3">
-            <p className="m-0 text-xs text-text-secondary italic leading-snug overflow-hidden text-ellipsis line-clamp-3">
+          <div className="border-l-2 border-accent dark:border-accent-dark pl-3">
+            <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug overflow-hidden text-ellipsis line-clamp-3">
               &ldquo;{note.text}&rdquo;
             </p>
           </div>
@@ -123,18 +123,18 @@ export function AnnotationDetailPanel({ noteId, onClose }: AnnotationDetailPanel
               </div>
             </div>
           ) : (
-            <div className="text-sm text-text leading-relaxed break-words markdown-note">
+            <div className="text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
             </div>
           )}
 
           {/* Actions */}
           {!isEditing && (
-            <div className="flex items-center justify-between pt-2 border-t border-border">
+            <div className="flex items-center justify-between pt-2 border-t border-border dark:border-border-dark">
               <div className="flex items-center gap-1">
                 {confirmDelete ? (
                   <>
-                    <span className="text-xs text-text-secondary mr-2">Delete this note?</span>
+                    <span className="text-xs text-text-secondary dark:text-text-secondary-dark mr-2">Delete this note?</span>
                     <Button variant="secondary" size="sm" onClick={handleCancelDelete}>
                       Cancel
                     </Button>
@@ -163,7 +163,7 @@ export function AnnotationDetailPanel({ noteId, onClose }: AnnotationDetailPanel
               </div>
 
               {/* Timestamp */}
-              <span className="text-[0.72rem] text-text-muted">
+              <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
                 {new Date(note.createdAt).toLocaleDateString(undefined, {
                   month: "short",
                   day: "numeric",

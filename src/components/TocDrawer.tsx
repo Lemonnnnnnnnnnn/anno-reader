@@ -89,8 +89,8 @@ function TocEntry({
       <button
         className={`w-full text-left text-sm pr-3 py-1.5 rounded-md cursor-pointer border-none bg-transparent transition-colors ${LEVEL_PADDING[level] ?? "pl-4"} ${
           isActive
-            ? "bg-accent/10 text-accent font-medium"
-            : "text-text hover:bg-border/50"
+            ? "bg-accent/10 dark:bg-accent-dark/10 text-accent dark:text-accent-dark font-medium"
+            : "text-text dark:text-text-dark hover:bg-border/50 dark:hover:bg-border-dark/50"
         }`}
         onClick={handleClick}
         title={entry.title}
@@ -125,7 +125,7 @@ export function TocDrawer({
     <Drawer open={open} onClose={onClose} side="left" title="Table of Contents">
       {toc.length === 0 ? (
         <div className="flex flex-col items-center justify-center px-4 py-6 text-center">
-          <p className="m-0 text-sm text-text-secondary">
+          <p className="m-0 text-sm text-text-secondary dark:text-text-secondary-dark">
             No table of contents
           </p>
         </div>

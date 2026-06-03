@@ -71,12 +71,12 @@ export function Drawer({
       {/* Panel */}
       <div
         ref={panelRef}
-        className="fixed right-0 top-0 bottom-0 w-[400px] max-w-full bg-surface border-l border-border shadow-lg z-50 flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0"
+        className="fixed right-0 top-0 bottom-0 w-[400px] max-w-full bg-surface dark:bg-surface-dark border-l border-border dark:border-border-dark shadow-lg z-50 flex flex-col transform transition-transform duration-300 ease-in-out translate-x-0"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border dark:border-border-dark shrink-0">
           {title && (
-            <h2 className="text-lg font-medium text-text font-sans">{title}</h2>
+            <h2 className="text-lg font-medium text-text dark:text-text-dark font-sans">{title}</h2>
           )}
           <Button
             variant="icon"

@@ -108,27 +108,27 @@ function NoteItem({ note, onNavigate, onClose, chapters }: NoteItemProps) {
   }, [note.id, note.bookId]);
 
   return (
-    <div className="border border-border rounded-lg bg-surface-alt">
+    <div className="border border-border dark:border-border-dark rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
       {/* Main content — clickable to navigate */}
       <button
         type="button"
         onClick={handleNavigate}
-        className="w-full text-left p-3 cursor-pointer bg-transparent border-none transition-colors hover:bg-surface rounded-t-lg"
+        className="w-full text-left p-3 cursor-pointer bg-transparent border-none transition-colors hover:bg-surface dark:hover:bg-surface-dark rounded-t-lg"
       >
         {/* Quoted text */}
-        <p className="m-0 text-xs text-text-secondary italic leading-snug overflow-hidden text-ellipsis line-clamp-2">
+        <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug overflow-hidden text-ellipsis line-clamp-2">
           &ldquo;{truncatedText}&rdquo;
         </p>
 
         {/* Note content preview */}
         {!isEditing && note.content && (
-          <p className="mt-1.5 m-0 text-sm text-text leading-relaxed line-clamp-2 break-words">
+          <p className="mt-1.5 m-0 text-sm text-text dark:text-text-dark leading-relaxed line-clamp-2 break-words">
             {note.content}
           </p>
         )}
 
         {/* Timestamp */}
-        <span className="mt-2 block text-[0.72rem] text-text-muted">
+        <span className="mt-2 block text-[0.72rem] text-text-muted dark:text-text-muted-dark">
           {formatTimestamp(note.createdAt)}
         </span>
       </button>
@@ -209,12 +209,12 @@ function HighlightItem({ highlight, onNavigate, onClose, chapters }: HighlightIt
   }, [highlight.id, highlight.bookId]);
 
   return (
-    <div className="border border-border rounded-lg bg-surface-alt">
+    <div className="border border-border dark:border-border-dark rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
       {/* Main content — clickable to navigate */}
       <button
         type="button"
         onClick={handleNavigate}
-        className="w-full text-left p-3 cursor-pointer bg-transparent border-none transition-colors hover:bg-surface rounded-t-lg"
+        className="w-full text-left p-3 cursor-pointer bg-transparent border-none transition-colors hover:bg-surface dark:hover:bg-surface-dark rounded-t-lg"
       >
         {/* Color indicator + text */}
         <div className="flex gap-2">
@@ -222,13 +222,13 @@ function HighlightItem({ highlight, onNavigate, onClose, chapters }: HighlightIt
             className="w-1 shrink-0 rounded-full"
             style={{ backgroundColor: highlight.color }}
           />
-          <p className="m-0 text-sm text-text leading-relaxed overflow-hidden text-ellipsis line-clamp-3 break-words">
+          <p className="m-0 text-sm text-text dark:text-text-dark leading-relaxed overflow-hidden text-ellipsis line-clamp-3 break-words">
             {truncatedText}
           </p>
         </div>
 
         {/* Timestamp */}
-        <span className="mt-2 block text-[0.72rem] text-text-muted">
+        <span className="mt-2 block text-[0.72rem] text-text-muted dark:text-text-muted-dark">
           {formatTimestamp(highlight.createdAt)}
         </span>
       </button>
@@ -286,14 +286,14 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
   return (
     <Drawer open={open} onClose={onClose} side="right" title="Annotations">
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border mb-3">
+      <div className="flex gap-1 border-b border-border dark:border-border-dark mb-3">
         <button
           type="button"
           onClick={() => setActiveTab("notes")}
           className={`px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${
             activeTab === "notes"
-              ? "border-b-2 border-accent text-accent font-medium bg-transparent"
-              : "bg-transparent text-text-secondary hover:text-text"
+              ? "border-b-2 border-accent dark:border-accent-dark text-accent dark:text-accent-dark font-medium bg-transparent"
+              : "bg-transparent text-text-secondary dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark"
           }`}
         >
           Notes ({sortedNotes.length})
@@ -303,8 +303,8 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
           onClick={() => setActiveTab("highlights")}
           className={`px-3 py-1.5 text-sm border-none cursor-pointer transition-colors ${
             activeTab === "highlights"
-              ? "border-b-2 border-accent text-accent font-medium bg-transparent"
-              : "bg-transparent text-text-secondary hover:text-text"
+              ? "border-b-2 border-accent dark:border-accent-dark text-accent dark:text-accent-dark font-medium bg-transparent"
+              : "bg-transparent text-text-secondary dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark"
           }`}
         >
           Highlights ({sortedHighlights.length})
@@ -313,7 +313,7 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
 
       {isEmpty ? (
         <div className="flex items-center justify-center h-full">
-          <p className="text-text-muted text-sm">
+          <p className="text-text-muted dark:text-text-muted-dark text-sm">
             {activeTab === "notes" ? "No notes yet" : "No highlights yet"}
           </p>
         </div>
