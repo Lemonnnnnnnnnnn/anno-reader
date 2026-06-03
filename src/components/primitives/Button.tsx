@@ -8,11 +8,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses = {
   primary:
-    "bg-accent text-white hover:bg-accent-hover rounded-md font-medium transition-colors",
+    "bg-accent dark:bg-accent-dark text-white hover:bg-accent-hover dark:hover:bg-accent-hover-dark rounded-md font-medium transition-colors",
   secondary:
-    "bg-transparent border border-border text-text-secondary rounded-md font-medium transition-colors",
+    "bg-transparent border border-border dark:border-border-dark text-text-secondary dark:text-text-secondary-dark rounded-md font-medium transition-colors",
   icon: "bg-transparent rounded p-1.5 w-7 h-7 flex items-center justify-center",
-  nav: "bg-surface border border-border rounded-md hover:bg-bg transition-colors",
+  nav: "bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:bg-bg dark:hover:bg-bg-dark transition-colors",
 };
 
 const sizeClasses = {

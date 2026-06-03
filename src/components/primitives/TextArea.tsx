@@ -30,7 +30,7 @@ export function TextArea({
   return (
     <textarea
       ref={ref}
-      className={`w-full p-2 text-sm font-sans leading-relaxed text-text bg-surface border border-border rounded-md resize-y outline-none transition-border-color focus:border-accent ${className}`}
+      className={`w-full p-2 text-sm font-sans leading-relaxed text-text dark:text-text-dark bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md resize-y outline-none transition-border-color focus:border-accent dark:focus:border-accent-dark ${className}`}
       onKeyDown={handleKeyDown}
       {...props}
     />

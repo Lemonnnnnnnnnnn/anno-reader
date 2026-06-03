@@ -46,13 +46,13 @@ export function Drawer({
 
       {/* Panel */}
       <div
-        className={`absolute inset-y-0 ${slideFrom} w-96 max-w-full bg-surface shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out ${
+        className={`absolute inset-y-0 ${slideFrom} w-96 max-w-full bg-surface dark:bg-surface-dark shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out ${
           open ? "translate-x-0" : translateHidden
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <h2 className="text-lg font-medium text-text font-sans">{title}</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border dark:border-border-dark">
+          <h2 className="text-lg font-medium text-text dark:text-text-dark font-sans">{title}</h2>
           <Button variant="icon" onClick={onClose} aria-label="Close drawer">
             <X size={18} />
           </Button>
