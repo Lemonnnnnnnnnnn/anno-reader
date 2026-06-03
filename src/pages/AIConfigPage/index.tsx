@@ -27,21 +27,21 @@ export function AIConfigPage() {
   }, [loadConfig]);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
       {/* Header */}
-      <header className="shrink-0 bg-surface border-b border-border">
+      <header className="shrink-0 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark">
         <div className="flex items-center gap-3 px-6 py-4 max-w-[1200px] mx-auto w-full">
           <Button variant="icon" onClick={() => navigate(-1)} aria-label="Go back">
             <ArrowLeft size={18} />
           </Button>
-          <h1 className="text-xl font-semibold text-text tracking-tight m-0">
+          <h1 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight m-0">
             AI Configuration
           </h1>
         </div>
       </header>
 
       {/* Tab Bar */}
-      <nav className="shrink-0 bg-surface border-b border-border">
+      <nav className="shrink-0 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark">
         <div className="flex gap-0 px-6 max-w-[1200px] mx-auto w-full">
           {TABS.map((tab) => (
             <button
@@ -50,8 +50,8 @@ export function AIConfigPage() {
               className={`
                 px-4 py-3 text-sm font-sans font-medium border-b-2 transition-colors cursor-pointer bg-transparent
                 ${activeTab === tab.id
-                  ? "border-accent text-text"
-                  : "border-transparent text-text-secondary hover:text-text"
+                  ? "border-accent dark:border-accent-dark text-text dark:text-text-dark"
+                  : "border-transparent text-text-secondary dark:text-text-secondary-dark hover:text-text dark:hover:text-text-dark"
                 }
               `}
               aria-selected={activeTab === tab.id}

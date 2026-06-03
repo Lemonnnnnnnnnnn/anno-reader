@@ -82,25 +82,25 @@ export function BookshelfPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
         <div className="flex flex-col items-center justify-center h-full gap-4">
-          <div className="w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin" />
-          <p className="text-sm text-text-secondary">Loading bookshelf...</p>
+          <div className="w-8 h-8 border-2 border-border dark:border-border-dark border-t-accent dark:border-t-accent-dark rounded-full animate-spin" />
+          <p className="text-sm text-text-secondary dark:text-text-secondary-dark">Loading bookshelf...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
       {/* Header */}
-      <header className="shrink-0 bg-surface border-b border-border">
+      <header className="shrink-0 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark">
         <div className="flex items-center justify-between px-6 py-4 max-w-[1200px] mx-auto w-full">
           <div className="flex flex-col gap-0.5">
-            <h1 className="text-xl font-semibold text-text tracking-tight m-0">
+            <h1 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight m-0">
               Anno Reader
             </h1>
-            <p className="text-xs text-text-secondary m-0">
+            <p className="text-xs text-text-secondary dark:text-text-secondary-dark m-0">
               {books.length} {books.length === 1 ? "book" : "books"}
             </p>
           </div>
@@ -121,7 +121,7 @@ export function BookshelfPage() {
       {/* Content */}
       <main className="flex-1 overflow-auto p-6">
         {error && (
-          <div className="flex items-center justify-between p-2 px-4 mb-4 bg-error-bg border border-error rounded-md">
+          <div className="flex items-center justify-between p-2 px-4 mb-4 bg-error-bg dark:bg-error-bg-dark border border-error dark:border-error rounded-md">
             <ErrorBanner message={error} />
             <Button variant="secondary" size="sm" onClick={clearError}>
               Dismiss
@@ -131,13 +131,13 @@ export function BookshelfPage() {
 
         {books.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-            <div className="text-text-muted opacity-50">
+            <div className="text-text-muted dark:text-text-muted-dark opacity-50">
               <Book size={64} />
             </div>
-            <h2 className="text-xl font-semibold text-text m-0">
+            <h2 className="text-xl font-semibold text-text dark:text-text-dark m-0">
               Your bookshelf is empty
             </h2>
-            <p className="text-sm text-text-secondary max-w-[280px] m-0">
+            <p className="text-sm text-text-secondary dark:text-text-secondary-dark max-w-[280px] m-0">
               Import an EPUB file to start building your library
             </p>
             <Button variant="primary" size="lg" onClick={handleImport}>

@@ -28,20 +28,20 @@ export function ProviderTab() {
       {config.providers.map((provider) => (
         <div
           key={provider.id}
-          className="bg-surface border border-border rounded-md p-4 flex items-center justify-between"
+          className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md p-4 flex items-center justify-between"
         >
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-sans font-medium text-text">
+              <span className="text-sm font-sans font-medium text-text dark:text-text-dark">
                 {provider.name}
               </span>
               {config.selectedProviderId === provider.id && (
-                <span className="text-xs font-sans px-1.5 py-0.5 bg-accent text-white rounded">
+                <span className="text-xs font-sans px-1.5 py-0.5 bg-accent dark:bg-accent-dark text-white rounded">
                   Default
                 </span>
               )}
             </div>
-            <span className="text-xs font-sans text-text-secondary">
+            <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">
               {provider.type} &middot; {provider.model} &middot; {provider.baseUrl}
             </span>
           </div>
@@ -71,62 +71,62 @@ export function ProviderTab() {
 
       {/* Add / Edit Form */}
       {showForm && (
-        <div className="bg-surface border border-border rounded-md p-4 flex flex-col gap-3">
-          <h3 className="text-sm font-sans font-medium text-text m-0">
+        <div className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md p-4 flex flex-col gap-3">
+          <h3 className="text-sm font-sans font-medium text-text dark:text-text-dark m-0">
             {editingId ? "Edit Provider" : "Add Provider"}
           </h3>
 
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-sans text-text-secondary">Name</span>
+            <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">Name</span>
             <input
               type="text"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="px-3 py-1.5 text-sm font-sans bg-surface border border-border rounded-md outline-none focus:border-accent"
+              className="px-3 py-1.5 text-sm font-sans bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md outline-none focus:border-accent dark:focus:border-accent-dark text-text dark:text-text-dark"
               placeholder="My OpenAI Provider"
             />
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-sans text-text-secondary">Type</span>
+            <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">Type</span>
             <select
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value as ProviderType })}
-              className="px-3 py-1.5 text-sm font-sans bg-surface border border-border rounded-md outline-none focus:border-accent"
+              className="px-3 py-1.5 text-sm font-sans bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md outline-none focus:border-accent dark:focus:border-accent-dark text-text dark:text-text-dark"
             >
               <option value="openai">OpenAI</option>
             </select>
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-sans text-text-secondary">Base URL</span>
+            <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">Base URL</span>
             <input
               type="text"
               value={form.baseUrl}
               onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
-              className="px-3 py-1.5 text-sm font-sans bg-surface border border-border rounded-md outline-none focus:border-accent"
+              className="px-3 py-1.5 text-sm font-sans bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md outline-none focus:border-accent dark:focus:border-accent-dark text-text dark:text-text-dark"
               placeholder="https://api.openai.com/v1"
             />
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-sans text-text-secondary">API Key</span>
+            <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">API Key</span>
             <input
               type="password"
               value={form.apiKey}
               onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-              className="px-3 py-1.5 text-sm font-sans bg-surface border border-border rounded-md outline-none focus:border-accent"
+              className="px-3 py-1.5 text-sm font-sans bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md outline-none focus:border-accent dark:focus:border-accent-dark text-text dark:text-text-dark"
               placeholder="sk-..."
             />
           </label>
 
           <label className="flex flex-col gap-1">
-            <span className="text-xs font-sans text-text-secondary">Model</span>
+            <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">Model</span>
             <input
               type="text"
               value={form.model}
               onChange={(e) => setForm({ ...form, model: e.target.value })}
-              className="px-3 py-1.5 text-sm font-sans bg-surface border border-border rounded-md outline-none focus:border-accent"
+              className="px-3 py-1.5 text-sm font-sans bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md outline-none focus:border-accent dark:focus:border-accent-dark text-text dark:text-text-dark"
               placeholder="gpt-4o"
             />
           </label>

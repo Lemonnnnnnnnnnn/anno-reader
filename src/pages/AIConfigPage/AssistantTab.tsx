@@ -56,10 +56,10 @@ export function AssistantTab() {
             <div
               key={role.id}
               className={`
-                bg-surface border rounded-md p-4 transition-all
+                bg-surface dark:bg-surface-dark border rounded-md p-4 transition-all
                 ${selectedRoleId === role.id
-                  ? "border-accent ring-1 ring-accent"
-                  : "border-border"
+                  ? "border-accent dark:border-accent-dark ring-1 ring-accent dark:ring-accent-dark"
+                  : "border-border dark:border-border-dark"
                 }
               `}
             >
@@ -68,8 +68,8 @@ export function AssistantTab() {
                   className={`
                     w-4 h-4 rounded-full border-2 flex items-center justify-center mt-1 cursor-pointer
                     ${selectedRoleId === role.id
-                      ? "border-accent"
-                      : "border-border hover:border-text-secondary"
+                      ? "border-accent dark:border-accent-dark"
+                      : "border-border dark:border-border-dark hover:border-text-secondary dark:hover:border-text-secondary-dark"
                     }
                   `}
                   onClick={() => setSelectedRole(role.id)}
@@ -77,21 +77,21 @@ export function AssistantTab() {
                   aria-checked={selectedRoleId === role.id}
                 >
                   {selectedRoleId === role.id && (
-                    <div className="w-2 h-2 rounded-full bg-accent" />
+                    <div className="w-2 h-2 rounded-full bg-accent dark:bg-accent-dark" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-sans font-medium text-text">
+                    <span className="text-sm font-sans font-medium text-text dark:text-text-dark">
                       {role.name}
                     </span>
                     {role.isDefault && (
-                      <span className="text-xs font-sans px-1.5 py-0.5 bg-accent/10 text-accent rounded">
+                      <span className="text-xs font-sans px-1.5 py-0.5 bg-accent/10 dark:bg-accent-dark/10 text-accent dark:text-accent-dark rounded">
                         默认
                       </span>
                     )}
                   </div>
-                  <p className="text-xs font-sans text-text-secondary mt-1 m-0 whitespace-pre-wrap line-clamp-2">
+                  <p className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark mt-1 m-0 whitespace-pre-wrap line-clamp-2">
                     {role.systemMessage}
                   </p>
                 </div>
@@ -122,24 +122,24 @@ export function AssistantTab() {
 
         {/* 角色编辑表单 */}
         {showRoleForm && (
-          <div className="bg-surface border border-border rounded-md p-4 flex flex-col gap-3 mt-3">
-            <h3 className="text-sm font-sans font-medium text-text m-0">
+          <div className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md p-4 flex flex-col gap-3 mt-3">
+            <h3 className="text-sm font-sans font-medium text-text dark:text-text-dark m-0">
               {editingRoleId ? "编辑角色" : "添加角色"}
             </h3>
 
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-sans text-text-secondary">角色名称</span>
+              <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">角色名称</span>
               <input
                 type="text"
                 value={roleForm.name}
                 onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })}
-                className="px-3 py-1.5 text-sm font-sans bg-surface border border-border rounded-md outline-none focus:border-accent"
+                className="px-3 py-1.5 text-sm font-sans bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md outline-none focus:border-accent dark:focus:border-accent-dark text-text dark:text-text-dark"
                 placeholder="我的自定义角色"
               />
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-sans text-text-secondary">
+              <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">
                 系统提示词（定义 AI 的行为和角色）
               </span>
               <TextArea
@@ -151,7 +151,7 @@ export function AssistantTab() {
             </label>
 
             <label className="flex flex-col gap-1">
-              <span className="text-xs font-sans text-text-secondary">
+              <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">
                 用户消息模板（使用 {"{variableName}"} 作为占位符）
               </span>
               <TextArea
@@ -162,8 +162,8 @@ export function AssistantTab() {
               />
             </label>
 
-            <div className="bg-bg border border-border rounded-md p-3">
-              <p className="text-xs font-sans text-text-secondary m-0">
+            <div className="bg-bg dark:bg-bg-dark border border-border dark:border-border-dark rounded-md p-3">
+              <p className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark m-0">
                 <strong>可用变量：</strong>
                 {"{selectedText}"} (选中文本)、{"{dictionaryResults}"} (词典结果)、{"{context}"} (上下文)
               </p>
@@ -199,13 +199,13 @@ export function AssistantTab() {
           return (
             <div
               key={module.id}
-              className="bg-surface border border-border rounded-md p-4 flex items-center justify-between mb-3"
+              className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md p-4 flex items-center justify-between mb-3"
             >
               <div className="flex flex-col gap-1">
-                <span className="text-sm font-sans font-medium text-text">
+                <span className="text-sm font-sans font-medium text-text dark:text-text-dark">
                   {module.name}
                 </span>
-                <span className="text-xs font-sans text-text-secondary">
+                <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">
                   {module.content}
                 </span>
               </div>
@@ -233,19 +233,19 @@ export function AssistantTab() {
         {/* Dictionary Context */}
         {dictionaryModules.length > 0 && (
           <>
-            <h3 className="text-xs font-sans font-semibold text-text-secondary mt-4 mb-3">
+            <h3 className="text-xs font-sans font-semibold text-text-secondary dark:text-text-secondary-dark mt-4 mb-3">
               词典查询
             </h3>
             {dictionaryModules.map((module) => (
               <div
                 key={module.id}
-                className="bg-surface border border-border rounded-md p-4 flex items-center justify-between mb-3"
+                className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md p-4 flex items-center justify-between mb-3"
               >
                 <div className="flex flex-col gap-1">
-                  <span className="text-sm font-sans font-medium text-text">
+                  <span className="text-sm font-sans font-medium text-text dark:text-text-dark">
                     {module.name}
                   </span>
-                  <span className="text-xs font-sans text-text-secondary">
+                  <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">
                     {module.content}
                   </span>
                 </div>
