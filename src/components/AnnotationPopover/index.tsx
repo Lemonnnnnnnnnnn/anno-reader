@@ -116,7 +116,7 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
   return (
     <div
       ref={popoverRef}
-      className="absolute z-50 w-96 max-h-[calc(100vh-4rem)] bg-surface border border-border rounded-lg shadow-lg overflow-hidden font-serif flex flex-col"
+      className="absolute z-50 w-96 max-h-[calc(100vh-4rem)] bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-lg shadow-lg overflow-hidden font-serif flex flex-col"
       style={{
         top: position.top,
         right: 16,
@@ -124,8 +124,8 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
       }}
     >
       {/* Quoted selected text */}
-      <div className="shrink-0 px-3 pt-3 pb-2 border-b border-border flex items-start gap-2">
-        <p className="m-0 text-xs text-text-secondary italic leading-snug overflow-hidden text-ellipsis line-clamp-3 flex-1">
+      <div className="shrink-0 px-3 pt-3 pb-2 border-b border-border dark:border-border-dark flex items-start gap-2">
+        <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug overflow-hidden text-ellipsis line-clamp-3 flex-1">
           &ldquo;{note.text}&rdquo;
         </p>
         <Button
@@ -192,8 +192,8 @@ export function AnnotationPopover({ noteId, position, onClose }: AnnotationPopov
       )}
 
       {/* Timestamp */}
-      <div className="shrink-0 px-3 pb-2 border-t border-border">
-        <span className="text-[0.72rem] text-text-muted">
+      <div className="shrink-0 px-3 pb-2 border-t border-border dark:border-border-dark">
+        <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
           {new Date(note.createdAt).toLocaleDateString(undefined, {
             month: "short",
             day: "numeric",

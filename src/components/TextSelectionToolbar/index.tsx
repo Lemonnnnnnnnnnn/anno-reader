@@ -86,29 +86,29 @@ export function TextSelectionToolbar({
 
   return (
     <div ref={toolbarRef} style={getToolbarPosition()}>
-      <div className="bg-surface border border-border rounded-lg shadow-lg overflow-hidden min-w-[200px]">
+      <div className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-lg shadow-lg overflow-hidden min-w-[200px]">
         {mode === "default" && (
           <div className="flex items-center p-1">
             <button
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg dark:hover:bg-bg-dark transition-colors"
               onClick={handleAddNote}
               title="Add note to selection"
             >
               <Pencil size={14} className="shrink-0 opacity-70" />
               Note
             </button>
-            <div className="w-px h-5 bg-border mx-0.5" />
+            <div className="w-px h-5 bg-border dark:bg-border-dark mx-0.5" />
             <button
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg dark:hover:bg-bg-dark transition-colors"
               onClick={handleHighlight}
               title="Highlight selection"
             >
               <Highlighter size={14} className="shrink-0 opacity-70" />
               Highlight
             </button>
-            <div className="w-px h-5 bg-border mx-0.5" />
+            <div className="w-px h-5 bg-border dark:bg-border-dark mx-0.5" />
             <button
-              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg transition-colors"
+              className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg dark:hover:bg-bg-dark transition-colors"
               onClick={(e) => {
                 if (onTranslate && selection) {
                   onTranslate({
@@ -158,7 +158,7 @@ export function TextSelectionToolbar({
             {HIGHLIGHT_COLORS.map((color) => (
               <button
                 key={color.value}
-                className="w-6 h-6 rounded-full border-2 border-border cursor-pointer p-0 hover:scale-110 transition-transform"
+                className="w-6 h-6 rounded-full border-2 border-border dark:border-border-dark cursor-pointer p-0 hover:scale-110 transition-transform"
                 style={{ backgroundColor: color.value }}
                 onClick={() => handleCreateHighlight(color.value)}
                 title={color.name}
@@ -169,8 +169,8 @@ export function TextSelectionToolbar({
         )}
 
         {/* Selection preview */}
-        <div className="px-2.5 pt-1 pb-1.5 border-t border-border">
-          <span className="text-[0.72rem] text-text-muted italic leading-[1.4] block overflow-hidden text-ellipsis whitespace-nowrap">
+        <div className="px-2.5 pt-1 pb-1.5 border-t border-border dark:border-border-dark">
+          <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark italic leading-[1.4] block overflow-hidden text-ellipsis whitespace-nowrap">
             {selection.text.length > 60
               ? selection.text.slice(0, 60) + "..."
               : selection.text}
