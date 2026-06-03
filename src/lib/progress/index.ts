@@ -26,7 +26,7 @@
 
 import { useBookStore, type ReadingProgress } from "@/stores/useBookStore";
 import { loadProgressFromFile } from "./persistence";
-import { trackProgress, flushProgress } from "./tracker";
+import { trackProgress } from "./tracker";
 import type { ProgressData, ProgressConfig } from "./types";
 
 /**
@@ -36,12 +36,12 @@ import type { ProgressData, ProgressConfig } from "./types";
  * with the saved chapter, scroll position, and percentage.
  *
  * @param bookId - The book ID to restore progress for.
- * @param filePath - Path to the EPUB file.
+ * @param _filePath - Path to the EPUB file (unused, kept for API consistency).
  * @returns The restored progress data, or null if no saved progress exists.
  */
 export async function restoreProgress(
   bookId: string,
-  filePath: string
+  _filePath: string
 ): Promise<ProgressData | null> {
   const saved = await loadProgressFromFile(bookId);
 

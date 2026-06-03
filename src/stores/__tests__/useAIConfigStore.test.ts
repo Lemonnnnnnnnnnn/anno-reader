@@ -55,6 +55,8 @@ function resetStore() {
           isEnabled: true,
         },
       ],
+      roles: [],
+      selectedRoleId: null,
     },
   });
 }

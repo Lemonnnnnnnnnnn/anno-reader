@@ -6,7 +6,6 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToString } from "react-dom/server";
-import React from "react";
 
 // Mock react-router-dom
 const mockNavigate = vi.fn();

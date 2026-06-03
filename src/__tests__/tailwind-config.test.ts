@@ -52,7 +52,7 @@ describe("tailwind.config.ts", () => {
     });
 
     it("should not have any plain-string color tokens", () => {
-      for (const [key, value] of Object.entries(colors)) {
+      for (const [, value] of Object.entries(colors)) {
         expect(typeof value).not.toBe("string");
       }
     });

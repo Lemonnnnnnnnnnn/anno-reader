@@ -9,7 +9,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import React from "react";
 import { renderToString } from "react-dom/server";
 import { extractPlainText } from "@/components/ChapterRenderer";
 import type { EpubChapterInfo } from "@/lib/epub";
@@ -20,27 +19,28 @@ import type { EpubChapterInfo } from "@/lib/epub";
 
 // Mock VerticalScroller to capture props passed from ChapterRenderer
 const mockVerticalScroller = vi.fn(
-  ({
-    chapterText,
-    srcdoc,
-    chapterIndex,
-    chapterHref,
-    title,
-  }: {
-    chapterText: string | null;
-    srcdoc: string;
-    chapterIndex: number;
-    chapterHref: string;
-    title: string;
-  }) => (
-    <div
-      data-testid="vertical-scroller"
-      data-chapter-text={chapterText ?? ""}
-      data-chapter-index={chapterIndex}
-      data-chapter-href={chapterHref}
-      data-title={title}
-    />
-  ),
+  (props: Record<string, unknown>) => {
+    const {
+      chapterText,
+      chapterIndex,
+      chapterHref,
+      title,
+    } = props as {
+      chapterText: string | null;
+      chapterIndex: number;
+      chapterHref: string;
+      title: string;
+    };
+    return (
+      <div
+        data-testid="vertical-scroller"
+        data-chapter-text={chapterText ?? ""}
+        data-chapter-index={chapterIndex}
+        data-chapter-href={chapterHref}
+        data-title={title}
+      />
+    );
+  },
 );
 
 vi.mock("@/components/VerticalScroller", () => ({
@@ -74,18 +74,13 @@ vi.mock("@/lib/fonts", () => ({
 }));
 
 // Mock AITranslationPanel to capture props passed from VerticalScroller
-let capturedTranslationPanelProps: Record<string, unknown> | null = null;
-
 const mockTranslateFn = vi.fn().mockResolvedValue({
   translation: "翻译结果",
   originalText: "selected",
 });
 
 vi.mock("@/components/AITranslationPanel", () => ({
-  AITranslationPanel: (props: Record<string, unknown>) => {
-    capturedTranslationPanelProps = props;
-    return <div data-testid="ai-translation-panel" />;
-  },
+  AITranslationPanel: () => <div data-testid="ai-translation-panel" />,
 }));
 
 vi.mock("@/components/TextSelectionToolbar", () => ({
@@ -135,6 +130,8 @@ vi.mock("@/stores/useAIConfigStore", () => ({
         selectedProviderId: null,
         contextConfig: { modules: [], selectedModuleIds: [] },
         prompts: [],
+        roles: [],
+        selectedRoleId: null,
       },
     }),
 }));
@@ -160,7 +157,7 @@ const mockHtmlChapter: EpubChapterInfo = {
     <hr/>
     <p>Final paragraph with <a href="#">a link</a> inside.</p>
   `,
-  cssContent: "",
+  cssContent: [],
 };
 
 /** Mock chapter with nested and self-closing tags */
@@ -169,7 +166,7 @@ const mockNestedChapter: EpubChapterInfo = {
   href: "Text/chapter2.xhtml",
   title: "Chapter 2",
   content: `<div><span><b>Deeply nested</b> text</span> and <img src="test.png" alt="image"/> more text</div>`,
-  cssContent: "",
+  cssContent: [],
 };
 
 /** Mock chapter with script and style tags */
@@ -178,7 +175,7 @@ const mockChapterWithScripts: EpubChapterInfo = {
   href: "Text/chapter3.xhtml",
   title: "Chapter 3",
   content: `<style>body { color: red; }</style><p>Visible text</p><script>alert('hidden');</script>`,
-  cssContent: "",
+  cssContent: [],
 };
 
 /** Mock chapter with extra whitespace */
@@ -187,7 +184,7 @@ const mockWhitespaceChapter: EpubChapterInfo = {
   href: "Text/chapter4.xhtml",
   title: "Chapter 4",
   content: `<p>  Lots   of    whitespace  </p>\n\n<p>  Between  paragraphs  </p>`,
-  cssContent: "",
+  cssContent: [],
 };
 
 // ---------------------------------------------------------------------------
@@ -365,7 +362,7 @@ describe("ChapterRenderer → VerticalScroller: chapterText prop flow", () => {
 
 describe("VerticalScroller → AITranslationPanel: chapterText prop flow", () => {
   beforeEach(() => {
-    capturedTranslationPanelProps = null;
+    // Reset state between tests
   });
 
   it("forwards chapterText to AITranslationPanel when translation is triggered", async () => {
@@ -445,6 +442,8 @@ describe("AITranslationPanel → TranslationService: chapterText flow", () => {
       selectedProviderId: null,
       contextConfig: { modules: [], selectedModuleIds: [] },
       prompts: [],
+      roles: [],
+      selectedRoleId: null,
     };
 
     await service.translate("selected text", "Chinese", config, chapterText);
@@ -464,6 +463,8 @@ describe("AITranslationPanel → TranslationService: chapterText flow", () => {
       selectedProviderId: null,
       contextConfig: { modules: [], selectedModuleIds: [] },
       prompts: [],
+      roles: [],
+      selectedRoleId: null,
     };
 
     await service.translate("selected text", "Chinese", config, null);
@@ -485,6 +486,8 @@ describe("AITranslationPanel → TranslationService: chapterText flow", () => {
       selectedProviderId: null,
       contextConfig: { modules: [], selectedModuleIds: [] },
       prompts: [],
+      roles: [],
+      selectedRoleId: null,
     };
 
     await service.translate("Hello", "Chinese", config, chapterText);
@@ -532,6 +535,8 @@ describe("Full chapterText data flow: HTML → extractPlainText → props → se
       selectedProviderId: null,
       contextConfig: { modules: [], selectedModuleIds: [] },
       prompts: [],
+      roles: [],
+      selectedRoleId: null,
     };
 
     await service.translate(

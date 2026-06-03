@@ -6,7 +6,7 @@ function makeResponse(overrides: Partial<TranslationResponse> = {}): Translation
   return {
     translation: "translated",
     originalText: "original",
-    provider: "openai" as TranslationResponse["provider"],
+    provider: "openai" as unknown as TranslationResponse["provider"],
     cached: false,
     ...overrides,
   };

@@ -468,7 +468,7 @@ describe("Etymonline provider", () => {
         text: async () => {
           throw new Error("Body read error");
         },
-      } as Response;
+      } as unknown as Response;
       mockFetch.mockResolvedValue(badResponse);
 
       // text() fails → fetchAndParse throws FETCH_FAILED

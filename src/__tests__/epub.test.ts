@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { extractMetadata, extractChapters, extractToc } from "@/lib/epub/parser";
-import type { EpubMetadata, EpubChapterInfo, EpubTocEntry } from "@/lib/epub/types";
 
 // Mock epubix Epub object for testing
 const mockEpub = {

@@ -6,9 +6,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { renderToString } from "react-dom/server";
-import React from "react";
 import { AITranslationPanelView, AITranslationPanel } from "..";
-import type { PanelStatus } from "..";
 
 // Default props for the view component
 const viewDefaults = {

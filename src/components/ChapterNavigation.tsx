@@ -53,7 +53,6 @@ export function ChapterNavigation({
   const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
   const setScrollPosition = useBookStore((state) => state.setScrollPosition);
   const setReadingProgress = useBookStore((state) => state.setReadingProgress);
-  const readingProgress = useBookStore((state) => state.readingProgress);
   const currentBook = useBookStore((state) => state.currentBook);
 
   const totalChapters = chapters.length;

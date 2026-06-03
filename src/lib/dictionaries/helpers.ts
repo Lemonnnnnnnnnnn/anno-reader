@@ -106,7 +106,7 @@ export async function fetchWithTimeout(
     try {
       const response = await tauriFetch(url, {
         ...fetchOptions,
-        timeout,
+        connectTimeout: timeout,
         // Tauri expects headers as Record<string, string>
         headers: normalizeHeaders(fetchOptions.headers),
       });

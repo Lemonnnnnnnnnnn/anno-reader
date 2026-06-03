@@ -213,7 +213,7 @@ describe("Vocabulary.com provider", () => {
         text: async () => {
           throw new Error("Body read error");
         },
-      } as Response;
+      } as unknown as Response;
       mockFetch.mockResolvedValue(badResponse);
 
       await expect(search("hello", config)).rejects.toThrow(DictionaryError);
