@@ -1,21 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Sun, Moon } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/primitives";
-import { useBookStore } from "@/stores/useBookStore";
-import useTheme from "@/hooks/useTheme";
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const theme = useBookStore((s) => s.ui.theme);
-  const setTheme = useBookStore((s) => s.setTheme);
-
-  useTheme();
-
-  const handleToggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
@@ -34,14 +22,6 @@ export function SettingsPage() {
       {/* Content */}
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-[600px] mx-auto flex flex-col gap-6">
-          <button
-            onClick={handleToggleTheme}
-            aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
-            className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface border border-border rounded-md hover:border-accent transition-colors cursor-pointer flex items-center gap-3"
-          >
-            {theme === "light" ? <Sun size={18} /> : <Moon size={18} />}
-            <span>{theme === "light" ? "Light Mode" : "Dark Mode"}</span>
-          </button>
           <button
             onClick={() => navigate("/ai-config")}
             className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface border border-border rounded-md hover:border-accent transition-colors cursor-pointer"

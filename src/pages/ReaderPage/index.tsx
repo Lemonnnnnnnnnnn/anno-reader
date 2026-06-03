@@ -13,8 +13,9 @@
 
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, List, StickyNote, Settings, Book } from "lucide-react";
+import { ArrowLeft, List, StickyNote, Settings, Book, Sun, Moon } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
+import useTheme from "@/hooks/useTheme";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { TocDrawer } from "@/components/TocDrawer";
@@ -30,6 +31,16 @@ export function ReaderPage() {
   const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
   const setScrollPosition = useBookStore((state) => state.setScrollPosition);
   const setPendingScrollCfi = useBookStore((state) => state.setPendingScrollCfi);
+  const theme = useBookStore((s) => s.ui.theme);
+  const setTheme = useBookStore((s) => s.setTheme);
+
+  useTheme();
+
+  const handleToggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+  };
 
   // Route guard: redirect to bookshelf if no book
   const guardedBook = useRouteGuard();
@@ -131,6 +142,14 @@ export function ReaderPage() {
                     title="Settings"
                   >
                     <Settings size={16} />
+                  </Button>
+                  <Button
+                    variant="icon"
+                    className="ml-2"
+                    onClick={handleToggleTheme}
+                    title={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
+                  >
+                    {theme === "light" ? <Sun size={16} /> : <Moon size={16} />}
                   </Button>
                 </>
               )}

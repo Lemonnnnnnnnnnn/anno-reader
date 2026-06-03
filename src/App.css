@@ -18,6 +18,11 @@
   -webkit-text-size-adjust: 100%;
 }
 
+.dark :root {
+  color: #e5e5e5;
+  background-color: #1a1a1a;
+}
+
 *,
 *::before,
 *::after {
@@ -195,5 +200,30 @@ body,
 .markdown-note th {
   background: #f3f4f6;
   font-weight: 600;
+}
+
+/* Dark mode overrides */
+.dark .markdown-note code {
+  background: #2a2a2a;
+}
+.dark .markdown-note pre {
+  background: #2a2a2a;
+}
+.dark .markdown-note blockquote {
+  border-color: #404040;
+  color: #a3a3a3;
+}
+.dark .markdown-note a {
+  color: #60a5fa;
+}
+.dark .markdown-note hr {
+  border-color: #404040;
+}
+.dark .markdown-note th {
+  background: #2a2a2a;
+}
+.dark .markdown-note th,
+.dark .markdown-note td {
+  border-color: #404040;
 }
 

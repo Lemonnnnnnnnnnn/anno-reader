@@ -26,6 +26,7 @@ describe("tailwind.config.ts", () => {
     const expectedTokens = [
       "bg",
       "surface",
+      "surface-alt",
       "text",
       "text-secondary",
       "text-muted",
@@ -47,8 +48,8 @@ describe("tailwind.config.ts", () => {
       }
     );
 
-    it("should have exactly 10 color tokens", () => {
-      expect(Object.keys(colors)).toHaveLength(10);
+    it("should have exactly 11 color tokens", () => {
+      expect(Object.keys(colors)).toHaveLength(11);
     });
 
     it("should not have any plain-string color tokens", () => {
@@ -62,6 +63,7 @@ describe("tailwind.config.ts", () => {
     it("should preserve original light-mode values", () => {
       expect(colors.bg.DEFAULT).toBe("#f6f6f6");
       expect(colors.surface.DEFAULT).toBe("#ffffff");
+      expect(colors["surface-alt"].DEFAULT).toBe("#f9fafb");
       expect(colors.text.DEFAULT).toBe("#0f0f0f");
       expect(colors["text-secondary"].DEFAULT).toBe("#6b7280");
       expect(colors["text-muted"].DEFAULT).toBe("#9ca3af");
@@ -75,6 +77,7 @@ describe("tailwind.config.ts", () => {
     it("should have dark-mode variants for all tokens", () => {
       expect(colors.bg.dark).toBe("#1a1a1a");
       expect(colors.surface.dark).toBe("#242424");
+      expect(colors["surface-alt"].dark).toBe("#2a2a2a");
       expect(colors.text.dark).toBe("#e5e5e5");
       expect(colors["text-secondary"].dark).toBe("#a3a3a3");
       expect(colors["text-muted"].dark).toBe("#737373");

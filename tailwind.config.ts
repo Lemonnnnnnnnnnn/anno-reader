@@ -8,6 +8,7 @@ export default {
       colors: {
         bg: { DEFAULT: "#f6f6f6", dark: "#1a1a1a" },
         surface: { DEFAULT: "#ffffff", dark: "#242424" },
+        "surface-alt": { DEFAULT: "#f9fafb", dark: "#2a2a2a" },
         text: { DEFAULT: "#0f0f0f", dark: "#e5e5e5" },
         "text-secondary": { DEFAULT: "#6b7280", dark: "#a3a3a3" },
         "text-muted": { DEFAULT: "#9ca3af", dark: "#737373" },

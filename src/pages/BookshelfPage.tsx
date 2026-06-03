@@ -12,8 +12,9 @@ import { useBookStore } from "@/stores/useBookStore";
 import { importEpub, EpubImportError } from "@/lib/import";
 import { BookCard } from "@/components/BookCard";
 import { Button, ErrorBanner } from "@/components/primitives";
-import { Settings, Book } from "lucide-react";
+import { Settings, Book, Sun, Moon } from "lucide-react";
 import type { BookshelfItem } from "@/lib/bookshelf";
+import useTheme from "@/hooks/useTheme";
 
 export function BookshelfPage() {
   const navigate = useNavigate();
@@ -27,6 +28,16 @@ export function BookshelfPage() {
   const clearError = useBookshelfStore((state) => state.clearError);
 
   const setBook = useBookStore((state) => state.setBook);
+  const theme = useBookStore((state) => state.ui.theme);
+  const setTheme = useBookStore((state) => state.setTheme);
+
+  useTheme();
+
+  const handleToggleTheme = useCallback(() => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+  }, [theme, setTheme]);
 
   useEffect(() => {
     loadBooks();
@@ -96,6 +107,9 @@ export function BookshelfPage() {
           <div className="flex items-center gap-2">
             <Button variant="primary" onClick={handleImport}>
               Import EPUB
+            </Button>
+            <Button variant="icon" onClick={handleToggleTheme} title="Toggle theme">
+              {theme === "light" ? <Sun size={16} /> : <Moon size={16} />}
             </Button>
             <Button variant="icon" onClick={() => navigate("/settings")} title="Settings">
               <Settings size={16} />
