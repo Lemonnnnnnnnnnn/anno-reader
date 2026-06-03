@@ -79,6 +79,47 @@ export function injectScrollScript(srcdoc: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Keyboard forwarder script
+// ---------------------------------------------------------------------------
+
+/**
+ * Script injected into the iframe srcdoc to forward keyboard events to parent.
+ * This allows keyboard navigation (arrow keys) to work even when the iframe
+ * has focus (e.g., after clicking inside the chapter content).
+ *
+ * Only forwards arrow keys used for chapter navigation.
+ */
+export const KEYBOARD_FORWARDER_SCRIPT = `
+<script>
+(function() {
+  window.addEventListener('keydown', function(e) {
+    // Only forward arrow keys used for navigation
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      window.parent.postMessage({
+        type: 'keydown',
+        key: e.key
+      }, '*');
+    }
+  }, { passive: true });
+})();
+</script>`;
+
+/**
+ * Inject the keyboard forwarder script into an srcdoc HTML string.
+ * Appends the script just before the closing </body> tag.
+ */
+export function injectKeyboardScript(srcdoc: string): string {
+  const closingBody = "</body>";
+  const idx = srcdoc.lastIndexOf(closingBody);
+  if (idx === -1) {
+    // No closing body tag — append at end
+    return srcdoc + KEYBOARD_FORWARDER_SCRIPT;
+  }
+  return srcdoc.slice(0, idx) + KEYBOARD_FORWARDER_SCRIPT + srcdoc.slice(idx);
+}
+
+// ---------------------------------------------------------------------------
 // CFI parsing and scroll helpers
 // ---------------------------------------------------------------------------
 

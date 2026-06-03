@@ -23,11 +23,14 @@
 
 import { useRef, useMemo, useEffect, useState, useCallback } from "react";
 import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
+import { updateHighlight, deleteHighlight } from "@/lib/annotations";
+import { useBookStore } from "@/stores/useBookStore";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
 import { AnnotationDetailPanel } from "../AnnotationDetailPanel";
+import { HighlightPopover } from "../HighlightPopover";
 import { AITranslationPanel } from "../AITranslationPanel";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
-import { injectScrollScript } from "./hooks/useScrollTracking";
+import { injectScrollScript, injectKeyboardScript } from "./hooks/useScrollTracking";
 
 interface VerticalScrollerProps {
   /** Complete HTML string for the iframe srcdoc */
@@ -57,6 +60,27 @@ export function VerticalScroller({
   // Annotation popover state
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
 
+  // Highlight popover state
+  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
+  const [highlightPosition, setHighlightPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+
+  // Dismiss highlight popover on chapter navigation
+  useEffect(() => {
+    setActiveHighlightId(null);
+    setHighlightPosition(null);
+  }, [chapterHref]);
+
+  // Look up the full highlight object from the store
+  const activeHighlight = useBookStore((state) =>
+    activeHighlightId
+      ? state.highlights.find((h) => h.id === activeHighlightId) ?? null
+      : null,
+  );
+  const currentBook = useBookStore((state) => state.currentBook);
+
   // AI translation panel state
   const [translationPanel, setTranslationPanel] = useState<{
     selectedText: string;
@@ -80,12 +104,28 @@ export function VerticalScroller({
   // Annotation state and synchronization
   const { annotationScript } = useAnnotationSync(chapterHref, iframeRef);
 
-  // Listen for note-click messages from iframe
+  // Listen for note-click and highlight-click messages from iframe
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.data?.type === "note-click" && event.data.noteId) {
         setActiveNoteId(event.data.noteId);
-        // Close translation panel (mutual exclusivity)
+        // Close highlight popover and translation panel (mutual exclusivity)
+        setActiveHighlightId(null);
+        setHighlightPosition(null);
+        setTranslationPanel(null);
+      }
+      if (event.data?.type === "highlight-click" && event.data.highlightId) {
+        setActiveHighlightId(event.data.highlightId);
+        // Position the popover near the highlight span
+        const rect = event.data.rect;
+        if (rect) {
+          setHighlightPosition({
+            top: rect.bottom + 8,
+            left: rect.left + rect.width / 2 - 130,
+          });
+        }
+        // Close note detail panel and translation panel (mutual exclusivity)
+        setActiveNoteId(null);
         setTranslationPanel(null);
       }
     }
@@ -97,6 +137,23 @@ export function VerticalScroller({
     setActiveNoteId(null);
   }, []);
 
+  const handleCloseHighlightPopover = useCallback(() => {
+    setActiveHighlightId(null);
+    setHighlightPosition(null);
+  }, []);
+
+  const handleHighlightColorChange = useCallback((color: string) => {
+    if (!activeHighlightId || !currentBook) return;
+    updateHighlight(activeHighlightId, { color }, currentBook.id);
+  }, [activeHighlightId, currentBook]);
+
+  const handleHighlightDelete = useCallback(() => {
+    if (!activeHighlightId || !currentBook) return;
+    deleteHighlight(activeHighlightId, currentBook.id);
+    setActiveHighlightId(null);
+    setHighlightPosition(null);
+  }, [activeHighlightId, currentBook]);
+
   const handleTranslate = useCallback((data: {
     selectedText: string;
     chapterHref: string;
@@ -104,18 +161,21 @@ export function VerticalScroller({
     endOffset: number;
   }, options?: { forcePreview?: boolean }) => {
     setTranslationPanel({ ...data, forcePreview: options?.forcePreview });
-    // Close annotation detail panel (mutual exclusivity)
+    // Close annotation detail panel and highlight popover (mutual exclusivity)
     setActiveNoteId(null);
+    setActiveHighlightId(null);
+    setHighlightPosition(null);
   }, []);
 
   const handleCloseTranslationPanel = useCallback(() => {
     setTranslationPanel(null);
   }, []);
 
-  // Build the final srcdoc with scroll tracker, selection detector, and annotations injected
+  // Build the final srcdoc with scroll tracker, keyboard forwarder, selection detector, and annotations injected
   const srcdocWithTracking = useMemo(() => {
     const withScroll = injectScrollScript(srcdoc);
-    const withSelection = injectSelectionScript(withScroll);
+    const withKeyboard = injectKeyboardScript(withScroll);
+    const withSelection = injectSelectionScript(withKeyboard);
     // Inject annotation script before closing body
     const closingBody = "</body>";
     const idx = withSelection.lastIndexOf(closingBody);
@@ -134,7 +194,7 @@ export function VerticalScroller({
         ref={iframeRef}
         srcDoc={srcdocWithTracking}
         title={title || `Chapter ${chapterIndex + 1}`}
-        className="w-full h-full border-none bg-bg"
+        className="w-full h-full border-none bg-bg dark:bg-bg-dark"
         sandbox="allow-same-origin allow-scripts"
         onLoad={handleIframeLoad}
       />
@@ -147,6 +207,15 @@ export function VerticalScroller({
         noteId={activeNoteId}
         onClose={handleClosePopover}
       />
+      {activeHighlight && highlightPosition && (
+        <HighlightPopover
+          highlight={activeHighlight}
+          position={highlightPosition}
+          onColorChange={handleHighlightColorChange}
+          onDelete={handleHighlightDelete}
+          onClose={handleCloseHighlightPopover}
+        />
+      )}
       <AITranslationPanel
         selectedText={translationPanel?.selectedText ?? ""}
         chapterText={chapterText}
