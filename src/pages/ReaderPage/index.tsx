@@ -23,6 +23,7 @@ import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DataDirSetup } from "@/components/DataDirSetup";
 import { Button } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
+import { parseCfiOffsets, scrollToCharOffset } from "@/components/VerticalScroller/hooks/useScrollTracking";
 
 export function ReaderPage() {
   const navigate = useNavigate();
@@ -75,11 +76,11 @@ export function ReaderPage() {
   // Loading state while checking config
   if (configReady === null) {
     return (
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
+      <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
         <main className="flex-1 overflow-hidden relative">
           <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin" />
-            <p className="text-sm text-text-secondary">Loading...</p>
+            <div className="w-8 h-8 border-2 border-border dark:border-border-dark border-t-accent dark:border-t-accent-dark rounded-full animate-spin" />
+            <p className="text-sm text-text-secondary dark:text-text-secondary-dark">Loading...</p>
           </div>
         </main>
       </div>
@@ -92,9 +93,9 @@ export function ReaderPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg text-text font-serif">
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
       {/* Header: Book metadata */}
-      <header className="shrink-0 bg-surface border-b border-border relative z-10 reader-header">
+      <header className="shrink-0 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark relative z-10 reader-header">
         <div className="flex items-center justify-between px-4 py-3 max-w-[1200px] mx-auto w-full">
           <Button
             variant="icon"
@@ -114,8 +115,8 @@ export function ReaderPage() {
                 />
               )}
               <div className="flex flex-col gap-0.5 min-w-0">
-                <h1 className="text-base font-semibold text-text truncate reader-book-title">{currentBook.title}</h1>
-                <p className="text-xs text-text-secondary truncate">{currentBook.author}</p>
+                <h1 className="text-base font-semibold text-text dark:text-text-dark truncate reader-book-title">{currentBook.title}</h1>
+                <p className="text-xs text-text-secondary dark:text-text-secondary-dark truncate">{currentBook.author}</p>
               </div>
               {parsedEpub && (
                 <>
@@ -157,8 +158,8 @@ export function ReaderPage() {
           ) : (
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="flex flex-col gap-0.5 min-w-0">
-                <h1 className="text-base font-semibold text-text truncate">Anno Reader</h1>
-                <p className="text-xs text-text-secondary truncate">Import an EPUB to begin</p>
+                <h1 className="text-base font-semibold text-text dark:text-text-dark truncate">Anno Reader</h1>
+                <p className="text-xs text-text-secondary dark:text-text-secondary-dark truncate">Import an EPUB to begin</p>
               </div>
             </div>
           )}
@@ -168,8 +169,8 @@ export function ReaderPage() {
       {/* Content area: Chapter rendering */}
       <main className="flex-1 overflow-hidden relative">
         {error && (
-          <div className="flex items-center justify-between p-2 px-4 bg-error-bg border-b border-error-border gap-3">
-            <span className="text-sm text-error flex-1">{error}</span>
+          <div className="flex items-center justify-between p-2 px-4 bg-error-bg dark:bg-error-bg-dark border-b border-error-border dark:border-error-border gap-3">
+            <span className="text-sm text-error dark:text-error flex-1">{error}</span>
             <div className="flex gap-2 shrink-0">
               <Button
                 variant="primary"
@@ -191,18 +192,18 @@ export function ReaderPage() {
 
         {loading && (
           <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin" />
-            <p className="text-sm text-text-secondary">Opening book...</p>
+            <div className="w-8 h-8 border-2 border-border dark:border-border-dark border-t-accent dark:border-t-accent-dark rounded-full animate-spin" />
+            <p className="text-sm text-text-secondary dark:text-text-secondary-dark">Opening book...</p>
           </div>
         )}
 
         {!loading && !parsedEpub && !currentBook && (
           <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
-            <div className="text-text-muted opacity-50">
+            <div className="text-text-muted dark:text-text-muted-dark opacity-50">
               <Book size={64} />
             </div>
-            <h2 className="text-xl font-semibold text-text tracking-tight reader-empty-title">No book open</h2>
-            <p className="text-sm text-text-secondary max-w-[280px] reader-empty-subtitle">
+            <h2 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight reader-empty-title">No book open</h2>
+            <p className="text-sm text-text-secondary dark:text-text-secondary-dark max-w-[280px] reader-empty-subtitle">
               Import an EPUB file to start reading
             </p>
             <Button variant="primary" onClick={handleImport}>
@@ -226,7 +227,7 @@ export function ReaderPage() {
         </main>
 
       {/* Footer: Navigation controls */}
-      <footer className="shrink-0 bg-surface border-t border-border relative z-10 reader-footer">
+      <footer className="shrink-0 bg-surface dark:bg-surface-dark border-t border-border dark:border-border-dark relative z-10 reader-footer">
         <div className="flex items-center justify-end px-4 py-2 max-w-[1200px] mx-auto w-full min-h-[48px]">
           {parsedEpub && totalChapters > 0 && (
             <ChapterNavigation
@@ -255,11 +256,23 @@ export function ReaderPage() {
         onClose={() => setAnnotationDrawerOpen(false)}
         chapters={parsedEpub?.chapters ?? []}
         onNavigate={(href, index, cfiRange) => {
-          setCurrentChapter(href, index);
-          if (cfiRange) {
-            setPendingScrollCfi(cfiRange);
+          const isSameChapter = ui.currentChapter === href;
+          
+          if (isSameChapter && cfiRange && iframeRef.current) {
+            // Same chapter: scroll directly to the annotation
+            const offsets = parseCfiOffsets(cfiRange);
+            if (offsets) {
+              const midOffset = Math.floor((offsets.start + offsets.end) / 2);
+              scrollToCharOffset(iframeRef.current, midOffset, "smooth");
+            }
           } else {
-            setScrollPosition(0);
+            // Different chapter: navigate and set pending scroll
+            setCurrentChapter(href, index);
+            if (cfiRange) {
+              setPendingScrollCfi(cfiRange);
+            } else {
+              setScrollPosition(0);
+            }
           }
         }}
       />
