@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 import { importEpub, EpubImportError, ImportErrorCode, readFileAsArrayBuffer } from "@/lib/import";
 import { restoreNotes, restoreHighlights } from "@/lib/annotations";
+import { restoreProgress, trackProgress, flushProgress } from "@/lib/progress";
 import type { ParsedEpub } from "@/lib/epub";
 import { loadEpub } from "@/lib/epub";
 
@@ -59,16 +60,17 @@ export function useEpubLoader() {
 
       setParsedEpub(parsed);
 
-      // Restore saved notes and highlights for this book
+      // Restore saved notes, highlights, and progress for this book
       try {
         await restoreNotes(book.id);
         await restoreHighlights(book.id);
+        await restoreProgress(book.id, filePath);
       } catch (restoreErr) {
         // Non-fatal: log but don't block import
         console.warn("Failed to restore annotations:", restoreErr);
       }
 
-      // Set first chapter as current
+      // Set first chapter as current (restoreProgress may have set a different one)
       setCurrentChapter(parsed.chapters[0].href, 0);
     } catch (err) {
       // User cancelled the dialog — not an error
@@ -94,6 +96,7 @@ export function useEpubLoader() {
     if (!currentBook || parsedEpub) return;
 
     let cancelled = false;
+    let cleanupTracking: (() => void) | null = null;
 
     async function loadBook() {
       setLoading(true);
@@ -112,13 +115,17 @@ export function useEpubLoader() {
 
         setParsedEpub(parsed);
 
-        // Restore saved notes and highlights
+        // Restore saved notes, highlights, and progress
         try {
           await restoreNotes(currentBook!.id);
           await restoreHighlights(currentBook!.id);
+          await restoreProgress(currentBook!.id, currentBook!.filePath);
         } catch (restoreErr) {
           console.warn("Failed to restore annotations:", restoreErr);
         }
+
+        // Start tracking progress (auto-save on scroll/chapter change)
+        cleanupTracking = trackProgress(currentBook!.id, currentBook!.filePath);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load book");
@@ -130,7 +137,15 @@ export function useEpubLoader() {
     }
 
     loadBook();
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+      // Flush any pending progress saves and stop tracking
+      if (cleanupTracking) {
+        flushProgress();
+        cleanupTracking();
+      }
+    };
   }, [currentBook, parsedEpub]);
 
   // Reset parsed EPUB when book changes (e.g., re-import)
