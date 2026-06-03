@@ -13,13 +13,14 @@
 
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, List, StickyNote, Settings, Book, Sun, Moon } from "lucide-react";
+import { ArrowLeft, List, StickyNote, Search, Settings, Book, Sun, Moon } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { TocDrawer } from "@/components/TocDrawer";
 import { AnnotationDrawer } from "@/components/AnnotationDrawer";
+import { DictionaryDrawer } from "@/components/DictionaryDrawer";
 import { DataDirSetup } from "@/components/DataDirSetup";
 import { Button } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
@@ -67,6 +68,7 @@ export function ReaderPage() {
   // Drawer state
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
   const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
+  const [dictionaryDrawerOpen, setDictionaryDrawerOpen] = useState(false);
 
   // Return null if no book (before redirect completes)
   if (!guardedBook) {
@@ -135,6 +137,14 @@ export function ReaderPage() {
                     title="Annotations"
                   >
                     <StickyNote size={16} />
+                  </Button>
+                  <Button
+                    variant="icon"
+                    className="ml-2"
+                    onClick={() => setDictionaryDrawerOpen(true)}
+                    title="Dictionary"
+                  >
+                    <Search size={16} />
                   </Button>
                   <Button
                     variant="icon"
@@ -275,6 +285,10 @@ export function ReaderPage() {
             }
           }
         }}
+      />
+      <DictionaryDrawer
+        open={dictionaryDrawerOpen}
+        onClose={() => setDictionaryDrawerOpen(false)}
       />
 
     </div>
