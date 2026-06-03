@@ -15,6 +15,7 @@ interface AITranslationPanelProps {
   endOffset: number;
   isOpen?: boolean;
   onClose: () => void;
+  skipPreview?: boolean;
 }
 
 export type { PanelStatus };
@@ -316,6 +317,7 @@ export function AITranslationPanel({
   cfiRange,
   isOpen = true,
   onClose,
+  skipPreview,
 }: AITranslationPanelProps) {
   const {
     status,
@@ -327,7 +329,7 @@ export function AITranslationPanel({
     translate,
     stopTranslation,
     preview,
-  } = useTranslation({ selectedText, chapterText });
+  } = useTranslation({ selectedText, chapterText, skipPreview });
 
   const { isSaving, handleAddNote } = useNoteSaving({
     chapterHref,

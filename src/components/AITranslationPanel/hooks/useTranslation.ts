@@ -17,9 +17,10 @@ export type PanelStatus = "previewing" | "loading" | "streaming" | "success" | "
 interface UseTranslationParams {
   selectedText: string;
   chapterText: string | null;
+  skipPreview?: boolean;
 }
 
-export function useTranslation({ selectedText, chapterText }: UseTranslationParams) {
+export function useTranslation({ selectedText, chapterText, skipPreview = false }: UseTranslationParams) {
   const [status, setStatus] = useState<PanelStatus>("loading");
   const [translationText, setTranslationText] = useState("");
   const [streamingText, setStreamingText] = useState("");
@@ -58,10 +59,6 @@ export function useTranslation({ selectedText, chapterText }: UseTranslationPara
       setStatus("error");
     }
   }, [selectedText, chapterText, config]);
-
-  useEffect(() => {
-    preview();
-  }, [preview]);
 
   const translate = useCallback(async () => {
     setStatus("loading");
@@ -110,6 +107,14 @@ export function useTranslation({ selectedText, chapterText }: UseTranslationPara
       }
     }
   }, [selectedText, chapterText, config]);
+
+  useEffect(() => {
+    if (skipPreview) {
+      translate();
+    } else {
+      preview();
+    }
+  }, [skipPreview, preview, translate]);
 
   const stopTranslation = useCallback(() => {
     abortControllerRef.current?.abort();
