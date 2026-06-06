@@ -6,8 +6,9 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToString } from "react-dom/server";
-import { ChatDrawerView, ChatDrawer } from "..";
-import type { ChatMessage } from "@/lib/chat/types";
+import { ChatDrawerView, ChatDrawer, SessionList } from "..";
+import { SessionItem } from "../SessionItem";
+import type { ChatMessage, ChatConversation } from "@/lib/chat/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,17 +35,32 @@ const mockSendChatMessage = vi.fn();
 const mockLoadConversations = vi.fn();
 const mockCreateConversation = vi.fn();
 const mockAddMessage = vi.fn();
+const mockSetCurrentConversation = vi.fn();
+const mockRenameConversation = vi.fn();
+const mockDeleteConversation = vi.fn();
+const mockReset = vi.fn();
+
+let mockStoreState = {
+  messages: [] as ChatMessage[],
+  addMessage: mockAddMessage,
+  loadConversations: mockLoadConversations,
+  isLoaded: true,
+  currentConversationId: null as string | null,
+  createConversation: mockCreateConversation,
+  setCurrentConversation: mockSetCurrentConversation,
+  renameConversation: mockRenameConversation,
+  deleteConversation: mockDeleteConversation,
+  conversations: [] as ChatConversation[],
+};
 
 vi.mock("@/stores/useChatStore", () => ({
-  useChatStore: () => ({
-    messages: [],
-    addMessage: mockAddMessage,
-    loadConversations: mockLoadConversations,
-    isLoaded: true,
-    currentConversationId: null,
-    createConversation: mockCreateConversation,
-    conversations: [],
-  }),
+  useChatStore: Object.assign(
+    (selector?: (state: typeof mockStoreState) => unknown) =>
+      selector ? selector(mockStoreState) : mockStoreState,
+    {
+      getState: () => mockStoreState,
+    },
+  ),
 }));
 
 vi.mock("@/lib/chat/streaming", () => ({
@@ -57,7 +73,15 @@ vi.mock("@/lib/chat/streaming", () => ({
     sendChatMessage: mockSendChatMessage,
     stopStreaming: mockStopStreaming,
     clearMessages: vi.fn(),
+    reset: mockReset,
   }),
+}));
+
+vi.mock("@/stores/useBookStore", () => ({
+  useBookStore: (selector?: (state: { currentBook: { id: string } | null }) => unknown) => {
+    const state = { currentBook: { id: "test-book" } };
+    return selector ? selector(state) : state;
+  },
 }));
 
 // ---------------------------------------------------------------------------
@@ -67,6 +91,8 @@ vi.mock("@/lib/chat/streaming", () => ({
 const viewDefaults = {
   isOpen: true,
   onClose: vi.fn(),
+  view: "conversation" as const,
+  bookId: "test-book",
   messages: [],
   streamingText: "",
   status: "idle" as const,
@@ -75,6 +101,8 @@ const viewDefaults = {
   onSend: vi.fn(),
   onStop: vi.fn(),
   onRetry: vi.fn(),
+  onBackToList: vi.fn(),
+  onNewChat: vi.fn(),
 };
 
 // ---------------------------------------------------------------------------
@@ -314,6 +342,9 @@ describe("ChatDrawerView", () => {
 describe("ChatDrawer (stateful)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default to an active conversation so the stateful drawer renders
+    // conversation view (welcome state + input) rather than the list view.
+    mockStoreState.currentConversationId = "active-conv";
   });
 
   it("renders the drawer with title", () => {
@@ -346,5 +377,258 @@ describe("ChatDrawer (stateful)", () => {
     );
 
     expect(html).toContain("Ask about this book…");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// List view toggle tests
+// ---------------------------------------------------------------------------
+
+describe("List view toggle", () => {
+  it("renders SessionList when view is 'list'", () => {
+    const html = renderToString(
+      <ChatDrawerView
+        {...viewDefaults}
+        view="list"
+        bookId="test-book"
+      />,
+    );
+
+    expect(html).toContain("New Chat");
+  });
+
+  it("does not render SessionList when view is 'conversation'", () => {
+    const html = renderToString(
+      <ChatDrawerView
+        {...viewDefaults}
+        view="conversation"
+        bookId="test-book"
+      />,
+    );
+
+    expect(html).not.toContain("New Chat");
+  });
+
+  it("renders 'Back to conversations' button in conversation view", () => {
+    const html = renderToString(
+      <ChatDrawerView
+        {...viewDefaults}
+        view="conversation"
+      />,
+    );
+
+    expect(html).toContain("Back to conversations");
+  });
+
+  it("does not render 'Back to conversations' in list view", () => {
+    const html = renderToString(
+      <ChatDrawerView
+        {...viewDefaults}
+        view="list"
+        bookId="test-book"
+      />,
+    );
+
+    expect(html).not.toContain("Back to conversations");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SessionList tests
+// ---------------------------------------------------------------------------
+
+describe("SessionList", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders 'New Chat' button", () => {
+    const html = renderToString(
+      <SessionList bookId="book-1" onNewChat={vi.fn()} />,
+    );
+
+    expect(html).toContain("New Chat");
+  });
+
+  it("shows empty state when no conversations exist", () => {
+    mockStoreState.conversations = [];
+
+    const html = renderToString(
+      <SessionList bookId="book-1" onNewChat={vi.fn()} />,
+    );
+
+    expect(html).toContain("No conversations yet");
+  });
+
+  it("renders conversation titles for matching bookId", () => {
+    mockStoreState.conversations = [
+      {
+        id: "c1",
+        title: "Chapter 1 Notes",
+        bookId: "book-1",
+        messages: [],
+        createdAt: 1000,
+        updatedAt: 2000,
+      },
+      {
+        id: "c2",
+        title: "Plot Discussion",
+        bookId: "book-1",
+        messages: [],
+        createdAt: 3000,
+        updatedAt: 4000,
+      },
+    ];
+
+    const html = renderToString(
+      <SessionList bookId="book-1" onNewChat={vi.fn()} />,
+    );
+
+    expect(html).toContain("Chapter 1 Notes");
+    expect(html).toContain("Plot Discussion");
+  });
+
+  it("filters conversations by bookId", () => {
+    mockStoreState.conversations = [
+      {
+        id: "c1",
+        title: "Book 1 Chat",
+        bookId: "book-1",
+        messages: [],
+        createdAt: 1000,
+        updatedAt: 2000,
+      },
+      {
+        id: "c2",
+        title: "Book 2 Chat",
+        bookId: "book-2",
+        messages: [],
+        createdAt: 3000,
+        updatedAt: 4000,
+      },
+    ];
+
+    const html = renderToString(
+      <SessionList bookId="book-1" onNewChat={vi.fn()} />,
+    );
+
+    expect(html).toContain("Book 1 Chat");
+    expect(html).not.toContain("Book 2 Chat");
+  });
+
+  it("renders no empty state when conversations exist for bookId", () => {
+    mockStoreState.conversations = [
+      {
+        id: "c1",
+        title: "Existing Chat",
+        bookId: "book-1",
+        messages: [],
+        createdAt: 1000,
+        updatedAt: 2000,
+      },
+    ];
+
+    const html = renderToString(
+      <SessionList bookId="book-1" onNewChat={vi.fn()} />,
+    );
+
+    expect(html).not.toContain("No conversations yet");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SessionItem tests
+// ---------------------------------------------------------------------------
+
+describe("SessionItem", () => {
+  it("renders the title", () => {
+    const html = renderToString(
+      <SessionItem
+        title="My Discussion"
+        updatedAt={Date.now()}
+        isActive={false}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onClick={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("My Discussion");
+  });
+
+  it("renders rename button with aria-label", () => {
+    const html = renderToString(
+      <SessionItem
+        title="Chat Title"
+        updatedAt={Date.now()}
+        isActive={false}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onClick={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('aria-label="Rename conversation"');
+  });
+
+  it("renders delete button with aria-label", () => {
+    const html = renderToString(
+      <SessionItem
+        title="Chat Title"
+        updatedAt={Date.now()}
+        isActive={false}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onClick={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('aria-label="Delete conversation"');
+  });
+
+  it("applies active styling when isActive is true", () => {
+    const html = renderToString(
+      <SessionItem
+        title="Active Chat"
+        updatedAt={Date.now()}
+        isActive={true}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onClick={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain("bg-accent/10");
+  });
+
+  it("does not apply active styling when isActive is false", () => {
+    const html = renderToString(
+      <SessionItem
+        title="Inactive Chat"
+        updatedAt={Date.now()}
+        isActive={false}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onClick={vi.fn()}
+      />,
+    );
+
+    expect(html).not.toContain("bg-accent/10");
+  });
+
+  it("renders a timestamp", () => {
+    const html = renderToString(
+      <SessionItem
+        title="Chat"
+        updatedAt={Date.now()}
+        isActive={false}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onClick={vi.fn()}
+      />,
+    );
+
+    // Today's timestamp should render as a time string (contains :)
+    expect(html).toMatch(/\d{1,2}:\d{2}/);
   });
 });

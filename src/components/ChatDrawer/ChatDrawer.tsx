@@ -13,13 +13,15 @@
  * ```
  */
 
-import { useEffect, useCallback, useRef } from "react";
-import { Loader2, Bot, BookOpen, Lightbulb, HelpCircle, Settings, RefreshCw, Clock } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ArrowLeft, Loader2, Bot, BookOpen, Lightbulb, HelpCircle, Settings, RefreshCw, Clock } from "lucide-react";
 import { Drawer } from "@/components/Drawer";
 import { Button, ErrorBanner } from "@/components/primitives";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
+import { SessionList } from "./SessionList";
 import { useChatStore } from "@/stores/useChatStore";
+import { useBookStore } from "@/stores/useBookStore";
 import { useChatStreaming } from "@/lib/chat/streaming";
 import type { ChatMessage } from "@/lib/chat/types";
 import type { ChatStreamingStatus } from "@/lib/chat/streaming";
@@ -34,6 +36,10 @@ interface ChatDrawerViewProps {
   isOpen: boolean;
   /** Callback when the drawer should close */
   onClose: () => void;
+  /** Current view: "list" (session list) or "conversation" (chat). Defaults to "conversation". */
+  view?: "list" | "conversation";
+  /** Current book ID for filtering conversations */
+  bookId?: string;
   /** Current conversation messages */
   messages: ChatMessage[];
   /** Text being streamed in real-time */
@@ -50,6 +56,10 @@ interface ChatDrawerViewProps {
   onStop: () => void;
   /** Retry the last failed request */
   onRetry: () => void;
+  /** Navigate back to the session list */
+  onBackToList?: () => void;
+  /** Create a new conversation (called from list view "New Chat" button) */
+  onNewChat: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +204,8 @@ function ChatErrorBanner({
 export function ChatDrawerView({
   isOpen,
   onClose,
+  view = "conversation",
+  bookId,
   messages,
   streamingText,
   status,
@@ -201,6 +213,8 @@ export function ChatDrawerView({
   errorCode,
   onSend,
   onRetry,
+  onBackToList,
+  onNewChat,
 }: ChatDrawerViewProps) {
   const isStreaming = status === "loading" || status === "streaming";
   const isEmpty = messages.length === 0 && !isStreaming;
@@ -208,49 +222,72 @@ export function ChatDrawerView({
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="AI Chat">
       <div className="flex flex-col h-full">
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto">
-          {isEmpty ? (
-            <WelcomeEmptyState />
-          ) : (
-            <MessageList
-              messages={
-                isStreaming && streamingText
-                  ? [
-                      ...messages.slice(0, -1),
-                      {
-                        ...messages[messages.length - 1],
-                        content: streamingText,
-                      },
-                    ]
-                  : messages
-              }
-            />
-          )}
-        </div>
-
-        {/* Typing indicator during streaming */}
-        {status === "streaming" && <TypingIndicator />}
-
-        {/* Loading indicator */}
-        {status === "loading" && (
-          <div className="flex items-center gap-2 py-2 px-3">
-            <Loader2 className="animate-spin h-4 w-4 text-text-secondary dark:text-text-secondary-dark" />
-            <span className="text-xs text-text-secondary dark:text-text-secondary-dark font-sans">
-              Thinking…
-            </span>
-          </div>
+        {/* List view: session list */}
+        {view === "list" && bookId && (
+          <SessionList bookId={bookId} onNewChat={onNewChat} />
         )}
 
-        {/* Error banner */}
-        {status === "error" && error && (
-          <ChatErrorBanner error={error} errorCode={errorCode} onRetry={onRetry} />
-        )}
+        {/* Conversation view */}
+        {view === "conversation" && (
+          <>
+            {/* Back to list button */}
+            <div className="shrink-0 px-2 pb-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onBackToList}
+                className="flex items-center gap-1 border-transparent"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to conversations
+              </Button>
+            </div>
 
-        {/* Input area */}
-        <div className="shrink-0">
-          <ChatInput onSend={onSend} disabled={isStreaming} />
-        </div>
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto">
+              {isEmpty ? (
+                <WelcomeEmptyState />
+              ) : (
+                <MessageList
+                  messages={
+                    isStreaming && streamingText
+                      ? [
+                          ...messages.slice(0, -1),
+                          {
+                            ...messages[messages.length - 1],
+                            content: streamingText,
+                          },
+                        ]
+                      : messages
+                  }
+                />
+              )}
+            </div>
+
+            {/* Typing indicator during streaming */}
+            {status === "streaming" && <TypingIndicator />}
+
+            {/* Loading indicator */}
+            {status === "loading" && (
+              <div className="flex items-center gap-2 py-2 px-3">
+                <Loader2 className="animate-spin h-4 w-4 text-text-secondary dark:text-text-secondary-dark" />
+                <span className="text-xs text-text-secondary dark:text-text-secondary-dark font-sans">
+                  Thinking…
+                </span>
+              </div>
+            )}
+
+            {/* Error banner */}
+            {status === "error" && error && (
+              <ChatErrorBanner error={error} errorCode={errorCode} onRetry={onRetry} />
+            )}
+
+            {/* Input area */}
+            <div className="shrink-0">
+              <ChatInput onSend={onSend} disabled={isStreaming} />
+            </div>
+          </>
+        )}
       </div>
     </Drawer>
   );
@@ -265,19 +302,29 @@ interface ChatDrawerProps {
   isOpen: boolean;
   /** Callback when the drawer should close */
   onClose: () => void;
+  /** Current book ID for filtering conversations. Falls back to useBookStore if omitted. */
+  bookId?: string;
 }
 
 /**
  * Stateful wrapper — mounts, loads conversations from store, wires up
  * streaming hook, and syncs completed messages back to the store.
+ *
+ * Supports two views: "list" (session list) and "conversation" (chat).
+ * Defaults to conversation view when a conversation is active, list view otherwise.
  */
-export function ChatDrawer({ isOpen, onClose }: ChatDrawerProps) {
+export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp }: ChatDrawerProps) {
+  // Book ID — use prop or fall back to current book from store
+  const currentBook = useBookStore((s) => s.currentBook);
+  const bookId = bookIdProp ?? currentBook?.id ?? "";
+
   // Store integration — conversation persistence
   const {
     messages: storeMessages,
     addMessage,
     loadConversations,
     currentConversationId,
+    setCurrentConversation,
     createConversation,
   } = useChatStore();
 
@@ -290,11 +337,19 @@ export function ChatDrawer({ isOpen, onClose }: ChatDrawerProps) {
     errorCode,
     sendChatMessage,
     stopStreaming,
+    reset,
   } = useChatStreaming(storeMessages);
+
+  // View state: defaults to conversation if a conversation is already active
+  const [view, setView] = useState<"list" | "conversation">(
+    currentConversationId ? "conversation" : "list",
+  );
 
   // Refs for debounce and retry
   const lastSendTimeRef = useRef(0);
   const lastContentRef = useRef<string | null>(null);
+  // Track when user navigates back to list to avoid auto-switching back
+  const navigatingBackRef = useRef(false);
 
   // Load persisted conversations on mount
   useEffect(() => {
@@ -329,6 +384,33 @@ export function ChatDrawer({ isOpen, onClose }: ChatDrawerProps) {
     }
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Detect when SessionList selects a conversation (setCurrentConversation)
+  // and switch to conversation view + reset streaming state.
+  useEffect(() => {
+    if (currentConversationId && view === "list" && !navigatingBackRef.current) {
+      // A conversation was selected from the list — load its messages
+      const conv = useChatStore.getState().conversations.find((c) => c.id === currentConversationId);
+      reset(conv?.messages ?? []);
+      setView("conversation");
+    }
+    // Reset the flag after processing
+    navigatingBackRef.current = false;
+  }, [currentConversationId, view, reset]);
+
+  // Create a new conversation and switch to conversation view
+  const handleNewChat = useCallback(() => {
+    setView("conversation");
+  }, []);
+
+  // Navigate back to session list
+  const handleBackToList = useCallback(() => {
+    navigatingBackRef.current = true;
+    stopStreaming();
+    setCurrentConversation(null);
+    reset([]);
+    setView("list");
+  }, [stopStreaming, setCurrentConversation, reset]);
+
   const handleSend = useCallback(
     async (content: string) => {
       // Debounce: reject rapid consecutive sends
@@ -343,13 +425,13 @@ export function ChatDrawer({ isOpen, onClose }: ChatDrawerProps) {
 
       // Ensure conversation exists before sending
       if (!currentConversationId) {
-        createConversation(crypto.randomUUID());
+        createConversation(crypto.randomUUID(), bookId);
       }
 
       // Send via streaming (handles user + assistant messages internally)
       await sendChatMessage(content);
     },
-    [currentConversationId, createConversation, sendChatMessage],
+    [currentConversationId, createConversation, sendChatMessage, bookId],
   );
 
   const handleRetry = useCallback(() => {
@@ -362,6 +444,8 @@ export function ChatDrawer({ isOpen, onClose }: ChatDrawerProps) {
     <ChatDrawerView
       isOpen={isOpen}
       onClose={onClose}
+      view={view}
+      bookId={bookId}
       messages={messages}
       streamingText={streamingText}
       status={status}
@@ -370,6 +454,8 @@ export function ChatDrawer({ isOpen, onClose }: ChatDrawerProps) {
       onSend={handleSend}
       onStop={stopStreaming}
       onRetry={handleRetry}
+      onBackToList={handleBackToList}
+      onNewChat={handleNewChat}
     />
   );
 }

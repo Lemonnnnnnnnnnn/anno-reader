@@ -158,6 +158,8 @@ export interface ChatStreamingState {
   stopStreaming: () => void;
   /** Reset the conversation. */
   clearMessages: () => void;
+  /** Reset the conversation to a new message list (stops streaming, clears state). */
+  reset: (initialMessages: ChatMessage[]) => void;
 }
 
 /**
@@ -292,6 +294,19 @@ export function useChatStreaming(
     setStatus("idle");
   }, []);
 
+  const reset = useCallback(
+    (initialMessages: ChatMessage[]) => {
+      abortControllerRef.current?.abort();
+      setMessages(initialMessages);
+      setStreamingText("");
+      streamingTextRef.current = "";
+      setError(null);
+      setErrorCode(null);
+      setStatus("idle");
+    },
+    [],
+  );
+
   return {
     messages,
     streamingText,
@@ -301,5 +316,6 @@ export function useChatStreaming(
     sendChatMessage,
     stopStreaming,
     clearMessages,
+    reset,
   };
 }

@@ -21,8 +21,9 @@ export interface ChatStore {
 
   // Actions
   addMessage: (message: ChatMessage) => void;
-  createConversation: (id: string) => void;
+  createConversation: (id: string, bookId?: string) => void;
   deleteConversation: (id: string) => void;
+  renameConversation: (id: string, title: string) => void;
   setCurrentConversation: (id: string | null) => void;
 
   // Persistence
@@ -76,10 +77,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     persistAfterSet(get);
   },
 
-  createConversation: (id) => {
+  createConversation: (id, bookId = "") => {
     const now = Date.now();
     const newConversation: ChatConversation = {
       id,
+      title: "New Conversation",
+      bookId,
       messages: [],
       createdAt: now,
       updatedAt: now,
@@ -115,6 +118,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     persistAfterSet(get);
   },
 
+  renameConversation: (id, title) => {
+    set((state) => ({
+      conversations: state.conversations.map((conv) =>
+        conv.id === id ? { ...conv, title, updatedAt: Date.now() } : conv,
+      ),
+    }));
+    persistAfterSet(get);
+  },
+
   setCurrentConversation: (id) => {
     set((state) => {
       const conv = state.conversations.find((c) => c.id === id);
@@ -132,7 +144,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   loadConversations: async () => {
     try {
-      const conversations = await loadFromDisk();
+      const loaded = await loadFromDisk();
+      // Migrate existing conversations: add default title/bookId if missing
+      const conversations = loaded.map((conv) => ({
+        ...conv,
+        title: conv.title ?? "New Conversation",
+        bookId: conv.bookId ?? "",
+      }));
       set({ conversations, isLoaded: true });
     } catch (err) {
       console.error("Failed to load chat conversations:", err);

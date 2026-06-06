@@ -89,9 +89,11 @@ vi.mock("@/lib/chat/streaming", () => ({
     streamingText,
     status: streamingStatus,
     error: streamingError,
+    errorCode: null,
     sendChatMessage: mockSendChatMessage,
     stopStreaming: mockStopStreaming,
     clearMessages: mockClearMessages,
+    reset: vi.fn(),
   }),
 }));
 
@@ -108,6 +110,19 @@ vi.mock("@/stores/useAIConfigStore", () => ({
       },
     };
     return selector(state);
+  }),
+}));
+
+// ---------------------------------------------------------------------------
+// Book store mock
+// ---------------------------------------------------------------------------
+
+vi.mock("@/stores/useBookStore", () => ({
+  useBookStore: vi.fn((selector) => {
+    const state = {
+      currentBook: { id: "test-book" },
+    };
+    return selector ? selector(state) : state;
   }),
 }));
 
@@ -711,13 +726,187 @@ describe("Chat Integration", () => {
   });
 
   // =========================================================================
-  // 7. Stateful ChatDrawer wiring
+  // 7. Session management
+  // =========================================================================
+
+  describe("Session management", () => {
+    it("should rename a conversation", () => {
+      useChatStore.getState().createConversation("conv-rename");
+      expect(useChatStore.getState().conversations[0].title).toBe(
+        "New Conversation",
+      );
+
+      useChatStore.getState().renameConversation("conv-rename", "My Book Chat");
+
+      const conv = useChatStore.getState().conversations.find(
+        (c) => c.id === "conv-rename",
+      );
+      expect(conv?.title).toBe("My Book Chat");
+    });
+
+    it("should update updatedAt when renaming", () => {
+      useChatStore.getState().createConversation("conv-rename-time");
+      const before = useChatStore.getState().conversations[0].updatedAt;
+
+      // Small delay to ensure timestamp difference
+      useChatStore.getState().renameConversation("conv-rename-time", "New Title");
+
+      const after = useChatStore.getState().conversations[0].updatedAt;
+      expect(after).toBeGreaterThanOrEqual(before);
+    });
+
+    it("should persist after rename", async () => {
+      useChatStore.getState().createConversation("conv-persist-rename");
+      useChatStore.getState().renameConversation(
+        "conv-persist-rename",
+        "Renamed Title",
+      );
+
+      await vi.waitFor(() => {
+        expect(saveConversations).toHaveBeenCalled();
+      });
+
+      const savedCalls = (saveConversations as Mock).mock.calls;
+      const lastSaved = savedCalls[savedCalls.length - 1][0] as ChatConversation[];
+      const renamed = lastSaved.find((c) => c.id === "conv-persist-rename");
+      expect(renamed?.title).toBe("Renamed Title");
+    });
+
+    it("should create a conversation with bookId", () => {
+      useChatStore
+        .getState()
+        .createConversation("conv-bookid", "book-abc");
+
+      const conv = useChatStore.getState().conversations.find(
+        (c) => c.id === "conv-bookid",
+      );
+      expect(conv?.bookId).toBe("book-abc");
+      expect(conv?.title).toBe("New Conversation");
+      expect(useChatStore.getState().currentConversationId).toBe(
+        "conv-bookid",
+      );
+    });
+
+    it("should default bookId to empty string when omitted", () => {
+      useChatStore.getState().createConversation("conv-no-book");
+
+      const conv = useChatStore.getState().conversations.find(
+        (c) => c.id === "conv-no-book",
+      );
+      expect(conv?.bookId).toBe("");
+    });
+
+    it("should migrate conversations with missing title and bookId on load", async () => {
+      // Simulate old data without title and bookId fields
+      const oldData = [
+        {
+          id: "old-conv-1",
+          messages: [
+            makeMessage({ id: "m1", role: "user", content: "Old question" }),
+          ],
+          createdAt: 1000,
+          updatedAt: 2000,
+        },
+        {
+          id: "old-conv-2",
+          title: "Existing Title",
+          messages: [],
+          createdAt: 3000,
+          updatedAt: 4000,
+        },
+      ] as unknown as ChatConversation[];
+      persistedData = oldData;
+
+      await useChatStore.getState().loadConversations();
+
+      const conversations = useChatStore.getState().conversations;
+      expect(conversations).toHaveLength(2);
+
+      // First conversation: missing both title and bookId → defaults applied
+      const conv1 = conversations.find((c) => c.id === "old-conv-1");
+      expect(conv1?.title).toBe("New Conversation");
+      expect(conv1?.bookId).toBe("");
+
+      // Second conversation: has title, missing bookId → only bookId defaulted
+      const conv2 = conversations.find((c) => c.id === "old-conv-2");
+      expect(conv2?.title).toBe("Existing Title");
+      expect(conv2?.bookId).toBe("");
+    });
+
+    it("should delete a non-active conversation without changing current", () => {
+      useChatStore.getState().createConversation("conv-stay");
+      useChatStore.getState().addMessage(makeMessage({ content: "Stay" }));
+
+      useChatStore.getState().createConversation("conv-remove");
+      useChatStore.getState().addMessage(makeMessage({ content: "Remove" }));
+
+      // Switch back to conv-stay
+      useChatStore.getState().setCurrentConversation("conv-stay");
+
+      // Delete the non-active one
+      useChatStore.getState().deleteConversation("conv-remove");
+
+      const state = useChatStore.getState();
+      expect(state.conversations).toHaveLength(1);
+      expect(state.currentConversationId).toBe("conv-stay");
+      expect(state.messages[0].content).toBe("Stay");
+    });
+
+    it("should switch between conversations preserving messages", async () => {
+      useChatStore.getState().createConversation("switch-a", "book-1");
+      useChatStore
+        .getState()
+        .addMessage(makeMessage({ content: "Message in A" }));
+
+      useChatStore.getState().createConversation("switch-b", "book-2");
+      useChatStore
+        .getState()
+        .addMessage(makeMessage({ content: "Message in B-1" }));
+      useChatStore
+        .getState()
+        .addMessage(makeMessage({ content: "Message in B-2" }));
+
+      // Currently on switch-b
+      expect(useChatStore.getState().messages).toHaveLength(2);
+
+      // Switch to switch-a
+      useChatStore.getState().setCurrentConversation("switch-a");
+      expect(useChatStore.getState().messages).toHaveLength(1);
+      expect(useChatStore.getState().messages[0].content).toBe(
+        "Message in A",
+      );
+
+      // Switch back to switch-b
+      useChatStore.getState().setCurrentConversation("switch-b");
+      expect(useChatStore.getState().messages).toHaveLength(2);
+    });
+  });
+
+  // =========================================================================
+  // 8. Stateful ChatDrawer wiring
   // =========================================================================
 
   describe("Stateful ChatDrawer wiring", () => {
     it("should render with title and empty state on mount", () => {
+      // Test the ChatDrawerView directly (conversation view) since the
+      // stateful ChatDrawer now defaults to list view when no conversation
+      // is active. The view defaults are tested separately.
       const html = renderToString(
-        <ChatDrawer isOpen={true} onClose={vi.fn()} />,
+        <ChatDrawerView
+          isOpen={true}
+          onClose={vi.fn()}
+          view="conversation"
+          messages={[]}
+          streamingText=""
+          status="idle"
+          error={null}
+          errorCode={null}
+          onSend={vi.fn()}
+          onStop={vi.fn()}
+          onRetry={vi.fn()}
+          onBackToList={vi.fn()}
+          onNewChat={vi.fn()}
+        />,
       );
 
       expect(html).toContain("AI Chat");
@@ -726,7 +915,21 @@ describe("Chat Integration", () => {
 
     it("should render close button", () => {
       const html = renderToString(
-        <ChatDrawer isOpen={true} onClose={vi.fn()} />,
+        <ChatDrawerView
+          isOpen={true}
+          onClose={vi.fn()}
+          view="conversation"
+          messages={[]}
+          streamingText=""
+          status="idle"
+          error={null}
+          errorCode={null}
+          onSend={vi.fn()}
+          onStop={vi.fn()}
+          onRetry={vi.fn()}
+          onBackToList={vi.fn()}
+          onNewChat={vi.fn()}
+        />,
       );
 
       expect(html).toContain('aria-label="Close drawer"');
@@ -734,7 +937,21 @@ describe("Chat Integration", () => {
 
     it("should render the input area", () => {
       const html = renderToString(
-        <ChatDrawer isOpen={true} onClose={vi.fn()} />,
+        <ChatDrawerView
+          isOpen={true}
+          onClose={vi.fn()}
+          view="conversation"
+          messages={[]}
+          streamingText=""
+          status="idle"
+          error={null}
+          errorCode={null}
+          onSend={vi.fn()}
+          onStop={vi.fn()}
+          onRetry={vi.fn()}
+          onBackToList={vi.fn()}
+          onNewChat={vi.fn()}
+        />,
       );
 
       expect(html).toContain("Ask about this book…");
@@ -742,7 +959,21 @@ describe("Chat Integration", () => {
 
     it("should not render when isOpen is false", () => {
       const html = renderToString(
-        <ChatDrawer isOpen={false} onClose={vi.fn()} />,
+        <ChatDrawerView
+          isOpen={false}
+          onClose={vi.fn()}
+          view="conversation"
+          messages={[]}
+          streamingText=""
+          status="idle"
+          error={null}
+          errorCode={null}
+          onSend={vi.fn()}
+          onStop={vi.fn()}
+          onRetry={vi.fn()}
+          onBackToList={vi.fn()}
+          onNewChat={vi.fn()}
+        />,
       );
 
       expect(html).not.toContain("AI Chat");

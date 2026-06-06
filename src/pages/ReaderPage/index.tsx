@@ -317,6 +317,7 @@ export function ReaderPage() {
       <ChatDrawer
         isOpen={chatDrawerOpen}
         onClose={() => setChatDrawerOpen(false)}
+        bookId={currentBook?.id}
       />
 
     </div>

@@ -34,6 +34,10 @@ export interface ChatMessage {
 export interface ChatConversation {
   /** Unique conversation identifier */
   id: string;
+  /** User-facing title for this conversation */
+  title: string;
+  /** ID of the book this conversation belongs to */
+  bookId: string;
   /** Ordered list of messages in this conversation */
   messages: ChatMessage[];
   /** Unix timestamp when the conversation was created */
