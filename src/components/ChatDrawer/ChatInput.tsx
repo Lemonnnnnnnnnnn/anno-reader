@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Button, TextArea } from "@/components/primitives";
 import { ArrowUp, Loader2 } from "lucide-react";
 
@@ -13,6 +13,8 @@ interface ChatInputProps {
   disabled?: boolean;
   /** Placeholder text for the input */
   placeholder?: string;
+  /** Initial value to pre-fill the input (e.g., from "Ask AI" selection) */
+  initialValue?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -23,8 +25,16 @@ export function ChatInput({
   onSend,
   disabled = false,
   placeholder = "Ask about this book…",
+  initialValue,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
+
+  // Pre-fill input when initialValue changes (e.g., from "Ask AI" selection)
+  useEffect(() => {
+    if (initialValue) {
+      setValue(initialValue);
+    }
+  }, [initialValue]);
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim();

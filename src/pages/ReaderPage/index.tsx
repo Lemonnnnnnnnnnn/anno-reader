@@ -71,6 +71,20 @@ export function ReaderPage() {
   const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
   const [dictionaryDrawerOpen, setDictionaryDrawerOpen] = useState(false);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
+  const [pendingChatMessage, setPendingChatMessage] = useState<string | undefined>(undefined);
+
+  // Handle "Ask AI" from text selection toolbar
+  const handleAskAI = (selectedText: string) => {
+    const truncated = selectedText.length > 500
+      ? selectedText.slice(0, 500) + "..."
+      : selectedText;
+    setPendingChatMessage(`Please explain this passage: "${truncated}"`);
+    setChatDrawerOpen(true);
+    // Close other drawers
+    setTocDrawerOpen(false);
+    setAnnotationDrawerOpen(false);
+    setDictionaryDrawerOpen(false);
+  };
 
   // Return null if no book (before redirect completes)
   if (!guardedBook) {
@@ -255,6 +269,7 @@ export function ReaderPage() {
               manifestHrefs={parsedEpub.manifestHrefs}
               showNav={false}
               onIframeRef={setIframeEl}
+              onAskAI={handleAskAI}
             />
           </div>
         )}
@@ -316,8 +331,12 @@ export function ReaderPage() {
       />
       <ChatDrawer
         isOpen={chatDrawerOpen}
-        onClose={() => setChatDrawerOpen(false)}
+        onClose={() => {
+          setChatDrawerOpen(false);
+          setPendingChatMessage(undefined);
+        }}
         bookId={currentBook?.id}
+        initialMessage={pendingChatMessage}
       />
 
     </div>

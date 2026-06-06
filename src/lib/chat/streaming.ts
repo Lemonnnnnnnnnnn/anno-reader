@@ -29,6 +29,8 @@ export interface SendMessageOptions {
   onChunk?: (chunk: string, accumulated: string) => void;
   /** Callback invoked when an error occurs mid-stream. */
   onError?: (error: Error) => void;
+  /** Optional system message injected before conversation messages. */
+  system?: string;
 }
 
 /** Result returned by sendMessage. */
@@ -109,6 +111,7 @@ export async function sendMessage(
 
     const result = streamText({
       model,
+      system: options?.system,
       messages: coreMessages,
       maxOutputTokens: provider.maxTokens,
       temperature: provider.temperature,
@@ -153,7 +156,7 @@ export interface ChatStreamingState {
   /** Classified error code for type-aware UI. */
   errorCode: AIServiceErrorCode | null;
   /** Send a user message and stream the response. */
-  sendChatMessage: (content: string) => Promise<void>;
+  sendChatMessage: (content: string, systemMessage?: string) => Promise<void>;
   /** Abort the current streaming response. */
   stopStreaming: () => void;
   /** Reset the conversation. */
@@ -191,7 +194,7 @@ export function useChatStreaming(
   useEffect(() => () => abortControllerRef.current?.abort(), []);
 
   const sendChatMessage = useCallback(
-    async (content: string) => {
+    async (content: string, systemMessage?: string) => {
       const provider = config.providers.find(
         (p) => p.id === config.selectedProviderId && p.enabled,
       );
@@ -234,6 +237,7 @@ export function useChatStreaming(
         const apiMessages = currentMessages.slice(0, -1);
 
         const result = await sendMessage(apiMessages, provider, {
+          system: systemMessage,
           abortSignal: abortController.signal,
           onChunk: (_chunk, accumulated) => {
             setStreamingText(accumulated);

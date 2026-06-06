@@ -11,6 +11,7 @@ import { restoreNotes, restoreHighlights } from "@/lib/annotations";
 import { restoreProgress, trackProgress, flushProgress } from "@/lib/progress";
 import type { ParsedEpub } from "@/lib/epub";
 import { loadEpub } from "@/lib/epub";
+import { setParsedEpub as setRAGCache, clearParsedEpub as clearRAGCache } from "@/lib/rag";
 
 export function useEpubLoader() {
   const currentBook = useBookStore((state) => state.currentBook);
@@ -59,6 +60,7 @@ export function useEpubLoader() {
       }
 
       setParsedEpub(parsed);
+      setRAGCache(parsed);
 
       // Restore saved notes, highlights, and progress for this book
       try {
@@ -114,6 +116,7 @@ export function useEpubLoader() {
         }
 
         setParsedEpub(parsed);
+        setRAGCache(parsed);
 
         // Restore saved notes, highlights, and progress
         try {
@@ -152,6 +155,7 @@ export function useEpubLoader() {
   useEffect(() => {
     if (!currentBook) {
       setParsedEpub(null);
+      clearRAGCache();
     }
   }, [currentBook]);
 

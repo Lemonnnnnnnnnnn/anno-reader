@@ -45,6 +45,8 @@ interface VerticalScrollerProps {
   title?: string;
   /** Callback to expose the iframe element ref to parent components */
   onIframeRef?: (ref: HTMLIFrameElement | null) => void;
+  /** Callback when user clicks "Ask AI" in selection toolbar */
+  onAskAI?: (selectedText: string) => void;
 }
 
 export function VerticalScroller({
@@ -54,6 +56,7 @@ export function VerticalScroller({
   chapterHref,
   title,
   onIframeRef,
+  onAskAI,
 }: VerticalScrollerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -202,6 +205,7 @@ export function VerticalScroller({
         containerRef={containerRef}
         chapterHref={chapterHref}
         onTranslate={handleTranslate}
+        onAskAI={onAskAI}
       />
       <AnnotationDetailDrawer
         noteId={activeNoteId}

@@ -23,6 +23,7 @@ import { SessionList } from "./SessionList";
 import { useChatStore } from "@/stores/useChatStore";
 import { useBookStore } from "@/stores/useBookStore";
 import { useChatStreaming } from "@/lib/chat/streaming";
+import { useRAG } from "@/lib/rag";
 import type { ChatMessage } from "@/lib/chat/types";
 import type { ChatStreamingStatus } from "@/lib/chat/streaming";
 import type { AIServiceErrorCode } from "@/lib/ai/service";
@@ -60,6 +61,14 @@ interface ChatDrawerViewProps {
   onBackToList?: () => void;
   /** Create a new conversation (called from list view "New Chat" button) */
   onNewChat: () => void;
+  /** Initial message to pre-fill the chat input (e.g., from "Ask AI" selection) */
+  initialMessage?: string;
+  /** Whether the book is currently being indexed by RAG */
+  isIndexing?: boolean;
+  /** Error from RAG indexing, if any */
+  ragError?: string | null;
+  /** Retry RAG indexing after failure */
+  onRetryIndexing?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,11 +96,11 @@ function TypingIndicator() {
 /**
  * Welcome empty state — shown when there are no messages.
  */
-function WelcomeEmptyState() {
+function WelcomeEmptyState({ onSend }: { onSend: (content: string) => void }) {
   const tips = [
-    { icon: BookOpen, text: "Ask about this book" },
-    { icon: Lightbulb, text: "Request a summary" },
-    { icon: HelpCircle, text: "Explain a passage" },
+    { icon: BookOpen, text: "Ask about this book", prompt: "Please introduce the main themes and content of this book." },
+    { icon: Lightbulb, text: "Request a summary", prompt: "Please provide a comprehensive summary of this book." },
+    { icon: HelpCircle, text: "Explain a passage", prompt: "Please explain the current chapter's main content and key points." },
   ];
 
   return (
@@ -111,18 +120,51 @@ function WelcomeEmptyState() {
 
       {/* Usage tips */}
       <div className="flex flex-col gap-2 w-full max-w-[240px]">
-        {tips.map(({ icon: Icon, text }) => (
-          <div
+        {tips.map(({ icon: Icon, text, prompt }) => (
+          <button
             key={text}
-            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-alt dark:bg-surface-alt-dark"
+            type="button"
+            onClick={() => onSend(prompt)}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-surface-alt dark:bg-surface-alt-dark cursor-pointer transition-colors hover:bg-border/40 dark:hover:bg-border-dark/40 active:bg-border/60 dark:active:bg-border-dark/60 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent dark:focus-visible:outline-accent-dark"
           >
             <Icon className="h-4 w-4 text-text-secondary dark:text-text-secondary-dark shrink-0" />
             <span className="text-sm text-text-secondary dark:text-text-secondary-dark font-sans">
               {text}
             </span>
-          </div>
+          </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Indexing empty state — shown while book is being indexed and no messages yet.
+ */
+function IndexingEmptyState() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+      <div className="w-12 h-12 rounded-full bg-accent/10 dark:bg-accent-dark/10 flex items-center justify-center mb-4">
+        <Loader2 className="h-6 w-6 text-accent dark:text-accent-dark animate-spin" />
+      </div>
+      <h3 className="text-base font-medium text-text dark:text-text-dark font-sans mb-1">
+        Indexing book…
+      </h3>
+      <p className="text-sm text-text-secondary dark:text-text-secondary-dark font-sans text-center">
+        Analyzing chapters for better context
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Indexing indicator — subtle inline bar shown while indexing with messages present.
+ */
+function IndexingIndicator() {
+  return (
+    <div className="flex items-center gap-2 py-1.5 px-3 text-text-muted dark:text-text-muted-dark">
+      <Loader2 className="animate-spin h-3.5 w-3.5" />
+      <span className="text-xs font-sans">Indexing book for better answers…</span>
     </div>
   );
 }
@@ -215,9 +257,13 @@ export function ChatDrawerView({
   onRetry,
   onBackToList,
   onNewChat,
+  initialMessage,
+  isIndexing = false,
+  ragError,
+  onRetryIndexing,
 }: ChatDrawerViewProps) {
   const isStreaming = status === "loading" || status === "streaming";
-  const isEmpty = messages.length === 0 && !isStreaming;
+  const isEmpty = messages.length === 0 && !isStreaming && !isIndexing;
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="AI Chat">
@@ -245,8 +291,10 @@ export function ChatDrawerView({
 
             {/* Messages area */}
             <div className="flex-1 overflow-y-auto">
-              {isEmpty ? (
-                <WelcomeEmptyState />
+              {isIndexing && isEmpty ? (
+                <IndexingEmptyState />
+              ) : isEmpty ? (
+                <WelcomeEmptyState onSend={onSend} />
               ) : (
                 <MessageList
                   messages={
@@ -277,6 +325,27 @@ export function ChatDrawerView({
               </div>
             )}
 
+            {/* Subtle indexing indicator when messages already exist */}
+            {isIndexing && !isEmpty && <IndexingIndicator />}
+
+            {/* RAG indexing error banner */}
+            {ragError && (
+              <div className="py-2 px-3 space-y-2">
+                <div className="flex items-center gap-2 text-text-secondary dark:text-text-secondary-dark">
+                  <BookOpen className="h-4 w-4 shrink-0" />
+                  <span className="text-xs font-sans">
+                    Book context unavailable — using plain AI.
+                  </span>
+                </div>
+                {onRetryIndexing && (
+                  <Button variant="secondary" size="sm" onClick={onRetryIndexing}>
+                    <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                    Retry indexing
+                  </Button>
+                )}
+              </div>
+            )}
+
             {/* Error banner */}
             {status === "error" && error && (
               <ChatErrorBanner error={error} errorCode={errorCode} onRetry={onRetry} />
@@ -284,7 +353,7 @@ export function ChatDrawerView({
 
             {/* Input area */}
             <div className="shrink-0">
-              <ChatInput onSend={onSend} disabled={isStreaming} />
+              <ChatInput onSend={onSend} disabled={isStreaming} initialValue={initialMessage} />
             </div>
           </>
         )}
@@ -304,6 +373,8 @@ interface ChatDrawerProps {
   onClose: () => void;
   /** Current book ID for filtering conversations. Falls back to useBookStore if omitted. */
   bookId?: string;
+  /** Initial message to pre-fill the chat input (e.g., from "Ask AI" selection) */
+  initialMessage?: string;
 }
 
 /**
@@ -313,7 +384,7 @@ interface ChatDrawerProps {
  * Supports two views: "list" (session list) and "conversation" (chat).
  * Defaults to conversation view when a conversation is active, list view otherwise.
  */
-export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp }: ChatDrawerProps) {
+export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp, initialMessage }: ChatDrawerProps) {
   // Book ID — use prop or fall back to current book from store
   const currentBook = useBookStore((s) => s.currentBook);
   const bookId = bookIdProp ?? currentBook?.id ?? "";
@@ -339,6 +410,9 @@ export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp }: ChatDrawerPr
     stopStreaming,
     reset,
   } = useChatStreaming(storeMessages);
+
+  // RAG integration — book context for chat
+  const rag = useRAG();
 
   // View state: defaults to conversation if a conversation is already active
   const [view, setView] = useState<"list" | "conversation">(
@@ -428,10 +502,13 @@ export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp }: ChatDrawerPr
         createConversation(crypto.randomUUID(), bookId);
       }
 
-      // Send via streaming (handles user + assistant messages internally)
-      await sendChatMessage(content);
+      // Get RAG context for the query
+      const ragResult = await rag.askQuestion(content);
+
+      // Send via streaming with RAG system message
+      await sendChatMessage(content, ragResult?.systemMessage);
     },
-    [currentConversationId, createConversation, sendChatMessage, bookId],
+    [currentConversationId, createConversation, sendChatMessage, bookId, rag],
   );
 
   const handleRetry = useCallback(() => {
@@ -439,6 +516,12 @@ export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp }: ChatDrawerPr
       handleSend(lastContentRef.current);
     }
   }, [handleSend]);
+
+  // Retry RAG indexing — re-triggers the hook's internal state by sending last query
+  const handleRetryIndexing = useCallback(() => {
+    // Clear the RAG error by asking a simple question which will re-trigger indexing
+    rag.askQuestion("retry");
+  }, [rag]);
 
   return (
     <ChatDrawerView
@@ -456,6 +539,10 @@ export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp }: ChatDrawerPr
       onRetry={handleRetry}
       onBackToList={handleBackToList}
       onNewChat={handleNewChat}
+      initialMessage={initialMessage}
+      isIndexing={rag.isIndexing}
+      ragError={rag.error}
+      onRetryIndexing={handleRetryIndexing}
     />
   );
 }
