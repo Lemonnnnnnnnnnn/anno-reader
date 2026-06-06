@@ -32,6 +32,8 @@ export class ContextService {
    * @param modules - Available context modules
    * @param includeDebug - Whether to include debug information (for preview)
    * @param offset - Character offset within chapterText for position-based sentence matching
+   * @param selectionSentence - The sentence containing the selection (from iframe DOM)
+   * @param selectionParagraph - The paragraph containing the selection (from iframe DOM)
    * @returns Combined context data from all enabled modules
    */
   async getContext(
@@ -40,6 +42,8 @@ export class ContextService {
     modules: ContextModule[],
     includeDebug = false,
     offset?: number,
+    selectionSentence?: string,
+    selectionParagraph?: string,
   ): Promise<ContextData> {
     const enabledModules = modules.filter((m) => m.isEnabled);
     const contextParts: string[] = [];
@@ -49,11 +53,18 @@ export class ContextService {
     for (const module of enabledModules) {
       switch (module.type) {
         case "sentence": {
-          const sentenceContext = this.extractSentenceContext(
-            selectedText,
-            chapterText,
-            offset,
-          );
+          // Use selection context directly if available (most reliable)
+          let sentenceContext: string;
+          if (selectionSentence) {
+            sentenceContext = selectionSentence;
+          } else {
+            // Fallback to extracting from chapterText
+            sentenceContext = this.extractSentenceContext(
+              selectedText,
+              chapterText,
+              offset,
+            );
+          }
           if (includeDebug && debug) {
             debug.sentenceContext = sentenceContext;
           }

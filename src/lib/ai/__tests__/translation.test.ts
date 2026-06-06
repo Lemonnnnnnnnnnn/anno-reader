@@ -161,6 +161,8 @@ describe("TranslationService", () => {
         mockConfig.contextConfig.modules,
         false,
         undefined,
+        undefined,
+        undefined,
       );
     });
 
@@ -182,6 +184,8 @@ describe("TranslationService", () => {
         chapterText,
         mockConfig.contextConfig.modules,
         false,
+        undefined,
+        undefined,
         undefined,
       );
     });

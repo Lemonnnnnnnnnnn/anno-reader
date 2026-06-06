@@ -13,6 +13,10 @@ interface AITranslationPanelProps {
   cfiRange: string;
   startOffset: number;
   endOffset: number;
+  /** The sentence containing the selection (for AI context) */
+  sentence?: string;
+  /** The paragraph containing the selection (for AI context) */
+  paragraph?: string;
   isOpen?: boolean;
   onClose: () => void;
   skipPreview?: boolean;
@@ -316,6 +320,8 @@ export function AITranslationPanel({
   chapterHref,
   cfiRange,
   startOffset,
+  sentence,
+  paragraph,
   isOpen = true,
   onClose,
   skipPreview,
@@ -330,7 +336,7 @@ export function AITranslationPanel({
     translate,
     stopTranslation,
     preview,
-  } = useTranslation({ selectedText, chapterText, skipPreview, offset: startOffset });
+  } = useTranslation({ selectedText, chapterText, skipPreview, offset: startOffset, selectionSentence: sentence, selectionParagraph: paragraph });
 
   const { isSaving, handleAddNote } = useNoteSaving({
     chapterHref,

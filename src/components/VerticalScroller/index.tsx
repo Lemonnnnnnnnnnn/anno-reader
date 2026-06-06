@@ -90,6 +90,8 @@ export function VerticalScroller({
     chapterHref: string;
     startOffset: number;
     endOffset: number;
+    sentence?: string;
+    paragraph?: string;
     forcePreview?: boolean;
   } | null>(null);
 
@@ -162,6 +164,8 @@ export function VerticalScroller({
     chapterHref: string;
     startOffset: number;
     endOffset: number;
+    sentence?: string;
+    paragraph?: string;
   }, options?: { forcePreview?: boolean }) => {
     setTranslationPanel({ ...data, forcePreview: options?.forcePreview });
     // Close annotation detail panel and highlight popover (mutual exclusivity)
@@ -235,6 +239,8 @@ export function VerticalScroller({
         }
         startOffset={translationPanel?.startOffset ?? 0}
         endOffset={translationPanel?.endOffset ?? 0}
+        sentence={translationPanel?.sentence}
+        paragraph={translationPanel?.paragraph}
         isOpen={!!translationPanel}
         onClose={handleCloseTranslationPanel}
         skipPreview={skipPreview}

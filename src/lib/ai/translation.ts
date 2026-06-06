@@ -62,6 +62,8 @@ export class TranslationService {
     config: AIConfig,
     chapterText: string | null = null,
     offset?: number,
+    selectionSentence?: string,
+    selectionParagraph?: string,
   ): Promise<TranslationResponse> {
     // Check cache first
     const cached = this.cache.get(text, targetLanguage);
@@ -91,6 +93,8 @@ export class TranslationService {
       config.contextConfig.modules,
       false,
       offset,
+      selectionSentence,
+      selectionParagraph,
     );
 
     // Build messages using role
@@ -140,6 +144,8 @@ export class TranslationService {
     options?: { abortSignal?: AbortSignal; onError?: (error: Error) => void },
     chapterText?: string,
     offset?: number,
+    selectionSentence?: string,
+    selectionParagraph?: string,
   ): Promise<StreamingTranslationResponse> {
     // 1. Check cache — wrap as single-yield AsyncIterable if hit
     const cached = this.cache.get(text, targetLanguage);
@@ -171,6 +177,8 @@ export class TranslationService {
       config.contextConfig.modules,
       false,
       offset,
+      selectionSentence,
+      selectionParagraph,
     );
 
     // 5. Build messages
@@ -229,6 +237,8 @@ export class TranslationService {
     config: AIConfig,
     chapterText: string | null = null,
     offset?: number,
+    selectionSentence?: string,
+    selectionParagraph?: string,
   ): Promise<PreviewData> {
     // Get selected provider
     const provider = this.getSelectedProvider(config);
@@ -252,6 +262,8 @@ export class TranslationService {
       config.contextConfig.modules,
       true, // includeDebug
       offset,
+      selectionSentence,
+      selectionParagraph,
     );
 
     // Build messages using role

@@ -15,6 +15,10 @@ export interface SelectionState {
   };
   startOffset: number;
   endOffset: number;
+  /** The sentence containing the selection (for AI context) */
+  sentence?: string;
+  /** The paragraph containing the selection (for AI context) */
+  paragraph?: string;
 }
 
 /** Available highlight colors */

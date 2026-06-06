@@ -30,6 +30,8 @@ export function useSelectionListener() {
           rect: msg.rect,
           startOffset: msg.startOffset,
           endOffset: msg.endOffset,
+          sentence: msg.sentence,
+          paragraph: msg.paragraph,
         });
         setMode("default");
         setNoteText("");

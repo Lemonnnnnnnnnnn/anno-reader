@@ -47,6 +47,10 @@ export interface SelectionMessage {
   startOffset: number;
   /** Character offset of selection end within document body text */
   endOffset: number;
+  /** The sentence containing the selection (for AI context) */
+  sentence?: string;
+  /** The paragraph containing the selection (for AI context) */
+  paragraph?: string;
 }
 
 /**
@@ -100,6 +104,69 @@ export const SELECTION_DETECTOR_SCRIPT = `
     return currentOffset;
   }
 
+  /**
+   * Find the sentence containing the selected text.
+   * Walks up the DOM to find the block-level ancestor,
+   * then splits by sentence-ending punctuation and returns
+   * only the sentence that contains the selected text.
+   */
+  function findSentence(range) {
+    var selectedText = range.toString().trim();
+    var node = range.startContainer;
+
+    // Walk up to find a block-level element (p, div, li, etc.)
+    var blockText = null;
+    while (node && node !== document.body) {
+      if (node.nodeType === 1) {
+        var tag = node.tagName.toLowerCase();
+        if (['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'td', 'th'].indexOf(tag) !== -1) {
+          blockText = node.textContent.trim();
+          break;
+        }
+      }
+      node = node.parentNode;
+    }
+
+    if (!blockText) {
+      return selectedText;
+    }
+
+    // Split block text into sentences using sentence-ending punctuation
+    // Matches: . ! ? followed by space or end of string
+    // Also handles: . " ) ] etc.
+    var sentences = blockText.match(/[^.!?]*[.!?]+[\s)]*/g) || [blockText];
+
+    // Find the sentence that contains the selected text
+    for (var i = 0; i < sentences.length; i++) {
+      var sentence = sentences[i].trim();
+      if (sentence && sentence.indexOf(selectedText) !== -1) {
+        return sentence;
+      }
+    }
+
+    // Fallback: return the selected text itself
+    return selectedText;
+  }
+
+  /**
+   * Find the paragraph containing the selected text.
+   * Similar to findSentence but may return a larger context.
+   */
+  function findParagraph(range) {
+    var node = range.startContainer;
+    // Walk up to find the closest paragraph or major block
+    while (node && node !== document.body) {
+      if (node.nodeType === 1) {
+        var tag = node.tagName.toLowerCase();
+        if (['p', 'div', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'td', 'th'].indexOf(tag) !== -1) {
+          return node.textContent.trim();
+        }
+      }
+      node = node.parentNode;
+    }
+    return range.toString().trim();
+  }
+
   function handleSelection() {
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount) {
@@ -117,6 +184,10 @@ export const SELECTION_DETECTOR_SCRIPT = `
     var startOffset = getTextOffset(body, range.startContainer, range.startOffset);
     var endOffset = getTextOffset(body, range.endContainer, range.endOffset);
 
+    // Capture context: sentence and paragraph containing the selection
+    var sentence = findSentence(range);
+    var paragraph = findParagraph(range);
+
     window.parent.postMessage({
       type: 'text-selection',
       text: text,
@@ -129,7 +200,9 @@ export const SELECTION_DETECTOR_SCRIPT = `
         height: rect.height
       },
       startOffset: startOffset,
-      endOffset: endOffset
+      endOffset: endOffset,
+      sentence: sentence,
+      paragraph: paragraph
     }, '*');
   }
 

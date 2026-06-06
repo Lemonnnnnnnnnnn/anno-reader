@@ -39,6 +39,8 @@ interface TextSelectionToolbarProps {
       chapterHref: string;
       startOffset: number;
       endOffset: number;
+      sentence?: string;
+      paragraph?: string;
     },
     options?: { forcePreview?: boolean },
   ) => void;
@@ -119,6 +121,8 @@ export function TextSelectionToolbar({
                     chapterHref,
                     startOffset: selection.startOffset,
                     endOffset: selection.endOffset,
+                    sentence: selection.sentence,
+                    paragraph: selection.paragraph,
                   }, { forcePreview: e.shiftKey ? true : e.ctrlKey ? false : undefined });
                   resetSelection();
                 }

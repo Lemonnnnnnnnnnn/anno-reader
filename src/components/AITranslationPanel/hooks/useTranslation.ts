@@ -19,9 +19,13 @@ interface UseTranslationParams {
   chapterText: string | null;
   skipPreview?: boolean;
   offset?: number;
+  /** The sentence containing the selection (from iframe DOM) */
+  selectionSentence?: string;
+  /** The paragraph containing the selection (from iframe DOM) */
+  selectionParagraph?: string;
 }
 
-export function useTranslation({ selectedText, chapterText, skipPreview = false, offset }: UseTranslationParams) {
+export function useTranslation({ selectedText, chapterText, skipPreview = false, offset, selectionSentence, selectionParagraph }: UseTranslationParams) {
   const [status, setStatus] = useState<PanelStatus>("loading");
   const [translationText, setTranslationText] = useState("");
   const [streamingText, setStreamingText] = useState("");
@@ -51,6 +55,8 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false,
         config,
         chapterText,
         offset,
+        selectionSentence,
+        selectionParagraph,
       );
       setPreviewData(data);
       setStatus("previewing");
@@ -60,7 +66,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false,
       setError(message);
       setStatus("error");
     }
-  }, [selectedText, chapterText, config, offset]);
+  }, [selectedText, chapterText, config, offset, selectionSentence, selectionParagraph]);
 
   const translate = useCallback(async () => {
     setStatus("loading");
@@ -78,6 +84,8 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false,
         { abortSignal: abortController.signal, onError: (err) => setError(err.message) },
         chapterText ?? undefined,
         offset,
+        selectionSentence,
+        selectionParagraph,
       );
 
       setStatus("streaming");
@@ -109,7 +117,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false,
         setStatus("error");
       }
     }
-  }, [selectedText, chapterText, config, offset]);
+  }, [selectedText, chapterText, config, offset, selectionSentence, selectionParagraph]);
 
   useEffect(() => {
     if (skipPreview) {
