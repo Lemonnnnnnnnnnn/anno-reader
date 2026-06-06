@@ -18,9 +18,10 @@ interface UseTranslationParams {
   selectedText: string;
   chapterText: string | null;
   skipPreview?: boolean;
+  offset?: number;
 }
 
-export function useTranslation({ selectedText, chapterText, skipPreview = false }: UseTranslationParams) {
+export function useTranslation({ selectedText, chapterText, skipPreview = false, offset }: UseTranslationParams) {
   const [status, setStatus] = useState<PanelStatus>("loading");
   const [translationText, setTranslationText] = useState("");
   const [streamingText, setStreamingText] = useState("");
@@ -49,6 +50,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false 
         "Chinese",
         config,
         chapterText,
+        offset,
       );
       setPreviewData(data);
       setStatus("previewing");
@@ -58,7 +60,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false 
       setError(message);
       setStatus("error");
     }
-  }, [selectedText, chapterText, config]);
+  }, [selectedText, chapterText, config, offset]);
 
   const translate = useCallback(async () => {
     setStatus("loading");
@@ -75,6 +77,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false 
         config,
         { abortSignal: abortController.signal, onError: (err) => setError(err.message) },
         chapterText ?? undefined,
+        offset,
       );
 
       setStatus("streaming");
@@ -106,7 +109,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false 
         setStatus("error");
       }
     }
-  }, [selectedText, chapterText, config]);
+  }, [selectedText, chapterText, config, offset]);
 
   useEffect(() => {
     if (skipPreview) {

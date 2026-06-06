@@ -315,6 +315,7 @@ export function AITranslationPanel({
   chapterText,
   chapterHref,
   cfiRange,
+  startOffset,
   isOpen = true,
   onClose,
   skipPreview,
@@ -329,7 +330,7 @@ export function AITranslationPanel({
     translate,
     stopTranslation,
     preview,
-  } = useTranslation({ selectedText, chapterText, skipPreview });
+  } = useTranslation({ selectedText, chapterText, skipPreview, offset: startOffset });
 
   const { isSaving, handleAddNote } = useNoteSaving({
     chapterHref,

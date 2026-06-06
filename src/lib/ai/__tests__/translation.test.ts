@@ -159,6 +159,8 @@ describe("TranslationService", () => {
         "Hello world",
         null,
         mockConfig.contextConfig.modules,
+        false,
+        undefined,
       );
     });
 
@@ -179,6 +181,8 @@ describe("TranslationService", () => {
         "Hello world",
         chapterText,
         mockConfig.contextConfig.modules,
+        false,
+        undefined,
       );
     });
 
