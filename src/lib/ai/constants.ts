@@ -105,7 +105,7 @@ export const READING_ASSISTANT_ROLE: AIRole = {
 ## 上下文
 {context}
 
-请直接输出适合记录笔记的总结内容，使用引用格式（>）组织。
+请直接输出适合记录笔记的总结内容。
 不要输出标题，不要输出翻译、词汇分析、上下文分析等section。
 直接输出最终的笔记总结。`,
   variables: [

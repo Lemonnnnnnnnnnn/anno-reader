@@ -31,6 +31,7 @@ export class ContextService {
    * @param chapterText - Plain text content of the current chapter (null if unavailable)
    * @param modules - Available context modules
    * @param includeDebug - Whether to include debug information (for preview)
+   * @param offset - Character offset within chapterText for position-based sentence matching
    * @returns Combined context data from all enabled modules
    */
   async getContext(
@@ -38,9 +39,11 @@ export class ContextService {
     chapterText: string | null,
     modules: ContextModule[],
     includeDebug = false,
+    offset?: number,
   ): Promise<ContextData> {
     const enabledModules = modules.filter((m) => m.isEnabled);
     const contextParts: string[] = [];
+    const dictionaryParts: string[] = [];
     const debug: ContextData["debug"] = includeDebug ? {} : undefined;
 
     for (const module of enabledModules) {
@@ -49,6 +52,7 @@ export class ContextService {
           const sentenceContext = this.extractSentenceContext(
             selectedText,
             chapterText,
+            offset,
           );
           if (includeDebug && debug) {
             debug.sentenceContext = sentenceContext;
@@ -62,7 +66,7 @@ export class ContextService {
             module.providerId,
           );
           if (result.formatted) {
-            contextParts.push(result.formatted);
+            dictionaryParts.push(result.formatted);
           }
           if (includeDebug && debug && result.raw) {
             // Merge dictionary debug info if multiple dictionary modules
@@ -89,6 +93,9 @@ export class ContextService {
       }
     }
 
+    const dictionaryText =
+      dictionaryParts.length > 0 ? dictionaryParts.join("\n\n") : undefined;
+
     return {
       text: contextParts.join("\n\n"),
       metadata: {
@@ -96,6 +103,7 @@ export class ContextService {
         moduleCount: enabledModules.length.toString(),
       },
       source: enabledModules.map((m) => m.id).join(","),
+      dictionaryText,
       debug,
     };
   }
@@ -217,10 +225,15 @@ export class ContextService {
    * Finds the selectedText within sentences, then returns 1 sentence before + after.
    * Falls back to selectedText when chapterText is null.
    * Caps result at MAX_SENTENCE_CONTEXT_CHARS characters.
+   *
+   * @param selectedText - The text the user selected
+   * @param chapterText - Plain text content of the current chapter (null if unavailable)
+   * @param offset - Character offset within chapterText for position-based sentence matching
    */
   private extractSentenceContext(
     selectedText: string,
     chapterText: string | null,
+    offset?: number,
   ): string {
     if (!chapterText) {
       return selectedText;
@@ -229,10 +242,12 @@ export class ContextService {
     // Split chapter text into sentences
     const sentenceRegex = /[^.!?\u3002\uff01\uff1f]+[.!?\u3002\uff01\uff1f]+/g;
     const sentences: string[] = [];
+    const sentenceRanges: Array<{ start: number; end: number }> = [];
     let match: RegExpExecArray | null;
 
     while ((match = sentenceRegex.exec(chapterText)) !== null) {
       sentences.push(match[0].trim());
+      sentenceRanges.push({ start: match.index, end: match.index + match[0].length });
     }
 
     if (sentences.length === 0) {
@@ -240,9 +255,19 @@ export class ContextService {
     }
 
     // Find which sentence contains the selected text
-    const selectedIndex = sentences.findIndex((s) =>
-      s.includes(selectedText),
-    );
+    let selectedIndex = -1;
+
+    if (offset !== undefined) {
+      // Use offset to find the sentence that contains this character position
+      selectedIndex = sentenceRanges.findIndex(
+        (range) => offset >= range.start && offset < range.end,
+      );
+    }
+
+    // Fallback: find first sentence containing the selected text
+    if (selectedIndex === -1) {
+      selectedIndex = sentences.findIndex((s) => s.includes(selectedText));
+    }
 
     if (selectedIndex === -1) {
       return selectedText;

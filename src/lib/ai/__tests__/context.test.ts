@@ -207,8 +207,9 @@ describe("ContextService", () => {
 
       const result = await service.getContext("hello", null, modules);
 
-      expect(result.text).toContain("[Etymology]");
-      expect(result.text).toContain("Origin of hello from Latin.");
+      expect(result.text).toBe("");
+      expect(result.dictionaryText).toContain("[Etymology]");
+      expect(result.dictionaryText).toContain("Origin of hello from Latin.");
       expect(aggregator.search).toHaveBeenCalledWith("hello");
     });
 
@@ -221,9 +222,10 @@ describe("ContextService", () => {
 
       const result = await service.getContext("hello", null, modules);
 
-      expect(result.text).toContain("[Definition]");
-      expect(result.text).toContain("brief def");
-      expect(result.text).toContain("extended def");
+      expect(result.text).toBe("");
+      expect(result.dictionaryText).toContain("[Definition]");
+      expect(result.dictionaryText).toContain("brief def");
+      expect(result.dictionaryText).toContain("extended def");
     });
 
     it("caps dictionary context at 1500 characters", async () => {
@@ -236,7 +238,8 @@ describe("ContextService", () => {
 
       const result = await service.getContext("test", null, modules);
 
-      expect(result.text.length).toBeLessThanOrEqual(1500);
+      expect(result.text).toBe("");
+      expect(result.dictionaryText!.length).toBeLessThanOrEqual(1500);
     });
 
     it("gracefully handles dictionary aggregator failure", async () => {
@@ -256,6 +259,7 @@ describe("ContextService", () => {
       // Dictionary part should be empty
       expect(result.text).not.toContain("[Etymology]");
       expect(result.text).not.toContain("[Definition]");
+      expect(result.dictionaryText).toBeUndefined();
     });
 
     it("returns null dictionary context when aggregator returns no results", async () => {
@@ -268,6 +272,7 @@ describe("ContextService", () => {
       const result = await service.getContext("test", null, modules);
 
       expect(result.text).toBe("");
+      expect(result.dictionaryText).toBeUndefined();
     });
 
     it("combines dictionary and sentence context", async () => {
@@ -282,10 +287,13 @@ describe("ContextService", () => {
 
       const result = await service.getContext("walked", "She walked.", modules);
 
-      // Should contain both sentence context and dictionary context
+      // Should contain sentence context in text
       expect(result.text).toContain("walked");
-      expect(result.text).toContain("[Etymology]");
-      expect(result.text).toContain("\n\n");
+      // Dictionary context should be in dictionaryText
+      expect(result.dictionaryText).toContain("[Etymology]");
+      expect(result.dictionaryText).toContain("Etymology of walked.");
+      // Text should not contain dictionary content
+      expect(result.text).not.toContain("[Etymology]");
     });
 
     it("returns a Promise from getContext", () => {
@@ -307,6 +315,42 @@ describe("ContextService", () => {
 
       expect(result.text).toContain("garden");
       expect(result.source).toBe("mod-sentence");
+    });
+
+    it("uses offset to find correct sentence when text appears multiple times", async () => {
+      const service = new ContextService();
+      const modules = [makeModule({ type: "sentence" })];
+      const selectedText = "walked";
+      const chapterText = "He walked slowly. She walked quickly. They walked together.";
+
+      // "walked" appears 3 times. Offset points to the second sentence.
+      // "He walked slowly. " = 19 chars, so offset 19 is in second sentence
+      const result = await service.getContext(selectedText, chapterText, modules, false, 25);
+
+      expect(result.text).toBe("She walked quickly.");
+    });
+
+    it("falls back to first match when offset is not provided", async () => {
+      const service = new ContextService();
+      const modules = [makeModule({ type: "sentence" })];
+      const selectedText = "walked";
+      const chapterText = "He walked slowly. She walked quickly.";
+
+      const result = await service.getContext(selectedText, chapterText, modules);
+
+      expect(result.text).toBe("He walked slowly.");
+    });
+
+    it("falls back to first match when offset does not match any sentence", async () => {
+      const service = new ContextService();
+      const modules = [makeModule({ type: "sentence" })];
+      const selectedText = "walked";
+      const chapterText = "He walked slowly. She walked quickly.";
+
+      // Offset way past the end of the text
+      const result = await service.getContext(selectedText, chapterText, modules, false, 9999);
+
+      expect(result.text).toBe("He walked slowly.");
     });
   });
 });

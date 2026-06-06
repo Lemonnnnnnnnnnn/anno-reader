@@ -94,7 +94,7 @@ export class TranslationService {
     const { systemMessage, userMessage } = this.buildMessagesWithContext(
       role,
       text,
-      contextData.debug?.dictionary?.results?.map(r => JSON.stringify(r)).join("\n") || "",
+      contextData.dictionaryText || "",
       contextData.text,
     );
 
@@ -171,7 +171,7 @@ export class TranslationService {
     const { systemMessage, userMessage } = this.buildMessagesWithContext(
       role,
       text,
-      contextData.debug?.dictionary?.results?.map(r => JSON.stringify(r)).join("\n") || "",
+      contextData.dictionaryText || "",
       contextData.text,
     );
 
@@ -250,7 +250,7 @@ export class TranslationService {
     const { systemMessage, userMessage } = this.buildMessagesWithContext(
       role,
       text,
-      contextData.debug?.dictionary?.results?.map(r => JSON.stringify(r)).join("\n") || "",
+      contextData.dictionaryText || "",
       contextData.text,
     );
 

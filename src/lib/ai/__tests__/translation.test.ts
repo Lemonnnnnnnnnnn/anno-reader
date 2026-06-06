@@ -78,6 +78,7 @@ const mockContextData: ContextData = {
   text: "Hello world",
   metadata: { selectedText: "Hello world", moduleCount: "1" },
   source: "builtin-sentence",
+  dictionaryText: "hello: 你好\nworld: 世界",
 };
 
 const mockConfig: AIConfig = {
@@ -282,6 +283,42 @@ describe("TranslationService", () => {
       expect(second.translation).toBe("你好世界");
       // Provider should NOT be called again
       expect(mockTranslate).toHaveBeenCalledTimes(1);
+    });
+
+    it("should pass dictionaryText to buildMessagesWithContext and render in user message", async () => {
+      mockGetContext.mockResolvedValue(mockContextData);
+      mockTranslate.mockResolvedValue(mockResponse);
+
+      // Create a role template that includes {dictionaryResults}
+      const dictRole: AIRole = {
+        ...mockRole,
+        id: "dict-role",
+        userMessageTemplate:
+          "Translate {selectedText}\nDictionary: {dictionaryResults}",
+        variables: [
+          ...mockRole.variables,
+          {
+            name: "dictionaryResults",
+            description: "Dictionary query results",
+            defaultValue: "",
+            isRequired: false,
+          },
+        ],
+      };
+      const dictConfig: AIConfig = {
+        ...mockConfig,
+        roles: [dictRole],
+        selectedRoleId: "dict-role",
+      };
+
+      await service.translate("Hello world", "Chinese", dictConfig);
+
+      expect(mockTranslate).toHaveBeenCalledTimes(1);
+      const callArgs = mockTranslate.mock.calls[0][0];
+      // userMessage should include the rendered dictionary text from mockContextData
+      expect(callArgs.userMessage).toContain("hello: 你好");
+      expect(callArgs.userMessage).toContain("world: 世界");
+      expect(callArgs.userMessage).not.toContain("{dictionaryResults}");
     });
   });
 

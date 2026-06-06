@@ -184,6 +184,8 @@ export interface ContextData {
   metadata: Record<string, string>;
   /** Which module or source produced this context */
   source: string;
+  /** Dictionary query results (separate from context text) */
+  dictionaryText?: string;
   /** Debug information (optional, for preview mode) */
   debug?: {
     /** Dictionary query results */
