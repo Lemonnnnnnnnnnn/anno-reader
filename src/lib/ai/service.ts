@@ -1,5 +1,4 @@
 import type { AIProvider } from "./types";
-import type { DictionaryResult, AggregatedDictionaryError } from "@/lib/dictionaries";
 
 /**
  * Request to translate text via AI.
@@ -39,41 +38,6 @@ export interface StreamingTranslationResponse {
   textStream: AsyncIterable<string>;
   /** The provider used for translation */
   provider: AIProvider;
-}
-
-/**
- * Dictionary query debug information.
- */
-export interface DictionaryDebugInfo {
-  /** Results from each dictionary provider */
-  results: DictionaryResult[];
-  /** Errors from failed providers */
-  errors: AggregatedDictionaryError[];
-  /** Total query duration in milliseconds */
-  duration: number;
-}
-
-/**
- * Preview data shown before sending to LLM.
- * Contains all context and prompt information for debugging.
- */
-export interface PreviewData {
-  /** The selected text to translate */
-  selectedText: string;
-  /** Target language */
-  targetLanguage: string;
-  /** The rendered prompt template */
-  renderedPrompt: string;
-  /** System message sent to LLM */
-  systemMessage: string;
-  /** User message sent to LLM */
-  userMessage: string;
-  /** Dictionary query results (if dictionary modules enabled) */
-  dictionary?: DictionaryDebugInfo;
-  /** Which context modules were used */
-  contextSources: string[];
-  /** Sentence context extracted */
-  sentenceContext?: string;
 }
 
 /**

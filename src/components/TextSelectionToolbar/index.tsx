@@ -42,7 +42,6 @@ interface TextSelectionToolbarProps {
       sentence?: string;
       paragraph?: string;
     },
-    options?: { forcePreview?: boolean },
   ) => void;
   /** Callback when user clicks "Ask AI" — receives selected text for ChatDrawer */
   onAskAI?: (selectedText: string) => void;
@@ -114,7 +113,7 @@ export function TextSelectionToolbar({
             <div className="w-px h-5 bg-border dark:bg-border-dark mx-0.5" />
             <button
               className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg dark:hover:bg-bg-dark transition-colors"
-              onClick={(e) => {
+              onClick={() => {
                 if (onTranslate && selection) {
                   onTranslate({
                     selectedText: selection.text,
@@ -123,7 +122,7 @@ export function TextSelectionToolbar({
                     endOffset: selection.endOffset,
                     sentence: selection.sentence,
                     paragraph: selection.paragraph,
-                  }, { forcePreview: e.shiftKey ? true : e.ctrlKey ? false : undefined });
+                  });
                   resetSelection();
                 }
               }}

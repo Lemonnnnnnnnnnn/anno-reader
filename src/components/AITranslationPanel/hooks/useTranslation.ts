@@ -2,22 +2,19 @@
  * Translation hook for AITranslationPanel.
  *
  * Handles:
- * - Preview translation on mount
- * - Full translation execution
- * - Translation state (status, text, error, preview data)
+ * - Streaming translation execution
+ * - Translation state (status, text, error)
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { TranslationService } from "@/lib/ai/translation";
+import { translationService } from "@/lib/ai/translation";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
-import type { PreviewData } from "@/lib/ai/service";
 
-export type PanelStatus = "previewing" | "loading" | "streaming" | "success" | "error";
+export type PanelStatus = "loading" | "streaming" | "success" | "error";
 
 interface UseTranslationParams {
   selectedText: string;
   chapterText: string | null;
-  skipPreview?: boolean;
   offset?: number;
   /** The sentence containing the selection (from iframe DOM) */
   selectionSentence?: string;
@@ -25,48 +22,17 @@ interface UseTranslationParams {
   selectionParagraph?: string;
 }
 
-export function useTranslation({ selectedText, chapterText, skipPreview = false, offset, selectionSentence, selectionParagraph }: UseTranslationParams) {
+export function useTranslation({ selectedText, chapterText, offset, selectionSentence, selectionParagraph }: UseTranslationParams) {
   const [status, setStatus] = useState<PanelStatus>("loading");
   const [translationText, setTranslationText] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
 
   const config = useAIConfigStore((s) => s.config);
-  const serviceRef = useRef<TranslationService>(null);
-  if (!serviceRef.current) {
-    serviceRef.current = new TranslationService();
-  }
-  const service = serviceRef.current;
-
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Abort on unmount
   useEffect(() => () => abortControllerRef.current?.abort(), []);
-
-  const preview = useCallback(async () => {
-    setStatus("loading");
-    setError(null);
-
-    try {
-      const data = await service.previewTranslate(
-        selectedText,
-        "Chinese",
-        config,
-        chapterText,
-        offset,
-        selectionSentence,
-        selectionParagraph,
-      );
-      setPreviewData(data);
-      setStatus("previewing");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Preview failed";
-      setError(message);
-      setStatus("error");
-    }
-  }, [selectedText, chapterText, config, offset, selectionSentence, selectionParagraph]);
 
   const translate = useCallback(async () => {
     setStatus("loading");
@@ -77,7 +43,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false,
     abortControllerRef.current = abortController;
 
     try {
-      const result = await service.translateStream(
+      const result = await translationService.translateStream(
         selectedText,
         "Chinese",
         config,
@@ -101,7 +67,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false,
       setStatus("success");
 
       // Cache the streaming result for future non-streaming calls
-      service.cacheTranslation(
+      translationService.cacheTranslation(
         selectedText,
         "Chinese",
         accumulated,
@@ -119,13 +85,10 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false,
     }
   }, [selectedText, chapterText, config, offset, selectionSentence, selectionParagraph]);
 
+  // Auto-translate on mount
   useEffect(() => {
-    if (skipPreview) {
-      translate();
-    } else {
-      preview();
-    }
-  }, [skipPreview, preview, translate]);
+    translate();
+  }, [translate]);
 
   const stopTranslation = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -138,9 +101,7 @@ export function useTranslation({ selectedText, chapterText, skipPreview = false,
     setTranslationText,
     error,
     setError,
-    previewData,
     translate,
     stopTranslation,
-    preview,
   };
 }

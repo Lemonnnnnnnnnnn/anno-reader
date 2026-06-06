@@ -1,7 +1,6 @@
 /**
  * Types for the AI translation module.
- * These types define provider configuration, prompt templates,
- * context modules, and the root AI configuration.
+ * Simplified: removed AIPrompt, PromptTemplate, custom ContextType.
  */
 
 // ---------------------------------------------------------------------------
@@ -49,7 +48,7 @@ export interface ProviderStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt Types
+// Role Types
 // ---------------------------------------------------------------------------
 
 /**
@@ -67,47 +66,8 @@ export interface PromptVariable {
 }
 
 /**
- * A user-configurable AI prompt stored in settings.
- */
-export interface AIPrompt {
-  /** Unique prompt identifier */
-  id: string;
-  /** Display name */
-  name: string;
-  /** Prompt template content with {variable} placeholders */
-  content: string;
-  /** Interpolatable variables */
-  variables: PromptVariable[];
-  /** Whether this is the default prompt for its category */
-  isDefault: boolean;
-  /** Whether this prompt is active and selectable */
-  isEnabled: boolean;
-}
-
-/**
- * A built-in or system prompt template.
- * Differs from AIPrompt by having a category instead of isDefault/isEnabled.
- */
-export interface PromptTemplate {
-  /** Unique template identifier */
-  id: string;
-  /** Display name */
-  name: string;
-  /** Template content with {variable} placeholders */
-  content: string;
-  /** Interpolatable variables */
-  variables: PromptVariable[];
-  /** Functional category (e.g. "translation", "summarization") */
-  category: string;
-}
-
-// ---------------------------------------------------------------------------
-// Role Types
-// ---------------------------------------------------------------------------
-
-/**
  * An AI role defines how the AI should behave and respond.
- * Contains system message and user message template.
+ * Contains system message and user message template with {variable} placeholders.
  */
 export interface AIRole {
   /** Unique role identifier */
@@ -118,7 +78,7 @@ export interface AIRole {
   systemMessage: string;
   /** User message template with {variable} placeholders */
   userMessageTemplate: string;
-  /** Interpolatable variables */
+  /** Interpolatable variables (auto-extracted from template) */
   variables: PromptVariable[];
   /** Whether this is the default role */
   isDefault: boolean;
@@ -131,7 +91,7 @@ export interface AIRole {
 // ---------------------------------------------------------------------------
 
 /** Types of context that can be supplied alongside a translation request. */
-export type ContextType = "sentence" | "dictionary" | "custom";
+export type ContextType = "sentence" | "dictionary";
 
 /**
  * A context module that provides surrounding text or metadata
@@ -158,8 +118,6 @@ export interface ContextModule {
 export interface ContextConfig {
   /** All available context modules */
   modules: ContextModule[];
-  /** IDs of currently selected modules */
-  selectedModuleIds: string[];
 }
 
 /**
@@ -186,13 +144,6 @@ export interface ContextData {
   source: string;
   /** Dictionary query results (separate from context text) */
   dictionaryText?: string;
-  /** Debug information (optional, for preview mode) */
-  debug?: {
-    /** Dictionary query results */
-    dictionary?: DictionaryDebugInfo;
-    /** Sentence context before truncation */
-    sentenceContext?: string;
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -210,8 +161,6 @@ export interface AIConfig {
   selectedProviderId: string | null;
   /** Context module configuration */
   contextConfig: ContextConfig;
-  /** User-configured prompts */
-  prompts: AIPrompt[];
   /** Available roles */
   roles: AIRole[];
   /** ID of the currently active role, null if none selected */
@@ -223,10 +172,6 @@ export interface AIConfig {
 // ---------------------------------------------------------------------------
 
 export {
-  DEFAULT_SYSTEM_MESSAGE,
-  DEFAULT_TRANSLATION_PROMPT,
-  BUILTIN_SENTENCE_CONTEXT,
-  BUILTIN_DICTIONARY_MODULES,
   BUILTIN_ROLES,
   READING_ASSISTANT_ROLE,
   TRANSLATOR_ROLE,

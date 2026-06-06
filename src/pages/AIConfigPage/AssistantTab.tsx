@@ -26,7 +26,6 @@ export function AssistantTab() {
   } = useRoleForm();
   const {
     modules,
-    selectedModuleIds,
     sentenceModules,
     dictionaryModules,
     toggleModule,
@@ -194,9 +193,7 @@ export function AssistantTab() {
         </p>
 
         {/* Sentence Context */}
-        {sentenceModules.map((module) => {
-          const isEnabled = selectedModuleIds.includes(module.id);
-          return (
+        {sentenceModules.map((module) => (
             <div
               key={module.id}
               className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md p-4 flex items-center justify-between mb-3"
@@ -213,22 +210,21 @@ export function AssistantTab() {
                 onClick={() => toggleModule(module.id)}
                 className={`
                   relative w-11 h-6 rounded-full transition-colors cursor-pointer border-0
-                  ${isEnabled ? "bg-accent" : "bg-border"}
+                  ${module.isEnabled ? "bg-accent" : "bg-border"}
                 `}
                 role="switch"
-                aria-checked={isEnabled}
+                aria-checked={module.isEnabled}
                 aria-label={`Toggle ${module.name}`}
               >
                 <span
                   className={`
                     absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform shadow-sm
-                    ${isEnabled ? "translate-x-5" : "translate-x-0"}
+                    ${module.isEnabled ? "translate-x-5" : "translate-x-0"}
                   `}
                 />
               </button>
             </div>
-          );
-        })}
+          ))}
 
         {/* Dictionary Context */}
         {dictionaryModules.length > 0 && (

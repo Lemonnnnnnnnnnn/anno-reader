@@ -1,80 +1,9 @@
 /**
  * Constants for the AI translation module.
- * Centralizes all built-in defaults and system messages.
+ * Simplified: removed AIPrompt, PromptTemplate, standalone context module constants.
  */
 
-import type { ContextModule, PromptTemplate, AIRole } from "./types";
-
-// ---------------------------------------------------------------------------
-// System Messages
-// ---------------------------------------------------------------------------
-
-/**
- * Default system message for translation requests.
- * Instructs the AI to act as a professional translator.
- */
-export const DEFAULT_SYSTEM_MESSAGE =
-  "You are a professional translator. Translate the following text to {targetLanguage}. Use the context if provided for better accuracy.";
-
-// ---------------------------------------------------------------------------
-// Prompt Templates
-// ---------------------------------------------------------------------------
-
-/** Default translation prompt template with standard variables. */
-export const DEFAULT_TRANSLATION_PROMPT: PromptTemplate = {
-  id: "default-translation",
-  name: "Translation",
-  content:
-    "Translate the following text to {targetLanguage}. Provide a concise interpretation that captures the meaning and nuance in context, not just a literal translation.\n\nText to translate:\n{selectedText}",
-  variables: [
-    {
-      name: "selectedText",
-      description: "The text selected by the user",
-      defaultValue: "",
-      isRequired: true,
-    },
-    {
-      name: "targetLanguage",
-      description: "Target language for translation",
-      defaultValue: "Chinese",
-      isRequired: true,
-    },
-  ],
-  category: "translation",
-};
-
-// ---------------------------------------------------------------------------
-// Context Modules
-// ---------------------------------------------------------------------------
-
-/** Built-in context module that uses the selected sentence as context. */
-export const BUILTIN_SENTENCE_CONTEXT: ContextModule = {
-  id: "builtin-sentence",
-  name: "Sentence Context",
-  type: "sentence",
-  content: "Extracts the surrounding paragraph from chapter text for richer context.",
-  isEnabled: true,
-};
-
-/** Built-in dictionary context modules. */
-export const BUILTIN_DICTIONARY_MODULES: ContextModule[] = [
-  {
-    id: "builtin-etymonline",
-    name: "Etymonline (词源)",
-    type: "dictionary",
-    content: "Etymology and word origins from Etymonline",
-    isEnabled: true,
-    providerId: "etymonline",
-  },
-  {
-    id: "builtin-vocabulary",
-    name: "Vocabulary.com",
-    type: "dictionary",
-    content: "Definitions from Vocabulary.com dictionary",
-    isEnabled: true,
-    providerId: "vocabulary",
-  },
-];
+import type { AIRole } from "./types";
 
 // ---------------------------------------------------------------------------
 // Built-in Roles
@@ -105,9 +34,7 @@ export const READING_ASSISTANT_ROLE: AIRole = {
 ## 上下文
 {context}
 
-请直接输出适合记录笔记的总结内容。
-不要输出标题，不要输出翻译、词汇分析、上下文分析等section。
-直接输出最终的笔记总结。`,
+请直接输出适合记录笔记的总结内容。`,
   variables: [
     {
       name: "selectedText",

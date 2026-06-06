@@ -92,7 +92,6 @@ export function VerticalScroller({
     endOffset: number;
     sentence?: string;
     paragraph?: string;
-    forcePreview?: boolean;
   } | null>(null);
 
   // Scroll position tracking and restoration
@@ -166,8 +165,8 @@ export function VerticalScroller({
     endOffset: number;
     sentence?: string;
     paragraph?: string;
-  }, options?: { forcePreview?: boolean }) => {
-    setTranslationPanel({ ...data, forcePreview: options?.forcePreview });
+  }) => {
+    setTranslationPanel(data);
     // Close annotation detail panel and highlight popover (mutual exclusivity)
     setActiveNoteId(null);
     setActiveHighlightId(null);
@@ -189,11 +188,6 @@ export function VerticalScroller({
     if (idx === -1) return withSelection + annotationScript;
     return withSelection.slice(0, idx) + annotationScript + withSelection.slice(idx);
   }, [srcdoc]); // Only depend on srcdoc, not annotationScript - annotations update via postMessage
-
-  // Compute skipPreview: forcePreview presence inverts it, otherwise DEV→skip=false, PROD→skip=true
-  const skipPreview = translationPanel?.forcePreview !== undefined
-    ? !translationPanel.forcePreview
-    : !import.meta.env.DEV;
 
   return (
     <div ref={containerRef} className="flex-1 overflow-hidden relative">
@@ -243,7 +237,6 @@ export function VerticalScroller({
         paragraph={translationPanel?.paragraph}
         isOpen={!!translationPanel}
         onClose={handleCloseTranslationPanel}
-        skipPreview={skipPreview}
       />
     </div>
   );

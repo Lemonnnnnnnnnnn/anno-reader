@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { AIConfig, AIProvider, AIPrompt, ContextConfig, AIRole } from "@/lib/ai/types";
-import { DEFAULT_TRANSLATION_PROMPT, BUILTIN_SENTENCE_CONTEXT, BUILTIN_DICTIONARY_MODULES, BUILTIN_ROLES } from "@/lib/ai/constants";
+import type { AIConfig, AIProvider, ContextConfig, AIRole } from "@/lib/ai/types";
+import { BUILTIN_ROLES } from "@/lib/ai/constants";
 import { readConfig } from "@/lib/storage/config";
 import { writeTextFile, readTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 
@@ -19,12 +19,6 @@ export interface AIConfigStore {
   // Context actions
   updateContextConfig: (config: Partial<ContextConfig>) => void;
 
-  // Prompt actions
-  addPrompt: (prompt: AIPrompt) => void;
-  updatePrompt: (id: string, updates: Partial<AIPrompt>) => void;
-  removePrompt: (id: string) => void;
-  setDefaultPrompt: (id: string) => void;
-
   // Role actions
   addRole: (role: AIRole) => void;
   updateRole: (id: string, updates: Partial<AIRole>) => void;
@@ -40,19 +34,32 @@ const DEFAULT_CONFIG: AIConfig = {
   providers: [],
   selectedProviderId: null,
   contextConfig: {
-    modules: [BUILTIN_SENTENCE_CONTEXT, ...BUILTIN_DICTIONARY_MODULES],
-    selectedModuleIds: [BUILTIN_SENTENCE_CONTEXT.id],
+    modules: [
+      {
+        id: "builtin-sentence",
+        name: "Sentence Context",
+        type: "sentence",
+        content: "Extracts the surrounding paragraph from chapter text for richer context.",
+        isEnabled: true,
+      },
+      {
+        id: "builtin-etymonline",
+        name: "Etymonline (词源)",
+        type: "dictionary",
+        content: "Etymology and word origins from Etymonline",
+        isEnabled: true,
+        providerId: "etymonline",
+      },
+      {
+        id: "builtin-vocabulary",
+        name: "Vocabulary.com",
+        type: "dictionary",
+        content: "Definitions from Vocabulary.com dictionary",
+        isEnabled: true,
+        providerId: "vocabulary",
+      },
+    ],
   },
-  prompts: [
-    {
-      id: DEFAULT_TRANSLATION_PROMPT.id,
-      name: DEFAULT_TRANSLATION_PROMPT.name,
-      content: DEFAULT_TRANSLATION_PROMPT.content,
-      variables: DEFAULT_TRANSLATION_PROMPT.variables,
-      isDefault: true,
-      isEnabled: true,
-    },
-  ],
   roles: BUILTIN_ROLES,
   selectedRoleId: BUILTIN_ROLES.find(r => r.isDefault)?.id ?? null,
 };
@@ -117,51 +124,6 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
       config: {
         ...state.config,
         contextConfig: { ...state.config.contextConfig, ...contextUpdates },
-      },
-    }));
-    persistAfterSet(get);
-  },
-
-  addPrompt: (prompt) => {
-    set((state) => ({
-      config: {
-        ...state.config,
-        prompts: [...state.config.prompts, prompt],
-      },
-    }));
-    persistAfterSet(get);
-  },
-
-  updatePrompt: (id, updates) => {
-    set((state) => ({
-      config: {
-        ...state.config,
-        prompts: state.config.prompts.map((p) =>
-          p.id === id ? { ...p, ...updates } : p
-        ),
-      },
-    }));
-    persistAfterSet(get);
-  },
-
-  removePrompt: (id) => {
-    set((state) => ({
-      config: {
-        ...state.config,
-        prompts: state.config.prompts.filter((p) => p.id !== id),
-      },
-    }));
-    persistAfterSet(get);
-  },
-
-  setDefaultPrompt: (id) => {
-    set((state) => ({
-      config: {
-        ...state.config,
-        prompts: state.config.prompts.map((p) => ({
-          ...p,
-          isDefault: p.id === id,
-        })),
       },
     }));
     persistAfterSet(get);
@@ -256,7 +218,7 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
       );
 
       // Built-in modules: keep defaults, apply user's state if exists
-      const mergedBuiltinModules = DEFAULT_CONFIG.contextConfig.modules.map(
+      const mergedModules = DEFAULT_CONFIG.contextConfig.modules.map(
         (m) => ({
           ...m,
           isEnabled: userModuleStates.has(m.id)
@@ -265,33 +227,19 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
         }),
       );
 
-      // User's custom modules (non-built-in)
-      const customModules = (parsed.contextConfig?.modules ?? []).filter(
-        (m) => !builtinModuleIds.has(m.id),
-      );
-
-      const mergedModules = [...mergedBuiltinModules, ...customModules];
-
-      // Merge selectedModuleIds: keep user's selection, ensure built-in IDs are valid
-      const userSelectedIds = parsed.contextConfig?.selectedModuleIds ?? [];
-      const validSelectedIds = userSelectedIds.filter((id) =>
-        mergedModules.some((m) => m.id === id),
-      );
-
-      // If no valid selection, default to sentence context
-      const selectedModuleIds =
-        validSelectedIds.length > 0
-          ? validSelectedIds
-          : [BUILTIN_SENTENCE_CONTEXT.id];
+      // Add user's custom modules (non-built-in) if any
+      for (const m of parsed.contextConfig?.modules ?? []) {
+        if (!builtinModuleIds.has(m.id)) {
+          mergedModules.push(m);
+        }
+      }
 
       const merged: AIConfig = {
         ...DEFAULT_CONFIG,
         ...parsed,
         contextConfig: {
           modules: mergedModules,
-          selectedModuleIds,
         },
-        prompts: parsed.prompts ?? DEFAULT_CONFIG.prompts,
         roles: parsed.roles ?? DEFAULT_CONFIG.roles,
         selectedRoleId: parsed.selectedRoleId ?? DEFAULT_CONFIG.selectedRoleId,
       };
