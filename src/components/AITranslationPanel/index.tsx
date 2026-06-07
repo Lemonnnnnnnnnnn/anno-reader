@@ -2,6 +2,8 @@ import { Button, ErrorBanner, Drawer } from "@/components/primitives";
 import { Loader2 } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { useTranslation, useNoteSaving } from "./hooks";
+import { useTTS } from "./hooks/useTTS";
+import { useTTSConfigStore } from "@/stores/useTTSConfigStore";
 import type { PanelStatus } from "./hooks";
 
 interface AITranslationPanelProps {
@@ -34,6 +36,9 @@ export function AITranslationPanelView({
   onRetry,
   onAddNote,
   onStop,
+  isTTSAvailable,
+  isSpeaking,
+  onSpeak,
 }: {
   status: PanelStatus;
   selectedText: string;
@@ -46,6 +51,9 @@ export function AITranslationPanelView({
   onRetry: () => void;
   onAddNote: () => void;
   onStop: () => void;
+  isTTSAvailable: boolean;
+  isSpeaking: boolean;
+  onSpeak: () => void;
 }) {
   return (
     <Drawer open={isOpen} onClose={onClose} title="AI Translation">
@@ -137,6 +145,15 @@ export function AITranslationPanelView({
               Add as Note
             </Button>
           )}
+          {isTTSAvailable && status === "success" && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onSpeak}
+            >
+              {isSpeaking ? "停止" : "Listen"}
+            </Button>
+          )}
         </div>
       </div>
     </Drawer>
@@ -175,6 +192,10 @@ export function AITranslationPanel({
     onError: setError,
   });
 
+  const ttsConfig = useTTSConfigStore((s) => s.config);
+  const isTTSAvailable = Boolean(ttsConfig.selectedProviderId);
+  const { speak, isSpeaking } = useTTS(selectedText);
+
   return (
     <AITranslationPanelView
       status={status}
@@ -188,6 +209,9 @@ export function AITranslationPanel({
       onRetry={translate}
       onAddNote={handleAddNote}
       onStop={stopTranslation}
+      isTTSAvailable={isTTSAvailable}
+      isSpeaking={isSpeaking}
+      onSpeak={speak}
     />
   );
 }

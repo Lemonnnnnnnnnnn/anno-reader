@@ -23,6 +23,9 @@ const viewDefaults = {
   onTranslate: vi.fn(),
   onPreview: vi.fn(),
   onStop: vi.fn(),
+  isTTSAvailable: false,
+  isSpeaking: false,
+  onSpeak: vi.fn(),
 };
 
 // Mock external dependencies for the stateful component
@@ -62,6 +65,23 @@ vi.mock("@/stores/useAIConfigStore", () => ({
       contextConfig: { modules: [], selectedModuleIds: [] },
       prompts: [],
     },
+  }),
+}));
+
+vi.mock("@/stores/useTTSConfigStore", () => ({
+  useTTSConfigStore: () => ({
+    config: {
+      providers: [],
+      selectedProviderId: null,
+    },
+  }),
+}));
+
+vi.mock("../hooks/useTTS", () => ({
+  useTTS: () => ({
+    speak: vi.fn(),
+    stop: vi.fn(),
+    isSpeaking: false,
   }),
 }));
 

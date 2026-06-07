@@ -86,7 +86,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
   return (
     <Drawer open={!!noteId} onClose={onClose} title="Note Detail">
       {note ? (
-        <div className="flex-1 flex flex-col gap-4 font-serif min-h-0">
+        <div className="flex-1 flex flex-col gap-4 font-serif min-h-0 h-full">
           {/* Quoted original text */}
           <div className="border-l-2 border-accent dark:border-accent-dark pl-3">
             <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug overflow-hidden text-ellipsis line-clamp-3">

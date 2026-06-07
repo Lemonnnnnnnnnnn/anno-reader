@@ -28,6 +28,12 @@ export function SettingsPage() {
           >
             AI 配置
           </button>
+          <button
+            onClick={() => navigate("/tts-config")}
+            className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
+          >
+            TTS 配置
+          </button>
         </div>
       </main>
     </div>

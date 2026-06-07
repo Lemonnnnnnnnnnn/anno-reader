@@ -6,6 +6,7 @@ import { BookshelfPage } from "./pages/BookshelfPage";
 import { ReaderPage } from "./pages/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AIConfigPage } from "./pages/AIConfigPage";
+import { TTSConfigPage } from "./pages/TTSConfigPage";
 import { useAIConfigStore } from "./stores/useAIConfigStore";
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
           <Route path="/reader" element={<ReaderPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/ai-config" element={<AIConfigPage />} />
+          <Route path="/tts-config" element={<TTSConfigPage />} />
           <Route path="/" element={<Navigate to="/bookshelf" replace />} />
           <Route path="*" element={<Navigate to="/bookshelf" replace />} />
         </Routes>
