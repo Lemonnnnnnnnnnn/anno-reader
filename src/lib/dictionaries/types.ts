@@ -55,8 +55,10 @@ export interface DictionaryResult {
  * A single etymology item from Etymonline.
  */
 export interface EtymonlineResultItem {
-  /** The word's etymology */
+  /** The word's etymology (HTML content) */
   etymology: string;
+  /** Title/heading for this entry (e.g. "sketch (v.)", "sketch (n.)") */
+  title?: string;
   /** The first known use date/period */
   firstUse?: string;
   /** Related words or forms */

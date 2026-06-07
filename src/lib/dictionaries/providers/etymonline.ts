@@ -66,7 +66,7 @@ function parseModernEntries(doc: Document, maxResults: number): EtymonlineResult
 
     if (!title || !definition) continue;
 
-    items.push({ etymology: definition });
+    items.push({ etymology: definition, title });
   }
 
   return items;
@@ -94,7 +94,7 @@ function parseLegacyItems(doc: Document, maxResults: number): EtymonlineResultIt
 
     if (!title || !definition) continue;
 
-    items.push({ etymology: definition });
+    items.push({ etymology: definition, title });
   }
 
   return items;
@@ -104,7 +104,13 @@ function parseLegacyItems(doc: Document, maxResults: number): EtymonlineResultIt
  * Strategy 3 — Search cards.
  *
  * Falls back to the search results page (`/search?q=word`).
- * Each result is an `<a>` card with a prose section for the definition.
+ * Handles two DOM layouts:
+ *   A. Prose inside anchor (legacy): `<a><span id="..."/><section class="prose"/></a>`
+ *   B. Prose in sibling container (current):
+ *      ```html
+ *      <div><a class="w-full group">...</a></div>
+ *      <div><section class="prose">...</section></div>
+ *      ```
  *
  * @returns Parsed items (may be empty if no search results)
  */
@@ -116,11 +122,25 @@ function parseSearchCards(doc: Document, maxResults: number): EtymonlineResultIt
     if (items.length >= maxResults) break;
 
     const title = getText(card, "[id]");
-    const definition = getHTML(card, 'section[class*="prose"]');
+    if (!title) continue;
 
-    if (!title || !definition) continue;
+    // Layout A: prose is a child of the anchor
+    let definition = getHTML(card, 'section[class*="prose"]');
 
-    items.push({ etymology: definition });
+    // Layout B: prose is in the next sibling container
+    if (!definition) {
+      // anchor's parent DIV → next sibling DIV → section.prose
+      const parentDiv = card.parentElement;
+      const siblingDiv = parentDiv?.nextElementSibling;
+      const proseSection = siblingDiv?.querySelector('section[class*="prose"]');
+      if (proseSection) {
+        definition = getHTML(proseSection);
+      }
+    }
+
+    if (!definition) continue;
+
+    items.push({ etymology: definition, title });
   }
 
   return items;

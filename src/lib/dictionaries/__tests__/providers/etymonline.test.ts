@@ -104,6 +104,38 @@ const SEARCH_CARDS_HTML = `
 </body></html>
 `;
 
+/**
+ * Search results page with prose in sibling container (real etymonline structure).
+ *
+ * Current etymonline layout wraps each anchor and its prose in separate DIVs:
+ *   <div><a class="w-full group">...</a></div>
+ *   <div><section class="prose">...</section></div>
+ */
+const SEARCH_CARDS_SIBLING_HTML = `
+<html><body>
+  <div class="flex p-3 z-10">
+    <a class="w-full group" href="/word/sketch">
+      <span id="etymonline_v_45768" class="scroll-m-16">sketch (v.)</span>
+    </a>
+  </div>
+  <div class="relative flex w-full p-3">
+    <section class="prose lg:prose-lg">
+      <p>1690s, "present briefly the essential facts of," from <em>sketch</em> (n.).</p>
+    </section>
+  </div>
+  <div class="flex p-3 z-10">
+    <a class="w-full group" href="/word/sketch">
+      <span id="etymonline_v_23600" class="scroll-m-16">sketch (n.)</span>
+    </a>
+  </div>
+  <div class="relative flex w-full p-3">
+    <section class="prose lg:prose-lg">
+      <p>1670s, "rough drawing or design," from Dutch <em>schets</em>.</p>
+    </section>
+  </div>
+</body></html>
+`;
+
 /** Empty page — no recognizable structure */
 const EMPTY_PAGE_HTML = `<html><body><p>No results found.</p></body></html>`;
 
@@ -179,6 +211,15 @@ describe("Etymonline provider", () => {
       expect(result.data.items).toHaveLength(1);
       expect(result.data.items[0].etymology).toContain("Valid Entry");
     });
+
+    it("should extract title from h2 in modern entries", async () => {
+      mockFetch.mockResolvedValue(mockHtmlResponse(MODERN_ENTRY_HTML));
+
+      const result = await search("hello", config);
+
+      expect(result.data.items[0].title).toBe("hello");
+      expect(result.data.items[1].title).toBe("hello girl");
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -235,6 +276,15 @@ describe("Etymonline provider", () => {
 
       expect(result.data.items).toHaveLength(1);
       expect(result.data.items[0].etymology).toContain("Complete definition");
+    });
+
+    it("should extract title from word__name in legacy entries", async () => {
+      mockFetch.mockResolvedValue(mockHtmlResponse(LEGACY_ENTRY_HTML));
+
+      const result = await search("hello", config);
+
+      expect(result.data.items[0].title).toBe("hello");
+      expect(result.data.items[1].title).toBe("hello girl");
     });
   });
 
@@ -316,6 +366,32 @@ describe("Etymonline provider", () => {
 
       expect(result.data.items).toHaveLength(1);
       expect(result.data.items[0].etymology).toContain("Valid card");
+    });
+
+    it("should parse search cards where prose is a sibling of anchor (real etymonline layout)", async () => {
+      mockFetch
+        .mockResolvedValueOnce(mockHtmlResponse(EMPTY_PAGE_HTML))
+        .mockResolvedValueOnce(mockHtmlResponse(SEARCH_CARDS_SIBLING_HTML));
+
+      const result = await search("sketching", config);
+
+      expect(result.found).toBe(true);
+      expect(result.data.items).toHaveLength(2);
+      expect(result.data.items[0].etymology).toContain("1690s");
+      expect(result.data.items[0].etymology).toContain("sketch");
+      expect(result.data.items[1].etymology).toContain("1670s");
+      expect(result.data.items[1].etymology).toContain("schets");
+    });
+
+    it("should extract title from span[id] in search cards", async () => {
+      mockFetch
+        .mockResolvedValueOnce(mockHtmlResponse(EMPTY_PAGE_HTML))
+        .mockResolvedValueOnce(mockHtmlResponse(SEARCH_CARDS_SIBLING_HTML));
+
+      const result = await search("sketching", config);
+
+      expect(result.data.items[0].title).toBe("sketch (v.)");
+      expect(result.data.items[1].title).toBe("sketch (n.)");
     });
   });
 

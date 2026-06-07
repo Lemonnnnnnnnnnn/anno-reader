@@ -165,11 +165,20 @@ export function DictionaryDrawer({ open, onClose }: DictionaryDrawerProps) {
                 Etymonline
               </h3>
               {etymonlineResult.data.items.map((item, index) => (
-                <div
-                  key={index}
-                  className="text-sm text-text dark:text-text-dark leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: item.etymology }}
-                />
+                <div key={index}>
+                  {index > 0 && (
+                    <hr className="border-border dark:border-border-dark my-3" />
+                  )}
+                  {item.title && (
+                    <p className="text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1">
+                      {item.title}
+                    </p>
+                  )}
+                  <div
+                    className="text-sm text-text dark:text-text-dark leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: item.etymology }}
+                  />
+                </div>
               ))}
             </div>
           )}

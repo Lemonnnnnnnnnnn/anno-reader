@@ -126,12 +126,13 @@ function formatDictionaryResults(results: import("@/lib/dictionaries").Dictionar
 
         const etymParts = items.map((item) => {
           const clean = stripHTML(item.etymology);
+          const prefix = item.title ? `[${item.title}] ` : "";
           if (item.firstUse) {
-            return `${clean} (first use: ${item.firstUse})`;
+            return `${prefix}${clean} (first use: ${item.firstUse})`;
           }
-          return clean;
+          return `${prefix}${clean}`;
         });
-        parts.push(`[Etymology] ${etymParts.join("; ")}`);
+        parts.push(`[Etymology] ${etymParts.join("\n\n")}`);
         break;
       }
       case "vocabulary": {
