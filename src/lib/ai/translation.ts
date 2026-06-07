@@ -200,3 +200,6 @@ class TranslationService {
 
 /** Singleton translation service instance. */
 export const translationService = new TranslationService();
+
+/** Export the class for testing purposes. */
+export { TranslationService };

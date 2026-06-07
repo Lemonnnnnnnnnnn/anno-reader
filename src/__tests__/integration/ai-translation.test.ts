@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TranslationService } from "@/lib/ai/translation";
-import { ContextService } from "@/lib/ai/context";
+import { getContext } from "@/lib/ai/context";
 import { TranslationCache } from "@/lib/ai/cache";
 import { AIErrorHandler } from "@/lib/ai/error-handler";
 import { AIServiceError } from "@/lib/ai/service";
-import type { AIConfig, AIProvider, ContextModule, AIPrompt, AIRole } from "@/lib/ai/types";
-import { DEFAULT_TRANSLATION_PROMPT, BUILTIN_SENTENCE_CONTEXT } from "@/lib/ai/types";
+import type { AIConfig, AIProvider, ContextModule, AIRole } from "@/lib/ai/types";
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -23,24 +22,19 @@ const testProvider: AIProvider = {
   enabled: true,
 };
 
-const testPrompt: AIPrompt = {
-  id: DEFAULT_TRANSLATION_PROMPT.id,
-  name: DEFAULT_TRANSLATION_PROMPT.name,
-  content: DEFAULT_TRANSLATION_PROMPT.content,
-  variables: DEFAULT_TRANSLATION_PROMPT.variables,
-  isDefault: true,
-  isEnabled: true,
-};
-
 const testContextModule: ContextModule = {
-  ...BUILTIN_SENTENCE_CONTEXT,
+  id: "builtin-sentence",
+  name: "Sentence Context",
+  type: "sentence",
+  content: "Extracts the surrounding paragraph from chapter text for richer context.",
+  isEnabled: true,
 };
 
 const testRole: AIRole = {
   id: "test-translator",
   name: "Test Translator",
   systemMessage: "You are a translator. Translate the text to {targetLanguage}.",
-  userMessageTemplate: "Translate: {selectedText}",
+  userMessageTemplate: "Translate {selectedText} to {targetLanguage}",
   variables: [
     { name: "selectedText", description: "Text to translate", defaultValue: "", isRequired: true },
     { name: "targetLanguage", description: "Target language", defaultValue: "Chinese", isRequired: true },
@@ -55,9 +49,7 @@ function makeConfig(overrides?: Partial<AIConfig>): AIConfig {
     selectedProviderId: testProvider.id,
     contextConfig: {
       modules: [testContextModule],
-      selectedModuleIds: [testContextModule.id],
     },
-    prompts: [testPrompt],
     roles: [testRole],
     selectedRoleId: testRole.id,
     ...overrides,
@@ -75,12 +67,11 @@ describe("AI Translation Integration", () => {
 
   describe("Context extraction", () => {
     it("should use selected text as context when no chapterText", async () => {
-      const contextService = new ContextService();
-
-      const contextData = await contextService.getContext(
+      const contextData = await getContext(
         selectedText,
         null,
         [testContextModule],
+        null,
       );
 
       expect(contextData.text).toBe(selectedText);
@@ -92,10 +83,10 @@ describe("AI Translation Integration", () => {
   // ---- Test 2: Prompt rendering ----------------------------------------
 
   describe("Prompt rendering", () => {
-    it("should render prompt template with variables", () => {
-      const prompt = testPrompt;
-      let rendered = prompt.content;
-      for (const variable of prompt.variables) {
+    it("should render role template with variables", () => {
+      const role = testRole;
+      let rendered = role.userMessageTemplate;
+      for (const variable of role.variables) {
         const value = ({ selectedText, targetLanguage: "Chinese" } as Record<string, string>)[variable.name] ?? variable.defaultValue;
         rendered = rendered.replace(new RegExp(`\\{${variable.name}\\}`, "g"), value);
       }
@@ -152,7 +143,7 @@ describe("AI Translation Integration", () => {
       const config = makeConfig({ selectedProviderId: null });
 
       await expect(
-        service.translate(selectedText, "Chinese", config),
+        service.translateStream(selectedText, "Chinese", config),
       ).rejects.toThrow(AIServiceError);
     });
 
@@ -161,7 +152,7 @@ describe("AI Translation Integration", () => {
       const config = makeConfig({ selectedRoleId: null });
 
       await expect(
-        service.translate(selectedText, "Chinese", config),
+        service.translateStream(selectedText, "Chinese", config),
       ).rejects.toThrow(AIServiceError);
     });
   });

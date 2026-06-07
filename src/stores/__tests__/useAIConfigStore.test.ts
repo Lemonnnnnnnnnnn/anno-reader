@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
-import {
-  BUILTIN_SENTENCE_CONTEXT,
-  DEFAULT_TRANSLATION_PROMPT,
-} from "@/lib/ai/types";
-import type { AIProvider, AIPrompt } from "@/lib/ai/types";
+import type { AIProvider, AIRole } from "@/lib/ai/types";
 
 // ---------------------------------------------------------------------------
 // Mocks for Tauri fs APIs
@@ -33,6 +29,42 @@ const mockExists = (await import("@tauri-apps/plugin-fs")).exists as any;
 const mockMkdir = (await import("@tauri-apps/plugin-fs")).mkdir as any;
 
 // ---------------------------------------------------------------------------
+// Inline constants matching store's DEFAULT_CONFIG
+// ---------------------------------------------------------------------------
+
+const BUILTIN_SENTENCE_MODULE = {
+  id: "builtin-sentence",
+  name: "Sentence Context",
+  type: "sentence" as const,
+  content: "Extracts the surrounding paragraph from chapter text for richer context.",
+  isEnabled: true,
+};
+
+const BUILTIN_ETYMMONLINE_MODULE = {
+  id: "builtin-etymonline",
+  name: "Etymonline (词源)",
+  type: "dictionary" as const,
+  content: "Etymology and word origins from Etymonline",
+  isEnabled: true,
+  providerId: "etymonline",
+};
+
+const BUILTIN_VOCABULARY_MODULE = {
+  id: "builtin-vocabulary",
+  name: "Vocabulary.com",
+  type: "dictionary" as const,
+  content: "Definitions from Vocabulary.com dictionary",
+  isEnabled: true,
+  providerId: "vocabulary",
+};
+
+const DEFAULT_MODULES = [
+  BUILTIN_SENTENCE_MODULE,
+  BUILTIN_ETYMMONLINE_MODULE,
+  BUILTIN_VOCABULARY_MODULE,
+];
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -42,19 +74,8 @@ function resetStore() {
       providers: [],
       selectedProviderId: null,
       contextConfig: {
-        modules: [BUILTIN_SENTENCE_CONTEXT],
-        selectedModuleIds: [BUILTIN_SENTENCE_CONTEXT.id],
+        modules: DEFAULT_MODULES,
       },
-      prompts: [
-        {
-          id: DEFAULT_TRANSLATION_PROMPT.id,
-          name: DEFAULT_TRANSLATION_PROMPT.name,
-          content: DEFAULT_TRANSLATION_PROMPT.content,
-          variables: DEFAULT_TRANSLATION_PROMPT.variables,
-          isDefault: true,
-          isEnabled: true,
-        },
-      ],
       roles: [],
       selectedRoleId: null,
     },
@@ -73,11 +94,19 @@ const SAMPLE_PROVIDER: AIProvider = {
   enabled: true,
 };
 
-const SAMPLE_PROMPT: AIPrompt = {
-  id: "prompt-custom",
-  name: "Custom Prompt",
-  content: "Translate {selectedText} to {targetLanguage}",
-  variables: [],
+const SAMPLE_ROLE: AIRole = {
+  id: "role-custom",
+  name: "Custom Role",
+  systemMessage: "You are a translator.",
+  userMessageTemplate: "Translate {selectedText}",
+  variables: [
+    {
+      name: "selectedText",
+      description: "The text selected by the user",
+      defaultValue: "",
+      isRequired: true,
+    },
+  ],
   isDefault: false,
   isEnabled: true,
 };
@@ -100,18 +129,16 @@ describe("useAIConfigStore", () => {
       expect(selectedProviderId).toBeNull();
     });
 
-    it("includes BUILTIN_SENTENCE_CONTEXT in modules", () => {
-      const { modules, selectedModuleIds } = useAIConfigStore.getState().config.contextConfig;
-      expect(modules).toContainEqual(BUILTIN_SENTENCE_CONTEXT);
-      expect(selectedModuleIds).toContain(BUILTIN_SENTENCE_CONTEXT.id);
+    it("includes built-in context modules", () => {
+      const { modules } = useAIConfigStore.getState().config.contextConfig;
+      expect(modules).toContainEqual(BUILTIN_SENTENCE_MODULE);
+      expect(modules).toContainEqual(BUILTIN_ETYMMONLINE_MODULE);
+      expect(modules).toContainEqual(BUILTIN_VOCABULARY_MODULE);
     });
 
-    it("has DEFAULT_TRANSLATION_PROMPT as the default prompt", () => {
-      const { prompts } = useAIConfigStore.getState().config;
-      expect(prompts).toHaveLength(1);
-      expect(prompts[0].id).toBe(DEFAULT_TRANSLATION_PROMPT.id);
-      expect(prompts[0].isDefault).toBe(true);
-      expect(prompts[0].isEnabled).toBe(true);
+    it("has empty roles by default in test fixture", () => {
+      const { roles } = useAIConfigStore.getState().config;
+      expect(roles).toEqual([]);
     });
   });
 
@@ -197,66 +224,64 @@ describe("useAIConfigStore", () => {
 
   describe("updateContextConfig", () => {
     it("merges partial context config updates", () => {
-      useAIConfigStore.getState().updateContextConfig({ selectedModuleIds: [] });
+      useAIConfigStore.getState().updateContextConfig({ modules: [BUILTIN_SENTENCE_MODULE] });
       const { contextConfig } = useAIConfigStore.getState().config;
-      expect(contextConfig.selectedModuleIds).toEqual([]);
-      // modules should still be intact
-      expect(contextConfig.modules).toContainEqual(BUILTIN_SENTENCE_CONTEXT);
+      expect(contextConfig.modules).toHaveLength(1);
+      expect(contextConfig.modules[0].id).toBe("builtin-sentence");
     });
   });
 
-  // -- Prompt actions ------------------------------------------------------
+  // -- Role actions --------------------------------------------------------
 
-  describe("addPrompt", () => {
-    it("adds a prompt to the list", () => {
-      useAIConfigStore.getState().addPrompt(SAMPLE_PROMPT);
-      const { prompts } = useAIConfigStore.getState().config;
-      expect(prompts).toHaveLength(2);
-      expect(prompts[1]).toEqual(SAMPLE_PROMPT);
+  describe("addRole", () => {
+    it("adds a role to the list", () => {
+      useAIConfigStore.getState().addRole(SAMPLE_ROLE);
+      const { roles } = useAIConfigStore.getState().config;
+      expect(roles).toHaveLength(1);
+      expect(roles[0]).toEqual(SAMPLE_ROLE);
     });
   });
 
-  describe("updatePrompt", () => {
-    it("updates fields of a matching prompt", () => {
-      useAIConfigStore.getState().updatePrompt(DEFAULT_TRANSLATION_PROMPT.id, { name: "Updated" });
-      const { prompts } = useAIConfigStore.getState().config;
-      expect(prompts[0].name).toBe("Updated");
-      expect(prompts[0].id).toBe(DEFAULT_TRANSLATION_PROMPT.id);
+  describe("updateRole", () => {
+    it("updates fields of a matching role", () => {
+      useAIConfigStore.getState().addRole(SAMPLE_ROLE);
+      useAIConfigStore.getState().updateRole("role-custom", { name: "Updated" });
+      const { roles } = useAIConfigStore.getState().config;
+      expect(roles[0].name).toBe("Updated");
+      expect(roles[0].id).toBe("role-custom");
     });
 
-    it("does not affect other prompts", () => {
-      useAIConfigStore.getState().addPrompt(SAMPLE_PROMPT);
-      useAIConfigStore.getState().updatePrompt(DEFAULT_TRANSLATION_PROMPT.id, { name: "Updated" });
-      const { prompts } = useAIConfigStore.getState().config;
-      expect(prompts[1].name).toBe("Custom Prompt");
-    });
-  });
-
-  describe("removePrompt", () => {
-    it("removes the prompt from the list", () => {
-      useAIConfigStore.getState().addPrompt(SAMPLE_PROMPT);
-      expect(useAIConfigStore.getState().config.prompts).toHaveLength(2);
-      useAIConfigStore.getState().removePrompt("prompt-custom");
-      expect(useAIConfigStore.getState().config.prompts).toHaveLength(1);
-      expect(useAIConfigStore.getState().config.prompts[0].id).toBe(DEFAULT_TRANSLATION_PROMPT.id);
+    it("does not affect other roles", () => {
+      const other: AIRole = { ...SAMPLE_ROLE, id: "role-other", name: "Other" };
+      useAIConfigStore.getState().addRole(SAMPLE_ROLE);
+      useAIConfigStore.getState().addRole(other);
+      useAIConfigStore.getState().updateRole("role-custom", { name: "Updated" });
+      const { roles } = useAIConfigStore.getState().config;
+      expect(roles[1].name).toBe("Other");
     });
   });
 
-  describe("setDefaultPrompt", () => {
-    it("sets the specified prompt as default and unsets others", () => {
-      useAIConfigStore.getState().addPrompt(SAMPLE_PROMPT);
-      useAIConfigStore.getState().setDefaultPrompt("prompt-custom");
-      const { prompts } = useAIConfigStore.getState().config;
-      const custom = prompts.find((p) => p.id === "prompt-custom");
-      const defaultPrompt = prompts.find((p) => p.id === DEFAULT_TRANSLATION_PROMPT.id);
-      expect(custom?.isDefault).toBe(true);
-      expect(defaultPrompt?.isDefault).toBe(false);
+  describe("removeRole", () => {
+    it("removes the role from the list", () => {
+      useAIConfigStore.getState().addRole(SAMPLE_ROLE);
+      expect(useAIConfigStore.getState().config.roles).toHaveLength(1);
+      useAIConfigStore.getState().removeRole("role-custom");
+      expect(useAIConfigStore.getState().config.roles).toHaveLength(0);
+    });
+  });
+
+  describe("setSelectedRole", () => {
+    it("sets the selected role id", () => {
+      useAIConfigStore.getState().addRole(SAMPLE_ROLE);
+      useAIConfigStore.getState().setSelectedRole("role-custom");
+      expect(useAIConfigStore.getState().config.selectedRoleId).toBe("role-custom");
     });
 
-    it("works when setting the already-default prompt (no-op for others)", () => {
-      useAIConfigStore.getState().setDefaultPrompt(DEFAULT_TRANSLATION_PROMPT.id);
-      const { prompts } = useAIConfigStore.getState().config;
-      expect(prompts[0].isDefault).toBe(true);
+    it("can clear selection with null", () => {
+      useAIConfigStore.getState().addRole(SAMPLE_ROLE);
+      useAIConfigStore.getState().setSelectedRole("role-custom");
+      useAIConfigStore.getState().setSelectedRole(null);
+      expect(useAIConfigStore.getState().config.selectedRoleId).toBeNull();
     });
   });
 
@@ -317,19 +342,10 @@ describe("useAIConfigStore", () => {
         providers: [SAMPLE_PROVIDER],
         selectedProviderId: "provider-1",
         contextConfig: {
-          modules: [BUILTIN_SENTENCE_CONTEXT],
-          selectedModuleIds: [BUILTIN_SENTENCE_CONTEXT.id],
+          modules: [BUILTIN_SENTENCE_MODULE],
         },
-        prompts: [
-          {
-            id: DEFAULT_TRANSLATION_PROMPT.id,
-            name: DEFAULT_TRANSLATION_PROMPT.name,
-            content: DEFAULT_TRANSLATION_PROMPT.content,
-            variables: DEFAULT_TRANSLATION_PROMPT.variables,
-            isDefault: true,
-            isEnabled: true,
-          },
-        ],
+        roles: [SAMPLE_ROLE],
+        selectedRoleId: "role-custom",
       };
 
       mockReadConfig.mockResolvedValue({ dataDir: "/test/data" });
@@ -355,8 +371,6 @@ describe("useAIConfigStore", () => {
       expect(isLoaded).toBe(true);
       expect(config.providers).toEqual([]);
       expect(config.selectedProviderId).toBeNull();
-      expect(config.prompts).toHaveLength(1);
-      expect(config.prompts[0].id).toBe(DEFAULT_TRANSLATION_PROMPT.id);
     });
 
     it("uses defaults when dataDir is not configured", async () => {
@@ -367,13 +381,12 @@ describe("useAIConfigStore", () => {
       const { config, isLoaded } = useAIConfigStore.getState();
       expect(isLoaded).toBe(true);
       expect(config.providers).toEqual([]);
-      expect(config.prompts).toHaveLength(1);
     });
 
     it("merges with defaults for missing fields", async () => {
       const partialConfig = {
         providers: [SAMPLE_PROVIDER],
-        // missing contextConfig, prompts
+        // missing contextConfig, roles
       };
 
       mockReadConfig.mockResolvedValue({ dataDir: "/test/data" });
@@ -385,10 +398,7 @@ describe("useAIConfigStore", () => {
       const { config } = useAIConfigStore.getState();
       expect(config.providers).toHaveLength(1);
       // contextConfig should be merged from defaults
-      expect(config.contextConfig.modules).toContainEqual(BUILTIN_SENTENCE_CONTEXT);
-      // prompts should fall back to defaults
-      expect(config.prompts).toHaveLength(1);
-      expect(config.prompts[0].id).toBe(DEFAULT_TRANSLATION_PROMPT.id);
+      expect(config.contextConfig.modules).toContainEqual(BUILTIN_SENTENCE_MODULE);
     });
 
     it("sets isLoaded even on error", async () => {
