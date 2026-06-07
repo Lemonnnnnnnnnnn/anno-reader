@@ -11,6 +11,10 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 
+const RESTORE_MIN_FRAME_COUNT = 4;
+const RESTORE_STABLE_FRAME_COUNT = 3;
+const RESTORE_MAX_FRAME_COUNT = 60;
+
 // ---------------------------------------------------------------------------
 // Scroll tracker script
 // ---------------------------------------------------------------------------
@@ -218,6 +222,52 @@ export function scrollToAnchor(
   return true;
 }
 
+function getWindowScrollY(win: Window): number {
+  return win.scrollY || win.document.documentElement.scrollTop || 0;
+}
+
+function waitForScrollStability(win: Window, onStable: () => void): () => void {
+  let frameCount = 0;
+  let stableFrameCount = 0;
+  let previousScrollY = getWindowScrollY(win);
+  let frameId: number | null = null;
+  let cancelled = false;
+
+  const check = () => {
+    if (cancelled) return;
+
+    const currentScrollY = getWindowScrollY(win);
+    frameCount += 1;
+
+    if (Math.abs(currentScrollY - previousScrollY) < 1) {
+      stableFrameCount += 1;
+    } else {
+      stableFrameCount = 0;
+      previousScrollY = currentScrollY;
+    }
+
+    const waitedLongEnough = frameCount >= RESTORE_MIN_FRAME_COUNT;
+    const isStable = stableFrameCount >= RESTORE_STABLE_FRAME_COUNT;
+    const hitFrameLimit = frameCount >= RESTORE_MAX_FRAME_COUNT;
+
+    if ((waitedLongEnough && isStable) || hitFrameLimit) {
+      onStable();
+      return;
+    }
+
+    frameId = win.requestAnimationFrame(check);
+  };
+
+  frameId = win.requestAnimationFrame(check);
+
+  return () => {
+    cancelled = true;
+    if (frameId !== null) {
+      win.cancelAnimationFrame(frameId);
+    }
+  };
+}
+
 // ---------------------------------------------------------------------------
 // useScrollTracking hook
 // ---------------------------------------------------------------------------
@@ -233,6 +283,42 @@ export function useScrollTracking(chapterHref: string) {
   const isRestoringRef = useRef(false);
   // Track the chapter we last restored for
   const restoredChapterRef = useRef<string | null>(null);
+  const restoreCleanupRef = useRef<(() => void) | null>(null);
+
+  const finishScrollRestore = useCallback(() => {
+    isRestoringRef.current = false;
+    restoreCleanupRef.current = null;
+  }, []);
+
+  const runScrollRestore = useCallback(
+    (iframe: HTMLIFrameElement, restore: () => void) => {
+      const win = iframe.contentWindow;
+      if (!win) {
+        finishScrollRestore();
+        return;
+      }
+
+      restoreCleanupRef.current?.();
+
+      let stabilityCleanup: (() => void) | null = null;
+      let frameId: number | null = win.requestAnimationFrame(() => {
+        frameId = null;
+        restore();
+        stabilityCleanup = waitForScrollStability(win, finishScrollRestore);
+        restoreCleanupRef.current = () => {
+          stabilityCleanup?.();
+        };
+      });
+
+      restoreCleanupRef.current = () => {
+        if (frameId !== null) {
+          win.cancelAnimationFrame(frameId);
+        }
+        stabilityCleanup?.();
+      };
+    },
+    [finishScrollRestore],
+  );
 
   /**
    * Handle scroll messages from the iframe.
@@ -276,19 +362,13 @@ export function useScrollTracking(chapterHref: string) {
       // Clear the pending CFI immediately to avoid re-processing
       setPendingScrollCfi(null);
 
-      // Small delay to let iframe content fully render
-      requestAnimationFrame(() => {
+      runScrollRestore(iframe, () => {
         const offsets = parseCfiOffsets(pendingScrollCfi);
         if (offsets) {
           // Scroll to the middle of the annotation range
           const midOffset = Math.floor((offsets.start + offsets.end) / 2);
           scrollToCharOffset(iframe, midOffset, "smooth");
         }
-
-        // Re-enable scroll tracking after restoration
-        setTimeout(() => {
-          isRestoringRef.current = false;
-        }, 100);
       });
       return;
     }
@@ -302,12 +382,8 @@ export function useScrollTracking(chapterHref: string) {
       // Clear the pending anchor immediately
       setPendingScrollAnchor(null);
 
-      requestAnimationFrame(() => {
+      runScrollRestore(iframe, () => {
         scrollToAnchor(iframe, pendingScrollAnchor, "smooth");
-
-        setTimeout(() => {
-          isRestoringRef.current = false;
-        }, 100);
       });
       return;
     }
@@ -321,15 +397,11 @@ export function useScrollTracking(chapterHref: string) {
       // Clear the pending scrollY immediately
       setPendingScrollY(null);
 
-      requestAnimationFrame(() => {
+      runScrollRestore(iframe, () => {
         iframe.contentWindow?.scrollTo({
           top: pendingScrollY,
           behavior: "smooth",
         });
-
-        setTimeout(() => {
-          isRestoringRef.current = false;
-        }, 100);
       });
       return;
     }
@@ -340,23 +412,23 @@ export function useScrollTracking(chapterHref: string) {
       isRestoringRef.current = true;
       restoredChapterRef.current = chapterHref;
 
-      // Small delay to let iframe content fully render and calculate layout
-      requestAnimationFrame(() => {
+      runScrollRestore(iframe, () => {
         iframe.contentWindow?.scrollTo({
           top: savedPosition,
           behavior: "auto", // Instant for restoration, not smooth
         });
-
-        // Re-enable scroll tracking after restoration
-        setTimeout(() => {
-          isRestoringRef.current = false;
-        }, 100);
       });
     } else {
       // New chapter without saved position — scroll to top
       restoredChapterRef.current = chapterHref;
     }
-  }, [chapterHref, setPendingScrollCfi, setPendingScrollAnchor, setPendingScrollY]);
+  }, [
+    chapterHref,
+    runScrollRestore,
+    setPendingScrollCfi,
+    setPendingScrollAnchor,
+    setPendingScrollY,
+  ]);
 
   /**
    * Reset restoration tracking when chapter changes.
@@ -364,6 +436,12 @@ export function useScrollTracking(chapterHref: string) {
    */
   useEffect(() => {
     restoredChapterRef.current = null;
+
+    return () => {
+      restoreCleanupRef.current?.();
+      restoreCleanupRef.current = null;
+      isRestoringRef.current = false;
+    };
   }, [chapterHref]);
 
   return { iframeRef, handleIframeLoad };

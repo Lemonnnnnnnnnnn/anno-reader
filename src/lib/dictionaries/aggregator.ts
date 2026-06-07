@@ -146,48 +146,26 @@ export class DictionaryAggregator {
     entry: ProviderEntry,
   ): Promise<DictionaryResult> {
     const timeout = entry.config.timeout ?? 5000;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(handleTimeout(source));
+      }, timeout);
+    });
 
     try {
       // Race the provider search against the timeout
       const result = await Promise.race([
         entry.searchFn(word, entry.config),
-        this.createTimeoutPromise(source, timeout, controller.signal),
+        timeoutPromise,
       ]);
 
       return result;
     } finally {
-      clearTimeout(timer);
-    }
-  }
-
-  /**
-   * Create a promise that rejects after the given timeout.
-   * Used with Promise.race to enforce provider timeouts.
-   */
-  private createTimeoutPromise(
-    source: string,
-    timeout: number,
-    signal: AbortSignal,
-  ): Promise<never> {
-    return new Promise<never>((_, reject) => {
-      const onAbort = () => {
-        reject(handleTimeout(source));
-      };
-
-      if (signal.aborted) {
-        onAbort();
-        return;
+      if (timer) {
+        clearTimeout(timer);
       }
-
-      signal.addEventListener("abort", onAbort, { once: true });
-
-      // Also set a direct timeout as a safety net
-      setTimeout(() => {
-        reject(handleTimeout(source));
-      }, timeout);
-    });
+    }
   }
 
   /**

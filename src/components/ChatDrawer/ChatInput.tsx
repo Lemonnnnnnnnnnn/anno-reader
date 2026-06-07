@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Button, TextArea } from "@/components/primitives";
 import { ArrowUp, Loader2 } from "lucide-react";
 
@@ -28,6 +28,17 @@ export function ChatInput({
   initialValue,
 }: ChatInputProps) {
   const [value, setValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /** Auto-resize textarea to fit content */
+  const adjustHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    // Reset height to recalculate
+    textarea.style.height = "auto";
+    // Set to scrollHeight, capped by CSS max-h-[160px]
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, []);
 
   // Pre-fill input when initialValue changes (e.g., from "Ask AI" selection)
   useEffect(() => {
@@ -35,6 +46,11 @@ export function ChatInput({
       setValue(initialValue);
     }
   }, [initialValue]);
+
+  // Adjust height whenever value changes
+  useEffect(() => {
+    adjustHeight();
+  }, [value, adjustHeight]);
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim();
@@ -65,13 +81,14 @@ export function ChatInput({
   return (
     <div className="flex items-end gap-2 p-3 border-t border-border dark:border-border-dark bg-surface dark:bg-surface-dark">
       <TextArea
+        ref={textareaRef}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
         rows={1}
-        className="resize-none min-h-[40px] max-h-[160px]"
+        className="min-h-[40px] max-h-[160px] overflow-hidden"
       />
       <Button
         variant="icon"
