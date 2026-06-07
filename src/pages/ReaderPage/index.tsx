@@ -11,7 +11,7 @@
  * for file selection, and ChapterRenderer for content display.
  */
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
@@ -34,6 +34,8 @@ export function ReaderPage() {
   const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
   const setScrollPosition = useBookStore((state) => state.setScrollPosition);
   const setPendingScrollCfi = useBookStore((state) => state.setPendingScrollCfi);
+  const setPendingScrollAnchor = useBookStore((state) => state.setPendingScrollAnchor);
+  const setPendingScrollY = useBookStore((state) => state.setPendingScrollY);
   const theme = useBookStore((s) => s.ui.theme);
   const setTheme = useBookStore((s) => s.setTheme);
 
@@ -65,6 +67,48 @@ export function ReaderPage() {
 
   // Vim-like smooth scrolling (j/k keys)
   useVimScroll(iframeRef);
+
+  // Handle cross-chapter link navigation from iframe
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type !== "link-navigation") return;
+
+      const { filePath, fragment, scrollY } = event.data as { 
+        filePath: string | null; 
+        fragment: string | null;
+        scrollY?: number;
+      };
+      if (!parsedEpub || !filePath) return;
+
+      // Find target chapter by matching href
+      // Normalize: strip leading ./ and ../, compare case-insensitively
+      const normalizedPath = filePath.replace(/^\.?\.?\//, "").toLowerCase();
+      const targetIndex = parsedEpub.chapters.findIndex(
+        (ch) => ch.href.replace(/^\.?\.?\//, "").toLowerCase() === normalizedPath ||
+                ch.href.toLowerCase().endsWith("/" + normalizedPath) ||
+                ch.href.toLowerCase() === normalizedPath
+      );
+
+      if (targetIndex === -1) {
+        console.warn(`[link-navigation] Chapter not found: ${filePath}`);
+        return;
+      }
+
+      const targetChapter = parsedEpub.chapters[targetIndex];
+      setCurrentChapter(targetChapter.href, targetIndex);
+
+      if (fragment) {
+        setPendingScrollAnchor(fragment);
+      } else if (scrollY !== undefined && scrollY !== null) {
+        setPendingScrollY(scrollY);
+      } else {
+        setScrollPosition(0);
+      }
+    }
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [parsedEpub, setCurrentChapter, setPendingScrollAnchor, setPendingScrollY, setScrollPosition]);
 
   // Drawer state
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);

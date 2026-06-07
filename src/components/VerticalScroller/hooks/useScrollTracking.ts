@@ -187,6 +187,37 @@ export function scrollToCharOffset(
   return false;
 }
 
+/**
+ * Scroll an iframe to the element with the given anchor ID.
+ * Uses getElementById with fallback to name attribute lookup.
+ *
+ * @param iframe - The iframe element containing the chapter content
+ * @param anchorId - The element ID or name attribute to scroll to
+ * @param behavior - Scroll behavior: 'auto' for instant, 'smooth' for animated
+ * @returns true if element was found and scrolled to, false otherwise
+ */
+export function scrollToAnchor(
+  iframe: HTMLIFrameElement,
+  anchorId: string,
+  behavior: ScrollBehavior = "smooth",
+): boolean {
+  const doc = iframe.contentWindow?.document;
+  if (!doc?.body) return false;
+
+  // Try getElementById first
+  let element = doc.getElementById(anchorId);
+
+  // Fallback: try name attribute (EPUBs sometimes use <a name="...">)
+  if (!element) {
+    element = doc.querySelector(`[name="${anchorId}"]`);
+  }
+
+  if (!element) return false;
+
+  element.scrollIntoView({ behavior, block: "center" });
+  return true;
+}
+
 // ---------------------------------------------------------------------------
 // useScrollTracking hook
 // ---------------------------------------------------------------------------
@@ -195,6 +226,8 @@ export function useScrollTracking(chapterHref: string) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const setScrollPosition = useBookStore((state) => state.setScrollPosition);
   const setPendingScrollCfi = useBookStore((state) => state.setPendingScrollCfi);
+  const setPendingScrollAnchor = useBookStore((state) => state.setPendingScrollAnchor);
+  const setPendingScrollY = useBookStore((state) => state.setPendingScrollY);
 
   // Track whether we're restoring scroll (to avoid feedback loop)
   const isRestoringRef = useRef(false);
@@ -260,6 +293,47 @@ export function useScrollTracking(chapterHref: string) {
       return;
     }
 
+    // Check for pending anchor scroll (from link navigation)
+    const { pendingScrollAnchor } = useBookStore.getState().ui;
+    if (pendingScrollAnchor) {
+      isRestoringRef.current = true;
+      restoredChapterRef.current = chapterHref;
+
+      // Clear the pending anchor immediately
+      setPendingScrollAnchor(null);
+
+      requestAnimationFrame(() => {
+        scrollToAnchor(iframe, pendingScrollAnchor, "smooth");
+
+        setTimeout(() => {
+          isRestoringRef.current = false;
+        }, 100);
+      });
+      return;
+    }
+
+    // Check for pending scrollY (from link back navigation)
+    const { pendingScrollY } = useBookStore.getState().ui;
+    if (pendingScrollY !== null && pendingScrollY !== undefined) {
+      isRestoringRef.current = true;
+      restoredChapterRef.current = chapterHref;
+
+      // Clear the pending scrollY immediately
+      setPendingScrollY(null);
+
+      requestAnimationFrame(() => {
+        iframe.contentWindow?.scrollTo({
+          top: pendingScrollY,
+          behavior: "smooth",
+        });
+
+        setTimeout(() => {
+          isRestoringRef.current = false;
+        }, 100);
+      });
+      return;
+    }
+
     // Otherwise, restore saved scroll position if available
     const savedPosition = useBookStore.getState().ui.scrollPosition;
     if (savedPosition > 0 && restoredChapterRef.current !== chapterHref) {
@@ -282,7 +356,7 @@ export function useScrollTracking(chapterHref: string) {
       // New chapter without saved position — scroll to top
       restoredChapterRef.current = chapterHref;
     }
-  }, [chapterHref, setPendingScrollCfi]);
+  }, [chapterHref, setPendingScrollCfi, setPendingScrollAnchor, setPendingScrollY]);
 
   /**
    * Reset restoration tracking when chapter changes.

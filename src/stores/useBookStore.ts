@@ -44,6 +44,8 @@ export interface UIState {
   currentChapterIndex: number;
   scrollPosition: number;
   pendingScrollCfi: string | null;
+  pendingScrollAnchor: string | null;
+  pendingScrollY: number | null;
   theme: "light" | "dark";
 }
 
@@ -78,6 +80,8 @@ export interface BookStore {
   setCurrentChapter: (chapter: string, index: number) => void;
   setScrollPosition: (position: number) => void;
   setPendingScrollCfi: (cfi: string | null) => void;
+  setPendingScrollAnchor: (anchor: string | null) => void;
+  setPendingScrollY: (scrollY: number | null) => void;
   setTheme: (theme: "light" | "dark") => void;
 }
 
@@ -86,6 +90,8 @@ const DEFAULT_UI_STATE: UIState = {
   currentChapterIndex: 0,
   scrollPosition: 0,
   pendingScrollCfi: null,
+  pendingScrollAnchor: null,
+  pendingScrollY: null,
   theme: "light",
 };
 
@@ -154,6 +160,16 @@ export const useBookStore = create<BookStore>((set) => ({
   setPendingScrollCfi: (cfi) =>
     set((state) => ({
       ui: { ...state.ui, pendingScrollCfi: cfi },
+    })),
+
+  setPendingScrollAnchor: (anchor) =>
+    set((state) => ({
+      ui: { ...state.ui, pendingScrollAnchor: anchor },
+    })),
+
+  setPendingScrollY: (scrollY) =>
+    set((state) => ({
+      ui: { ...state.ui, pendingScrollY: scrollY },
     })),
 
   setTheme: (theme) =>

@@ -22,6 +22,7 @@
  */
 
 import { useRef, useMemo, useEffect, useState, useCallback } from "react";
+import { ArrowLeft } from "lucide-react";
 import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
 import { updateHighlight, deleteHighlight } from "@/lib/annotations";
 import { useBookStore } from "@/stores/useBookStore";
@@ -29,8 +30,9 @@ import { TextSelectionToolbar } from "../TextSelectionToolbar";
 import { AnnotationDetailDrawer } from "../AnnotationDetailDrawer";
 import { HighlightPopover } from "../HighlightPopover";
 import { AITranslationPanel } from "../AITranslationPanel";
+import { injectLinkNavigationScript, type LinkClickMessage } from "@/lib/linkNavigation";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
-import { injectScrollScript, injectKeyboardScript } from "./hooks/useScrollTracking";
+import { injectScrollScript, injectKeyboardScript, scrollToAnchor } from "./hooks/useScrollTracking";
 
 interface VerticalScrollerProps {
   /** Complete HTML string for the iframe srcdoc */
@@ -94,6 +96,12 @@ export function VerticalScroller({
     paragraph?: string;
   } | null>(null);
 
+  // Link navigation history for back button
+  const [linkHistory, setLinkHistory] = useState<Array<{ chapterHref: string; scrollY: number }>>([]);
+  // Ref to track current chapterHref for use in message handler (avoids stale closure)
+  const chapterHrefRef = useRef(chapterHref);
+  useEffect(() => { chapterHrefRef.current = chapterHref; }, [chapterHref]);
+
   // Scroll position tracking and restoration
   const { iframeRef, handleIframeLoad } = useScrollTracking(chapterHref);
 
@@ -130,6 +138,34 @@ export function VerticalScroller({
         }
         // Close note detail panel and translation panel (mutual exclusivity)
         setActiveNoteId(null);
+        setTranslationPanel(null);
+      }
+      if (event.data?.type === "link-click") {
+        const msg = event.data as LinkClickMessage;
+        // Save current position to history before navigating
+        const currentScrollY = iframeRef.current?.contentWindow?.scrollY ?? 0;
+        setLinkHistory((prev) => {
+          const next = [...prev, { chapterHref: chapterHrefRef.current, scrollY: currentScrollY }];
+          return next.length > 20 ? next.slice(-20) : next;
+        });
+        if (msg.isSameChapter && msg.fragment) {
+          // Same-chapter: scroll directly
+          if (iframeRef.current) {
+            scrollToAnchor(iframeRef.current, msg.fragment, "smooth");
+          }
+        } else if (!msg.isSameChapter) {
+          // Cross-chapter: post message up to ReaderPage
+          window.parent.postMessage({
+            type: "link-navigation",
+            href: msg.href,
+            filePath: msg.filePath,
+            fragment: msg.fragment,
+          }, "*");
+        }
+        // Close other floating UI (mutual exclusivity for link navigation)
+        setActiveNoteId(null);
+        setActiveHighlightId(null);
+        setHighlightPosition(null);
         setTranslationPanel(null);
       }
     }
@@ -177,16 +213,46 @@ export function VerticalScroller({
     setTranslationPanel(null);
   }, []);
 
+  const handleBack = useCallback(() => {
+    setLinkHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const entry = prev[prev.length - 1];
+      const remaining = prev.slice(0, -1);
+
+      if (entry.chapterHref === chapterHref) {
+        // Same chapter: scroll back directly
+        if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.scrollTo({
+            top: entry.scrollY,
+            behavior: "smooth",
+          });
+        }
+      } else {
+        // Different chapter: navigate back via parent message with scrollY
+        window.parent.postMessage({
+          type: "link-navigation",
+          href: entry.chapterHref,
+          filePath: entry.chapterHref,
+          fragment: null,
+          scrollY: entry.scrollY,
+        }, "*");
+      }
+
+      return remaining;
+    });
+  }, [chapterHref]);
+
   // Build the final srcdoc with scroll tracker, keyboard forwarder, selection detector, and annotations injected
   const srcdocWithTracking = useMemo(() => {
     const withScroll = injectScrollScript(srcdoc);
     const withKeyboard = injectKeyboardScript(withScroll);
     const withSelection = injectSelectionScript(withKeyboard);
+    const withLinks = injectLinkNavigationScript(withSelection);
     // Inject annotation script before closing body
     const closingBody = "</body>";
-    const idx = withSelection.lastIndexOf(closingBody);
-    if (idx === -1) return withSelection + annotationScript;
-    return withSelection.slice(0, idx) + annotationScript + withSelection.slice(idx);
+    const idx = withLinks.lastIndexOf(closingBody);
+    if (idx === -1) return withLinks + annotationScript;
+    return withLinks.slice(0, idx) + annotationScript + withLinks.slice(idx);
   }, [srcdoc]); // Only depend on srcdoc, not annotationScript - annotations update via postMessage
 
   return (
@@ -238,6 +304,15 @@ export function VerticalScroller({
         isOpen={!!translationPanel}
         onClose={handleCloseTranslationPanel}
       />}
+      {linkHistory.length > 0 && (
+        <button
+          onClick={handleBack}
+          title="Go back"
+          className="absolute bottom-4 left-4 z-50 w-9 h-9 rounded-full bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-md flex items-center justify-center text-text dark:text-text-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={16} />
+        </button>
+      )}
     </div>
   );
 }
