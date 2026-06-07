@@ -85,7 +85,7 @@ async function queryDictionary(
       ? await dictionaryAggregator.searchSingle(selectedText, providerId)
       : await dictionaryAggregator.search(selectedText);
 
-    const results = providerId ? [result] : result.results;
+    const results = 'results' in result ? result.results : [result];
     if (results.length === 0) {
       return null;
     }

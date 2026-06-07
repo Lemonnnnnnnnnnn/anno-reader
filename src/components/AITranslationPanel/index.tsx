@@ -14,8 +14,6 @@ interface AITranslationPanelProps {
   endOffset: number;
   /** The sentence containing the selection (for AI context) */
   sentence?: string;
-  /** The paragraph containing the selection (for AI context) */
-  paragraph?: string;
   isOpen?: boolean;
   onClose: () => void;
 }
@@ -156,7 +154,6 @@ export function AITranslationPanel({
   cfiRange,
   startOffset,
   sentence,
-  paragraph,
   isOpen = true,
   onClose,
 }: AITranslationPanelProps) {
@@ -168,7 +165,7 @@ export function AITranslationPanel({
     setError,
     translate,
     stopTranslation,
-  } = useTranslation({ selectedText, chapterText, offset: startOffset, selectionSentence: sentence, selectionParagraph: paragraph });
+  } = useTranslation({ selectedText, chapterText, offset: startOffset, selectionSentence: sentence });
 
   const { isSaving, handleAddNote } = useNoteSaving({
     chapterHref,

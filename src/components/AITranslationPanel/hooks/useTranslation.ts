@@ -18,11 +18,9 @@ interface UseTranslationParams {
   offset?: number;
   /** The sentence containing the selection (from iframe DOM) */
   selectionSentence?: string;
-  /** The paragraph containing the selection (from iframe DOM) */
-  selectionParagraph?: string;
 }
 
-export function useTranslation({ selectedText, chapterText, offset, selectionSentence, selectionParagraph }: UseTranslationParams) {
+export function useTranslation({ selectedText, chapterText, offset, selectionSentence }: UseTranslationParams) {
   const [status, setStatus] = useState<PanelStatus>("loading");
   const [translationText, setTranslationText] = useState("");
   const [streamingText, setStreamingText] = useState("");
@@ -51,7 +49,6 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
         chapterText ?? undefined,
         offset,
         selectionSentence,
-        selectionParagraph,
       );
 
       setStatus("streaming");
@@ -83,7 +80,7 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
         setStatus("error");
       }
     }
-  }, [selectedText, chapterText, config, offset, selectionSentence, selectionParagraph]);
+  }, [selectedText, chapterText, config, offset, selectionSentence]);
 
   // Auto-translate on mount
   useEffect(() => {

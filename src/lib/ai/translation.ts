@@ -1,4 +1,4 @@
-import type { AIConfig, AIProvider, AIRole, PromptVariable } from "./types";
+import type { AIConfig, AIProvider, AIRole } from "./types";
 import type { TranslationRequest, TranslationResponse, StreamingTranslationResponse } from "./service";
 import { AIServiceError } from "./service";
 import { OpenAIProvider } from "./providers/openai";
@@ -69,7 +69,6 @@ class TranslationService {
     chapterText?: string,
     offset?: number,
     selectionSentence?: string,
-    selectionParagraph?: string,
   ): Promise<StreamingTranslationResponse> {
     // 1. Check cache — wrap as single-yield AsyncIterable if hit
     const cached = this.cache.get(text, targetLanguage);

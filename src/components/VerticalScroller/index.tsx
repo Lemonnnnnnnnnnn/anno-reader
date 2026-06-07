@@ -260,7 +260,6 @@ export function VerticalScroller({
         startOffset={translationPanel?.startOffset ?? 0}
         endOffset={translationPanel?.endOffset ?? 0}
         sentence={translationPanel?.sentence}
-        paragraph={translationPanel?.paragraph}
         isOpen={!!translationPanel}
         onClose={handleCloseTranslationPanel}
       />}
