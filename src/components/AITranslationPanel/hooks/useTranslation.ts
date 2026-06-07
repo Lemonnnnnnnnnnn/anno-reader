@@ -46,42 +46,47 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
 
     try {
       // Use withRetry for automatic retry on retryable errors (network, timeout, rate limit)
-      const result = await errorHandler.withRetry(
-        () => translationService.translateStream(
-          selectedText,
-          "Chinese",
-          config,
-          { abortSignal: abortController.signal, onError: (err) => setError(err.message) },
-          chapterText ?? undefined,
-          offset,
-          selectionSentence,
-        ),
+      // IMPORTANT: Must wrap the entire translation flow including stream consumption,
+      // because streamText() is lazy - the actual HTTP request happens during iteration.
+      await errorHandler.withRetry(
+        async () => {
+          const result = await translationService.translateStream(
+            selectedText,
+            "Chinese",
+            config,
+            { abortSignal: abortController.signal, onError: (err) => setError(err.message) },
+            chapterText ?? undefined,
+            offset,
+            selectionSentence,
+          );
+
+          setStatus("streaming");
+          let accumulated = "";
+
+          for await (const chunk of result.textStream) {
+            if (abortController.signal.aborted) break;
+            accumulated += chunk;
+            setStreamingText(accumulated);
+          }
+
+          setTranslationText(accumulated);
+          setStatus("success");
+          setError(null);
+
+          // Cache the streaming result for future non-streaming calls
+          translationService.cacheTranslation(
+            selectedText,
+            "Chinese",
+            accumulated,
+            result.provider,
+          );
+        },
         3, // max retries
         (attempt, retryError) => {
           // Show retry progress to user
+          setStatus("loading");
           setError(`重试中... (${attempt}/3) - ${errorHandler.getUserMessage(retryError)}`);
         },
-      );
-
-      setStatus("streaming");
-      let accumulated = "";
-
-      for await (const chunk of result.textStream) {
-        if (abortController.signal.aborted) break;
-        accumulated += chunk;
-        setStreamingText(accumulated);
-      }
-
-      setTranslationText(accumulated);
-      setStatus("success");
-      setError(null);
-
-      // Cache the streaming result for future non-streaming calls
-      translationService.cacheTranslation(
-        selectedText,
-        "Chinese",
-        accumulated,
-        result.provider,
       );
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
