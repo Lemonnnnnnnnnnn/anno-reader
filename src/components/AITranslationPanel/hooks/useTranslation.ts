@@ -2,12 +2,14 @@
  * Translation hook for AITranslationPanel.
  *
  * Handles:
- * - Streaming translation execution
+ * - Streaming translation execution with automatic retry
  * - Translation state (status, text, error)
+ * - User-friendly Chinese error messages
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { translationService } from "@/lib/ai/translation";
+import { AIErrorHandler } from "@/lib/ai/error-handler";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 
 export type PanelStatus = "loading" | "streaming" | "success" | "error";
@@ -19,6 +21,8 @@ interface UseTranslationParams {
   /** The sentence containing the selection (from iframe DOM) */
   selectionSentence?: string;
 }
+
+const errorHandler = new AIErrorHandler();
 
 export function useTranslation({ selectedText, chapterText, offset, selectionSentence }: UseTranslationParams) {
   const [status, setStatus] = useState<PanelStatus>("loading");
@@ -41,14 +45,22 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
     abortControllerRef.current = abortController;
 
     try {
-      const result = await translationService.translateStream(
-        selectedText,
-        "Chinese",
-        config,
-        { abortSignal: abortController.signal, onError: (err) => setError(err.message) },
-        chapterText ?? undefined,
-        offset,
-        selectionSentence,
+      // Use withRetry for automatic retry on retryable errors (network, timeout, rate limit)
+      const result = await errorHandler.withRetry(
+        () => translationService.translateStream(
+          selectedText,
+          "Chinese",
+          config,
+          { abortSignal: abortController.signal, onError: (err) => setError(err.message) },
+          chapterText ?? undefined,
+          offset,
+          selectionSentence,
+        ),
+        3, // max retries
+        (attempt, retryError) => {
+          // Show retry progress to user
+          setError(`重试中... (${attempt}/3) - ${errorHandler.getUserMessage(retryError)}`);
+        },
       );
 
       setStatus("streaming");
@@ -62,6 +74,7 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
 
       setTranslationText(accumulated);
       setStatus("success");
+      setError(null);
 
       // Cache the streaming result for future non-streaming calls
       translationService.cacheTranslation(
@@ -74,8 +87,8 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
       if (err instanceof DOMException && err.name === "AbortError") {
         setStatus("success");
       } else {
-        const message =
-          err instanceof Error ? err.message : "Translation failed";
+        // Use user-friendly Chinese error message
+        const message = errorHandler.getUserMessage(err);
         setError(message);
         setStatus("error");
       }

@@ -198,7 +198,6 @@ export function buildAnnotationScript(
         continue;
       }
 
-      console.log('Rendering note:', note.id, 'offsets:', noteOffsets, 'cfiRange:', note.cfiRange);
       wrapRange(noteOffsets.start, noteOffsets.end, 'anno-note',
         'text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer;',
         { 'note-id': note.id });
