@@ -26,6 +26,14 @@ function evaluateScript(script: string, bodyText: string) {
   eval(jsCode);
 }
 
+function evaluateScriptWithHtml(script: string, bodyHtml: string) {
+  document.body.innerHTML = bodyHtml;
+  // Extract the IIFE from the <script> tags and eval it directly
+  const jsCode = script.replace(/<\/?script>/g, "");
+  // eslint-disable-next-line no-eval
+  eval(jsCode);
+}
+
 // ── data-highlight-id attribute ───────────────────────────────────────────────
 
 describe("buildAnnotationScript - data-highlight-id", () => {
@@ -67,6 +75,42 @@ describe("buildAnnotationScript - data-highlight-id", () => {
     expect(spans.length).toBe(2);
     expect(spans[0].getAttribute("data-highlight-id")).toBe("hl-1");
     expect(spans[1].getAttribute("data-highlight-id")).toBe("hl-2");
+  });
+
+  it("should ignore text inside injected script/style elements when resolving offsets", () => {
+    const highlights = [
+      { id: "hl-invalid", cfiRange: "epubcfi(/6/4[chap01]!/4/2:0,11)", color: "#ffeb3b" },
+    ];
+    const script = buildAnnotationScript(highlights, []);
+
+    evaluateScriptWithHtml(
+      script,
+      "<p>Hello</p><script>document.body.append('hidden text')</script><style>.x{content:'hidden'}</style>",
+    );
+
+    expect(document.querySelector(".anno-highlight")).toBeNull();
+  });
+
+  it("should wrap cross-element ranges as per-text-node segments without moving element ancestors", () => {
+    const highlights = [
+      { id: "hl-cross", cfiRange: "epubcfi(/6/4[chap01]!/4/2:3,14)", color: "#ffeb3b" },
+    ];
+    const script = buildAnnotationScript(highlights, []);
+
+    evaluateScriptWithHtml(script, "<p>Hello <em>brave</em> world</p>");
+
+    const paragraph = document.querySelector("p");
+    const emphasis = document.querySelector("em");
+    const spans = document.querySelectorAll(".anno-highlight");
+
+    expect(paragraph?.textContent).toBe("Hello brave world");
+    expect(emphasis?.textContent).toBe("brave");
+    expect(spans.length).toBe(3);
+    expect(Array.from(spans).map((span) => span.textContent)).toEqual([
+      "lo ",
+      "brave",
+      " wo",
+    ]);
   });
 });
 

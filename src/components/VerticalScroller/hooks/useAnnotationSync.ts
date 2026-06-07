@@ -45,7 +45,19 @@ export function buildAnnotationScript(
 
   function getTextNodes(root) {
     var nodes = [];
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function(node) {
+        var parent = node.parentElement;
+        while (parent && parent !== root) {
+          var tagName = parent.tagName ? parent.tagName.toLowerCase() : '';
+          if (tagName === 'script' || tagName === 'style' || tagName === 'noscript') {
+            return NodeFilter.FILTER_REJECT;
+          }
+          parent = parent.parentElement;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }, false);
     while (walker.nextNode()) {
       if (walker.currentNode.textContent.length > 0) {
         nodes.push(walker.currentNode);
@@ -59,6 +71,18 @@ export function buildAnnotationScript(
     var textNodes = getTextNodes(body);
     var currentOffset = 0;
     var startNode, startNodeOffset, endNode, endNodeOffset;
+
+    // Calculate total text length for validation
+    var totalTextLength = 0;
+    for (var i = 0; i < textNodes.length; i++) {
+      totalTextLength += textNodes[i].textContent.length;
+    }
+
+    // Validate offsets are within bounds
+    if (startOffset < 0 || endOffset > totalTextLength || startOffset >= endOffset) {
+      console.warn('Invalid offsets:', { startOffset, endOffset, totalTextLength });
+      return;
+    }
 
     for (var i = 0; i < textNodes.length; i++) {
       var node = textNodes[i];
@@ -75,45 +99,57 @@ export function buildAnnotationScript(
       }
       currentOffset += nodeLen;
     }
-
-    if (!startNode || !endNode) return;
+    if (!startNode || !endNode) {
+      console.warn('Could not find start/end nodes for offsets:', { startOffset, endOffset });
+      return;
+    }
 
     try {
-      var range = document.createRange();
-      range.setStart(startNode, startNodeOffset);
-      range.setEnd(endNode, endNodeOffset);
-
-      var span = document.createElement('span');
-      span.className = className;
-      if (style) span.setAttribute('style', style);
-      if (dataAttrs) {
-        for (var key in dataAttrs) {
-          if (dataAttrs.hasOwnProperty(key)) {
-            span.setAttribute('data-' + key, dataAttrs[key]);
+      function createAnnotationSpan() {
+        var span = document.createElement('span');
+        span.className = className;
+        if (style) span.setAttribute('style', style);
+        if (dataAttrs) {
+          for (var key in dataAttrs) {
+            if (dataAttrs.hasOwnProperty(key)) {
+              span.setAttribute('data-' + key, dataAttrs[key]);
+            }
           }
         }
+        return span;
       }
-      range.surroundContents(span);
+
+      // Wrap each affected text node independently. This avoids moving or
+      // cloning element ancestors when an annotation crosses tag boundaries.
+      for (var j = textNodes.indexOf(endNode); j >= textNodes.indexOf(startNode); j--) {
+        var textNode = textNodes[j];
+        var from = textNode === startNode ? startNodeOffset : 0;
+        var to = textNode === endNode ? endNodeOffset : textNode.textContent.length;
+        if (from >= to) continue;
+
+        var range = document.createRange();
+        range.setStart(textNode, from);
+        range.setEnd(textNode, to);
+        range.surroundContents(createAnnotationSpan());
+      }
     } catch(e) {
-      // Range wrapping can fail on complex selections; skip silently
+      // Range wrapping can fail on complex selections
+      console.warn('Failed to wrap range for annotation:', {
+        error: e.message,
+        startOffset: startOffset,
+        endOffset: endOffset,
+        startNode: startNode,
+        endNode: endNode
+      });
     }
   }
 
   function clearAnnotations() {
     // Remove highlight spans (unwrap them, keeping text content)
-    var highlightSpans = document.querySelectorAll('.anno-highlight');
-    highlightSpans.forEach(function(span) {
+    var spans = document.querySelectorAll('.anno-highlight, .anno-note');
+    Array.prototype.slice.call(spans).reverse().forEach(function(span) {
       var parent = span.parentNode;
-      while (span.firstChild) {
-        parent.insertBefore(span.firstChild, span);
-      }
-      parent.removeChild(span);
-    });
-
-    // Remove note underline spans (unwrap them, keeping text content)
-    var noteSpans = document.querySelectorAll('.anno-note');
-    noteSpans.forEach(function(span) {
-      var parent = span.parentNode;
+      if (!parent) return;
       while (span.firstChild) {
         parent.insertBefore(span.firstChild, span);
       }
@@ -157,8 +193,12 @@ export function buildAnnotationScript(
     for (var n = 0; n < notes.length; n++) {
       var note = notes[n];
       var noteOffsets = parseCfiOffsets(note.cfiRange);
-      if (!noteOffsets) continue;
+      if (!noteOffsets) {
+        console.warn('Failed to parse CFI for note:', note.id, 'cfiRange:', note.cfiRange);
+        continue;
+      }
 
+      console.log('Rendering note:', note.id, 'offsets:', noteOffsets, 'cfiRange:', note.cfiRange);
       wrapRange(noteOffsets.start, noteOffsets.end, 'anno-note',
         'text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer;',
         { 'note-id': note.id });
