@@ -156,6 +156,16 @@ function dispatchNoteClick(noteId: string) {
   });
 }
 
+function dispatchLinkClick(href: string) {
+  act(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { type: "link-click", href },
+      }),
+    );
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Mock store state for Highlight lookup
 // ---------------------------------------------------------------------------
@@ -366,6 +376,51 @@ describe("VerticalScroller - mutual exclusivity", () => {
     // Note panel should be open
     const notePanel = container.querySelector("[data-testid='annotation-detail-panel']");
     expect(notePanel?.getAttribute("data-note-id")).toBe("note-1");
+
+    unmount();
+  });
+});
+
+describe("VerticalScroller - link navigation callbacks", () => {
+  beforeEach(() => {
+    lastHighlightPopoverProps = null;
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("forwards link-click messages to the parent callback", () => {
+    const onLinkClick = vi.fn();
+    const { unmount } = render(
+      <VerticalScroller {...DEFAULT_PROPS} onLinkClick={onLinkClick} />,
+    );
+
+    dispatchLinkClick("chapter2.xhtml#target");
+
+    expect(onLinkClick).toHaveBeenCalledWith("chapter2.xhtml#target");
+
+    unmount();
+  });
+
+  it("renders a controlled back button only when history is available", () => {
+    const onLinkBack = vi.fn();
+    const { container, unmount } = render(
+      <VerticalScroller
+        {...DEFAULT_PROPS}
+        canGoBack={true}
+        onLinkBack={onLinkBack}
+      />,
+    );
+
+    const backButton = container.querySelector("button[title='Go back']");
+    expect(backButton).not.toBeNull();
+
+    act(() => {
+      backButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onLinkBack).toHaveBeenCalledTimes(1);
 
     unmount();
   });

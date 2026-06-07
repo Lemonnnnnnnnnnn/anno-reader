@@ -11,7 +11,7 @@
  * for file selection, and ChapterRenderer for content display.
  */
 
-import { useRef, useState, useEffect } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
@@ -25,7 +25,13 @@ import { ChatDrawer } from "@/components/ChatDrawer";
 import { DataDirSetup } from "@/components/DataDirSetup";
 import { Button } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
-import { parseCfiOffsets, scrollToCharOffset } from "@/components/VerticalScroller/hooks/useScrollTracking";
+import { parseCfiOffsets, scrollToAnchor, scrollToCharOffset } from "@/components/VerticalScroller/hooks/useScrollTracking";
+import { findChapterIndexByHref, resolveEpubHref } from "@/lib/linkNavigation";
+
+interface LinkHistoryEntry {
+  chapterHref: string;
+  scrollY: number;
+}
 
 export function ReaderPage() {
   const navigate = useNavigate();
@@ -68,54 +74,100 @@ export function ReaderPage() {
   // Vim-like smooth scrolling (j/k keys)
   useVimScroll(iframeRef);
 
-  // Handle cross-chapter link navigation from iframe
-  useEffect(() => {
-    function handleMessage(event: MessageEvent) {
-      if (event.data?.type !== "link-navigation") return;
-
-      const { filePath, fragment, scrollY } = event.data as { 
-        filePath: string | null; 
-        fragment: string | null;
-        scrollY?: number;
-      };
-      if (!parsedEpub || !filePath) return;
-
-      // Find target chapter by matching href
-      // Normalize: strip leading ./ and ../, compare case-insensitively
-      const normalizedPath = filePath.replace(/^\.?\.?\//, "").toLowerCase();
-      const targetIndex = parsedEpub.chapters.findIndex(
-        (ch) => ch.href.replace(/^\.?\.?\//, "").toLowerCase() === normalizedPath ||
-                ch.href.toLowerCase().endsWith("/" + normalizedPath) ||
-                ch.href.toLowerCase() === normalizedPath
-      );
-
-      if (targetIndex === -1) {
-        console.warn(`[link-navigation] Chapter not found: ${filePath}`);
-        return;
-      }
-
-      const targetChapter = parsedEpub.chapters[targetIndex];
-      setCurrentChapter(targetChapter.href, targetIndex);
-
-      if (fragment) {
-        setPendingScrollAnchor(fragment);
-      } else if (scrollY !== undefined && scrollY !== null) {
-        setPendingScrollY(scrollY);
-      } else {
-        setScrollPosition(0);
-      }
-    }
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [parsedEpub, setCurrentChapter, setPendingScrollAnchor, setPendingScrollY, setScrollPosition]);
-
   // Drawer state
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
   const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
   const [dictionaryDrawerOpen, setDictionaryDrawerOpen] = useState(false);
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [pendingChatMessage, setPendingChatMessage] = useState<string | undefined>(undefined);
+  const [linkHistory, setLinkHistory] = useState<LinkHistoryEntry[]>([]);
+
+  const getCurrentScrollY = useCallback(
+    () => iframeRef.current?.contentWindow?.scrollY ?? 0,
+    [],
+  );
+
+  const pushLinkHistory = useCallback((entry: LinkHistoryEntry) => {
+    setLinkHistory((prev) => {
+      const next = [...prev, entry];
+      return next.length > 20 ? next.slice(-20) : next;
+    });
+  }, []);
+
+  const handleInlineLinkClick = useCallback((href: string) => {
+    if (!parsedEpub || !ui.currentChapter) return;
+
+    const resolved = resolveEpubHref(href, ui.currentChapter);
+    if (!resolved) return;
+
+    const targetIndex = findChapterIndexByHref(parsedEpub.chapters, resolved.targetPath);
+    if (targetIndex === -1) {
+      console.warn(`[link-navigation] Chapter not found: ${resolved.targetPath}`);
+      return;
+    }
+
+    const targetChapter = parsedEpub.chapters[targetIndex];
+    const currentEntry = {
+      chapterHref: ui.currentChapter,
+      scrollY: getCurrentScrollY(),
+    };
+    const isSameChapter = targetChapter.href === ui.currentChapter;
+
+    if (isSameChapter) {
+      if (!resolved.fragment || !iframeRef.current) return;
+      const didScroll = scrollToAnchor(iframeRef.current, resolved.fragment, "smooth");
+      if (didScroll) {
+        pushLinkHistory(currentEntry);
+      }
+      return;
+    }
+
+    setCurrentChapter(targetChapter.href, targetIndex);
+    pushLinkHistory(currentEntry);
+    if (resolved.fragment) {
+      setPendingScrollAnchor(resolved.fragment);
+    } else {
+      setScrollPosition(0);
+    }
+  }, [
+    getCurrentScrollY,
+    parsedEpub,
+    pushLinkHistory,
+    setCurrentChapter,
+    setPendingScrollAnchor,
+    setScrollPosition,
+    ui.currentChapter,
+  ]);
+
+  const handleLinkBack = useCallback(() => {
+    setLinkHistory((prev) => {
+      if (prev.length === 0) return prev;
+
+      const entry = prev[prev.length - 1];
+      const remaining = prev.slice(0, -1);
+      const targetIndex = parsedEpub
+        ? findChapterIndexByHref(parsedEpub.chapters, entry.chapterHref)
+        : -1;
+
+      if (targetIndex === -1 || !parsedEpub) {
+        console.warn(`[link-navigation] Back target not found: ${entry.chapterHref}`);
+        return remaining;
+      }
+
+      if (entry.chapterHref === ui.currentChapter) {
+        iframeRef.current?.contentWindow?.scrollTo({
+          top: entry.scrollY,
+          behavior: "smooth",
+        });
+      } else {
+        const targetChapter = parsedEpub.chapters[targetIndex];
+        setCurrentChapter(targetChapter.href, targetIndex);
+        setPendingScrollY(entry.scrollY);
+      }
+
+      return remaining;
+    });
+  }, [parsedEpub, setCurrentChapter, setPendingScrollY, ui.currentChapter]);
 
   // Handle "Ask AI" from text selection toolbar
   const handleAskAI = (selectedText: string) => {
@@ -314,6 +366,9 @@ export function ReaderPage() {
               showNav={false}
               onIframeRef={setIframeEl}
               onAskAI={handleAskAI}
+              onLinkClick={handleInlineLinkClick}
+              canGoBack={linkHistory.length > 0}
+              onLinkBack={handleLinkBack}
             />
           </div>
         )}

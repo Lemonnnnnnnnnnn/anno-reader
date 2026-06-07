@@ -15,7 +15,7 @@
  * window.addEventListener("message", (e) => {
  *   if (e.data?.type === "link-click") {
  *     const msg = e.data as LinkClickMessage;
- *     navigateToChapter(msg.filePath, msg.fragment);
+ *     navigateToHref(msg.href);
  *   }
  * });
  * ```
@@ -29,12 +29,13 @@ export interface LinkClickMessage {
   type: "link-click";
   /** The full href value from the anchor element */
   href: string;
-  /** The chapter file path (null if fragment-only link) */
-  filePath: string | null;
-  /** The fragment identifier without # (null if no fragment) */
+}
+
+export interface ResolvedEpubLink {
+  /** Normalized target chapter path without fragment/query */
+  targetPath: string;
+  /** Decoded fragment identifier without # */
   fragment: string | null;
-  /** True if the link targets the current chapter (fragment-only) */
-  isSameChapter: boolean;
 }
 
 /**
@@ -62,27 +63,9 @@ export const LINK_NAVIGATION_SCRIPT = `
     e.preventDefault();
     e.stopPropagation();
 
-    var filePath = null;
-    var fragment = null;
-    var isSameChapter = false;
-
-    var hashIndex = href.indexOf('#');
-    if (href.charAt(0) === '#') {
-      isSameChapter = true;
-      fragment = href.slice(1);
-    } else if (hashIndex !== -1) {
-      filePath = href.substring(0, hashIndex);
-      fragment = href.substring(hashIndex + 1);
-    } else {
-      filePath = href;
-    }
-
     window.parent.postMessage({
       type: 'link-click',
-      href: href,
-      filePath: filePath,
-      fragment: fragment,
-      isSameChapter: isSameChapter
+      href: href
     }, '*');
   }, true);
 })();
@@ -102,4 +85,94 @@ export function injectLinkNavigationScript(srcdoc: string): string {
     return srcdoc + LINK_NAVIGATION_SCRIPT;
   }
   return srcdoc.slice(0, idx) + LINK_NAVIGATION_SCRIPT + srcdoc.slice(idx);
+}
+
+function decodeFragment(fragment: string): string {
+  try {
+    return decodeURIComponent(fragment);
+  } catch {
+    return fragment;
+  }
+}
+
+function normalizeEpubPath(path: string): string {
+  const segments = path.replace(/\\/g, "/").split("/");
+  const normalized: string[] = [];
+
+  for (const segment of segments) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      normalized.pop();
+      continue;
+    }
+    normalized.push(segment);
+  }
+
+  return normalized.join("/");
+}
+
+function splitHash(href: string): { path: string; fragment: string | null } {
+  const hashIndex = href.indexOf("#");
+  if (hashIndex === -1) {
+    return { path: href, fragment: null };
+  }
+
+  return {
+    path: href.slice(0, hashIndex),
+    fragment: decodeFragment(href.slice(hashIndex + 1)),
+  };
+}
+
+function stripQuery(path: string): string {
+  return path.split("?")[0];
+}
+
+function dirname(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  const slashIndex = normalized.lastIndexOf("/");
+  return slashIndex === -1 ? "" : normalized.slice(0, slashIndex + 1);
+}
+
+export function resolveEpubHref(
+  href: string,
+  currentChapterHref: string,
+): ResolvedEpubLink | null {
+  const trimmedHref = href.trim();
+  if (!trimmedHref) return null;
+
+  const lowerHref = trimmedHref.toLowerCase();
+  if (
+    lowerHref.startsWith("http://") ||
+    lowerHref.startsWith("https://") ||
+    lowerHref.startsWith("mailto:") ||
+    lowerHref.startsWith("javascript:")
+  ) {
+    return null;
+  }
+
+  const { path, fragment } = splitHash(trimmedHref);
+  const currentPath = normalizeEpubPath(stripQuery(currentChapterHref));
+  const targetPath = stripQuery(path);
+  const resolvedPath = !targetPath
+    ? currentPath
+    : targetPath.startsWith("/")
+    ? targetPath.slice(1)
+    : dirname(currentPath) + targetPath;
+
+  return {
+    targetPath: normalizeEpubPath(resolvedPath),
+    fragment,
+  };
+}
+
+export function findChapterIndexByHref(
+  chapters: Array<{ href: string }>,
+  targetPath: string,
+): number {
+  const normalizedTarget = normalizeEpubPath(stripQuery(targetPath)).toLowerCase();
+
+  return chapters.findIndex(
+    (chapter) =>
+      normalizeEpubPath(stripQuery(chapter.href)).toLowerCase() === normalizedTarget,
+  );
 }

@@ -209,7 +209,7 @@ export function scrollToAnchor(
 
   // Fallback: try name attribute (EPUBs sometimes use <a name="...">)
   if (!element) {
-    element = doc.querySelector(`[name="${anchorId}"]`);
+    element = doc.getElementsByName(anchorId)[0] ?? null;
   }
 
   if (!element) return false;

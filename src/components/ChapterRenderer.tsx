@@ -48,9 +48,26 @@ interface ChapterRendererProps {
   onIframeRef?: (ref: HTMLIFrameElement | null) => void;
   /** Callback when user clicks "Ask AI" in selection toolbar */
   onAskAI?: (selectedText: string) => void;
+  /** Callback when an inline EPUB link is clicked */
+  onLinkClick?: (href: string) => void;
+  /** Whether link navigation has a previous location to return to */
+  canGoBack?: boolean;
+  /** Callback when user clicks the link-navigation back button */
+  onLinkBack?: () => void;
 }
 
-export function ChapterRenderer({ chapters, resources, opfFolder, manifestHrefs, showNav = true, onIframeRef, onAskAI }: ChapterRendererProps) {
+export function ChapterRenderer({
+  chapters,
+  resources,
+  opfFolder,
+  manifestHrefs,
+  showNav = true,
+  onIframeRef,
+  onAskAI,
+  onLinkClick,
+  canGoBack,
+  onLinkBack,
+}: ChapterRendererProps) {
   const currentChapterIndex = useBookStore(
     (state) => state.ui.currentChapterIndex,
   );
@@ -121,6 +138,9 @@ export function ChapterRenderer({ chapters, resources, opfFolder, manifestHrefs,
         title={currentChapter.title || `Chapter ${currentChapterIndex + 1}`}
         onIframeRef={onIframeRef}
         onAskAI={onAskAI}
+        onLinkClick={onLinkClick}
+        canGoBack={canGoBack}
+        onLinkBack={onLinkBack}
       />
     </div>
   );
