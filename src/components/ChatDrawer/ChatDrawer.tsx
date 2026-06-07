@@ -15,8 +15,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowLeft, Loader2, Bot, BookOpen, Lightbulb, HelpCircle, Settings, RefreshCw, Clock } from "lucide-react";
-import { Drawer } from "@/components/Drawer";
-import { Button, ErrorBanner } from "@/components/primitives";
+import { Drawer, Button, ErrorBanner } from "@/components/primitives";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import { SessionList } from "./SessionList";
@@ -266,7 +265,7 @@ export function ChatDrawerView({
   const isEmpty = messages.length === 0 && !isStreaming && !isIndexing;
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="AI Chat">
+    <Drawer open={isOpen} onClose={onClose} title="AI Chat">
       <div className="flex flex-col h-full">
         {/* List view: session list */}
         {view === "list" && bookId && (

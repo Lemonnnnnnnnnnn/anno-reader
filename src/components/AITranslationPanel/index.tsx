@@ -1,7 +1,6 @@
-import { Button, ErrorBanner } from "@/components/primitives";
+import { Button, ErrorBanner, Drawer } from "@/components/primitives";
 import { Loader2 } from "lucide-react";
 import { Streamdown } from "streamdown";
-import { Drawer } from "@/components/Drawer";
 import { useTranslation, useNoteSaving } from "./hooks";
 import type { PanelStatus } from "./hooks";
 
@@ -49,7 +48,7 @@ export function AITranslationPanelView({
   onStop: () => void;
 }) {
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="AI Translation">
+    <Drawer open={isOpen} onClose={onClose} title="AI Translation">
       <div className="flex flex-col h-full">
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto space-y-4">

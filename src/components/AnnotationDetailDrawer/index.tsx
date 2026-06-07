@@ -18,8 +18,7 @@ import { useState, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useBookStore } from "@/stores/useBookStore";
-import { Drawer } from "@/components/Drawer";
-import { Button, TextArea } from "@/components/primitives";
+import { Drawer, Button, TextArea } from "@/components/primitives";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
 
@@ -85,7 +84,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
   }, []);
 
   return (
-    <Drawer isOpen={!!noteId} onClose={onClose} title="Note Detail">
+    <Drawer open={!!noteId} onClose={onClose} title="Note Detail">
       {note ? (
         <div className="flex-1 flex flex-col gap-4 font-serif min-h-0">
           {/* Quoted original text */}

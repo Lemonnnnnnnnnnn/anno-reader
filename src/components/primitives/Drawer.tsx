@@ -1,12 +1,34 @@
+/**
+ * Reusable Drawer component.
+ *
+ * Fixed side panel (left or right) with slide-in animation, backdrop overlay,
+ * Escape key handling, and optional outside-click-to-close behavior.
+ * Pure container — no domain-specific content.
+ *
+ * @example
+ * ```tsx
+ * <Drawer open={open} onClose={() => setOpen(false)} title="Settings">
+ *   <SettingsContent />
+ * </Drawer>
+ * ```
+ */
+
 import { type ReactNode, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/primitives";
 
-interface DrawerProps {
+export interface DrawerProps {
+  /** Whether the drawer is visible */
   open: boolean;
+  /** Callback when the drawer should close */
   onClose: () => void;
+  /** Which side the drawer slides from (default: "right") */
   side?: "left" | "right";
-  title: string;
+  /** Optional title displayed in the header bar */
+  title?: string;
+  /** Whether clicking the backdrop closes the drawer (default: true) */
+  closeOnOutsideClick?: boolean;
+  /** Drawer content */
   children: ReactNode;
 }
 
@@ -15,8 +37,10 @@ export function Drawer({
   onClose,
   side = "right",
   title,
+  closeOnOutsideClick = true,
   children,
 }: DrawerProps) {
+  // Escape key handler
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -30,6 +54,11 @@ export function Drawer({
     return () => document.removeEventListener("keydown", handleEscape);
   }, [open, handleEscape]);
 
+  // Backdrop click handler
+  const handleBackdropClick = useCallback(() => {
+    if (closeOnOutsideClick) onClose();
+  }, [closeOnOutsideClick, onClose]);
+
   if (!open) return null;
 
   const slideFrom = side === "left" ? "left-0" : "right-0";
@@ -41,7 +70,7 @@ export function Drawer({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 transition-opacity duration-300"
-        onClick={onClose}
+        onClick={handleBackdropClick}
       />
 
       {/* Panel */}
@@ -51,9 +80,16 @@ export function Drawer({
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border dark:border-border-dark">
-          <h2 className="text-lg font-medium text-text dark:text-text-dark font-sans">{title}</h2>
-          <Button variant="icon" onClick={onClose} aria-label="Close drawer">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border dark:border-border-dark shrink-0">
+          {title && (
+            <h2 className="text-lg font-medium text-text dark:text-text-dark font-sans">{title}</h2>
+          )}
+          <Button
+            variant="icon"
+            onClick={onClose}
+            aria-label="Close drawer"
+            className={!title ? "ml-auto" : ""}
+          >
             <X size={18} />
           </Button>
         </div>
