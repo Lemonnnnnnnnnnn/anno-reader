@@ -218,17 +218,17 @@ export function VerticalScroller({
           onClose={handleCloseHighlightPopover}
         />
       )}
-      <AITranslationPanel
+      {translationPanel && <AITranslationPanel
         selectedText={translationPanel?.selectedText ?? ""}
         chapterText={chapterText}
         chapterHref={translationPanel?.chapterHref ?? ""}
         cfiRange={
           translationPanel
             ? generateCfiRange(
-                translationPanel.chapterHref,
-                translationPanel.startOffset,
-                translationPanel.endOffset,
-              )
+              translationPanel.chapterHref,
+              translationPanel.startOffset,
+              translationPanel.endOffset,
+            )
             : ""
         }
         startOffset={translationPanel?.startOffset ?? 0}
@@ -237,7 +237,7 @@ export function VerticalScroller({
         paragraph={translationPanel?.paragraph}
         isOpen={!!translationPanel}
         onClose={handleCloseTranslationPanel}
-      />
+      />}
     </div>
   );
 }
