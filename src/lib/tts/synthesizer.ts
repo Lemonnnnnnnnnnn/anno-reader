@@ -39,6 +39,9 @@ class TTSSynthesizer {
   /** Callbacks invoked when playback ends (naturally or via stop). */
   private endCallbacks: Set<() => void> = new Set();
 
+  /** Unsubscribe function for the active browser SpeechSynthesis utterance. */
+  private unsubscribeBrowserEnd: (() => void) | null = null;
+
   // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
@@ -65,16 +68,26 @@ class TTSSynthesizer {
     const service = this.getProviderInstance(provider.type);
 
     const request: SynthesizeRequest = { text, provider };
-    const response = await service.synthesize(request, provider);
 
-    // Browser provider plays directly — nothing more to do.
     if (provider.type === "browser") {
+      this.clearBrowserEndSubscription();
       this.speaking = true;
-      // speechSynthesis fires 'end' event on the utterance, but there's no
-      // clean hook here. Track state optimistically and let stopPlayback()
-      // reset it.
+      this.unsubscribeBrowserEnd = browserProvider.onEnd(() => {
+        this.speaking = false;
+        this.clearBrowserEndSubscription();
+        this.notifyEnd();
+      });
+      try {
+        await service.synthesize(request, provider);
+      } catch (err) {
+        this.speaking = false;
+        this.clearBrowserEndSubscription();
+        throw err;
+      }
       return;
     }
+
+    const response = await service.synthesize(request, provider);
 
     // API providers return raw audio — play via Audio element.
     await this.playAudioBuffer(response.audio, response.format);
@@ -87,6 +100,9 @@ class TTSSynthesizer {
    * API providers: pauses and tears down the Audio element.
    */
   stopPlayback(): void {
+    const wasSpeaking = this.speaking || this.audioElement !== null || this.isBrowserSpeaking();
+    this.clearBrowserEndSubscription();
+
     // Stop browser speech if active.
     browserProvider.stopPlayback();
 
@@ -99,7 +115,9 @@ class TTSSynthesizer {
     }
 
     this.speaking = false;
-    this.notifyEnd();
+    if (wasSpeaking) {
+      this.notifyEnd();
+    }
   }
 
   /**
@@ -107,11 +125,7 @@ class TTSSynthesizer {
    */
   isSpeaking(): boolean {
     // Also check live SpeechSynthesis state for the browser provider.
-    if (
-      typeof window !== "undefined" &&
-      "speechSynthesis" in window &&
-      window.speechSynthesis.speaking
-    ) {
+    if (this.isBrowserSpeaking()) {
       return true;
     }
     return this.speaking;
@@ -139,6 +153,19 @@ class TTSSynthesizer {
     for (const cb of this.endCallbacks) {
       cb();
     }
+  }
+
+  private clearBrowserEndSubscription(): void {
+    this.unsubscribeBrowserEnd?.();
+    this.unsubscribeBrowserEnd = null;
+  }
+
+  private isBrowserSpeaking(): boolean {
+    return (
+      typeof window !== "undefined" &&
+      "speechSynthesis" in window &&
+      window.speechSynthesis.speaking
+    );
   }
 
   /**

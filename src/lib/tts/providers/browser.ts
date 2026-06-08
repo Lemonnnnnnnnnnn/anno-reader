@@ -19,6 +19,8 @@ import { TTSServiceError } from "../service";
  * field will be an empty ArrayBuffer.
  */
 class BrowserProvider implements TTSService {
+  private endCallbacks: Set<() => void> = new Set();
+
   /**
    * Synthesize text using browser SpeechSynthesis.
    *
@@ -32,6 +34,8 @@ class BrowserProvider implements TTSService {
     const synth = this.getSynth();
 
     const utterance = new SpeechSynthesisUtterance(request.text);
+    utterance.addEventListener("end", () => this.notifyEnd());
+    utterance.addEventListener("error", () => this.notifyEnd());
 
     // Apply voice if specified in options
     if (request.options?.pitch !== undefined) {
@@ -110,6 +114,16 @@ class BrowserProvider implements TTSService {
     }
   }
 
+  /**
+   * Subscribe to browser utterance completion.
+   */
+  onEnd(callback: () => void): () => void {
+    this.endCallbacks.add(callback);
+    return () => {
+      this.endCallbacks.delete(callback);
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Private Helpers
   // -------------------------------------------------------------------------
@@ -125,6 +139,12 @@ class BrowserProvider implements TTSService {
       );
     }
     return window.speechSynthesis;
+  }
+
+  private notifyEnd(): void {
+    for (const callback of this.endCallbacks) {
+      callback();
+    }
   }
 }
 
