@@ -113,6 +113,10 @@ export function buildReaderOverrides(
       p, h1, h2, h3, h4, h5, h6, span, a, li, td, th, div {
         color: #e5e5e5 !important;
       }
+
+      .anno-highlight {
+        color: #1a1a1a !important;
+      }
     `;
   }
 
