@@ -91,7 +91,9 @@ export function injectScrollScript(srcdoc: string): string {
  * This allows keyboard navigation (arrow keys) to work even when the iframe
  * has focus (e.g., after clicking inside the chapter content).
  *
- * Only forwards arrow keys used for chapter navigation.
+ * - ArrowLeft/ArrowRight: forwarded for chapter navigation
+ * - ArrowUp/ArrowDown: forwarded for scroll control, with default prevented
+ *   to avoid double-scrolling (parent handles smooth scrolling)
  */
 export const KEYBOARD_FORWARDER_SCRIPT = `
 <script>
@@ -100,12 +102,16 @@ export const KEYBOARD_FORWARDER_SCRIPT = `
     // Only forward arrow keys used for navigation
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
         e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      // Prevent native scroll for up/down — parent handles smooth scrolling
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+      }
       window.parent.postMessage({
         type: 'keydown',
         key: e.key
       }, '*');
     }
-  }, { passive: true });
+  });
 })();
 </script>`;
 

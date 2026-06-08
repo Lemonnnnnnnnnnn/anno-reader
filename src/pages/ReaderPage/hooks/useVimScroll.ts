@@ -1,9 +1,10 @@
 /**
- * Vim-like smooth scrolling hook for ReaderPage.
+ * Keyboard smooth scrolling hook for ReaderPage.
  *
- * Handles j/k keys to smoothly scroll the chapter iframe content.
- * - j: scroll down
- * - k: scroll up
+ * Handles j/k keys and ArrowUp/ArrowDown to smoothly scroll the chapter
+ * iframe content.
+ * - j / ArrowDown: scroll down
+ * - k / ArrowUp: scroll up
  *
  * Based on HMangaMaster's ScrollService + SmoothScroller pattern,
  * adapted for React hooks and iframe-based scrolling.
@@ -30,7 +31,7 @@ class SmoothScroller {
   private frameDuration: number;
   private rafId: number | null = null;
 
-  constructor(target: ScrollTarget, scrollAmount = 64, scrollDuration = 128) {
+  constructor(target: ScrollTarget, scrollAmount = 48, scrollDuration = 200) {
     this.target = target;
     this.targetScrollPos = target.getScrollTop();
     this.isScrolling = false;
@@ -163,27 +164,43 @@ export function useVimScroll(
       const scroller = getScroller();
       if (!scroller) return;
 
-      if (e.key === "j") {
+      if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
         scroller.scrollDown();
-      } else if (e.key === "k") {
+      } else if (e.key === "k" || e.key === "ArrowUp") {
         e.preventDefault();
         scroller.scrollUp();
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "j" || e.key === "k") {
+      if (e.key === "j" || e.key === "k" || e.key === "ArrowUp" || e.key === "ArrowDown") {
         scrollerRef.current?.stopScroll();
+      }
+    };
+
+    // Handle arrow keys forwarded from iframe via postMessage
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type !== "keydown") return;
+
+      const scroller = getScroller();
+      if (!scroller) return;
+
+      if (e.data.key === "ArrowDown") {
+        scroller.scrollDown();
+      } else if (e.data.key === "ArrowUp") {
+        scroller.scrollUp();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("message", handleMessage);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("message", handleMessage);
       scrollerRef.current?.stopScroll();
     };
   }, [getScroller]);
