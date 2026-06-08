@@ -27,6 +27,7 @@ import { useShallow } from "zustand/shallow";
 export function buildAnnotationScript(
   highlights: Array<{ id: string; cfiRange: string; color: string }>,
   notes: Array<{ id: string; cfiRange: string; text: string }>,
+  theme: "light" | "dark" = "light",
 ): string {
   const highlightsJson = JSON.stringify(highlights);
   const notesJson = JSON.stringify(notes);
@@ -36,6 +37,7 @@ export function buildAnnotationScript(
 (function() {
   var currentHighlights = ${highlightsJson};
   var currentNotes = ${notesJson};
+  var highlightTextColor = "${theme === "dark" ? "#1a1a1a" : "inherit"}";
 
   function parseCfiOffsets(cfi) {
     var match = cfi.match(/:(\\d+),(\\d+)\\)$/);
@@ -166,7 +168,7 @@ export function buildAnnotationScript(
       var offsets = parseCfiOffsets(hl.cfiRange);
       if (!offsets) continue;
       wrapRange(offsets.start, offsets.end, 'anno-highlight',
-        'background-color: ' + hl.color + '; border-radius: 2px; padding: 1px 0;',
+        'background-color: ' + hl.color + '; color: ' + highlightTextColor + '; border-radius: 2px; padding: 1px 0;',
         { 'highlight-id': hl.id });
 
       // Add click handler to the newly created span
@@ -236,6 +238,14 @@ export function buildAnnotationScript(
       renderNotes(currentNotes);
     }
   });
+
+  // Close popovers when clicking on empty area (not on highlight or note)
+  document.addEventListener('click', function(e) {
+    var target = e.target;
+    if (target && !target.closest('.anno-highlight') && !target.closest('.anno-note')) {
+      window.parent.postMessage({ type: 'close-popovers' }, '*');
+    }
+  });
 })();
 </script>`;
 }
@@ -262,6 +272,7 @@ export function useAnnotationSync(
       state.notes.filter((n) => n.chapterHref === chapterHref),
     ),
   );
+  const theme = useBookStore((state) => state.ui.theme);
 
   // Build annotation script for initial srcdoc injection
   const annotationScript = useMemo(
@@ -269,8 +280,9 @@ export function useAnnotationSync(
       buildAnnotationScript(
         highlights.map((h) => ({ id: h.id, cfiRange: h.cfiRange, color: h.color })),
         notes.map((n) => ({ id: n.id, cfiRange: n.cfiRange, text: n.text })),
+        theme,
       ),
-    [highlights, notes],
+    [highlights, notes, theme],
   );
 
   /**

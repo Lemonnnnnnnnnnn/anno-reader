@@ -36,6 +36,9 @@ class TTSSynthesizer {
   /** Whether a synthesis + playback cycle is active. */
   private speaking = false;
 
+  /** Callbacks invoked when playback ends (naturally or via stop). */
+  private endCallbacks: Set<() => void> = new Set();
+
   // -----------------------------------------------------------------------
   // Public API
   // -----------------------------------------------------------------------
@@ -96,6 +99,7 @@ class TTSSynthesizer {
     }
 
     this.speaking = false;
+    this.notifyEnd();
   }
 
   /**
@@ -113,9 +117,29 @@ class TTSSynthesizer {
     return this.speaking;
   }
 
+  /**
+   * Subscribe to playback end events.
+   *
+   * @param callback  Function called when playback ends.
+   * @returns An unsubscribe function.
+   */
+  onEnd(callback: () => void): () => void {
+    this.endCallbacks.add(callback);
+    return () => {
+      this.endCallbacks.delete(callback);
+    };
+  }
+
   // -----------------------------------------------------------------------
   // Private Helpers
   // -----------------------------------------------------------------------
+
+  /** Notify all registered end callbacks. */
+  private notifyEnd(): void {
+    for (const cb of this.endCallbacks) {
+      cb();
+    }
+  }
 
   /**
    * Look up a TTSService by provider type.
@@ -162,12 +186,14 @@ class TTSSynthesizer {
       this.speaking = false;
       this.audioElement = null;
       URL.revokeObjectURL(url);
+      this.notifyEnd();
     });
 
     audioEl.addEventListener("error", () => {
       this.speaking = false;
       this.audioElement = null;
       URL.revokeObjectURL(url);
+      this.notifyEnd();
     });
 
     await audioEl.play();

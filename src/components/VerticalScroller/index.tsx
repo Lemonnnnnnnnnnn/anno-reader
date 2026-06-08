@@ -157,6 +157,12 @@ export function VerticalScroller({
         setHighlightPosition(null);
         setTranslationPanel(null);
       }
+      if (event.data?.type === "close-popovers") {
+        // Close all popovers when clicking on empty area in iframe
+        setActiveNoteId(null);
+        setActiveHighlightId(null);
+        setHighlightPosition(null);
+      }
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);

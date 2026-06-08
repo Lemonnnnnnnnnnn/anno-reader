@@ -1,8 +1,8 @@
 import { Button, ErrorBanner, Drawer } from "@/components/primitives";
-import { Loader2 } from "lucide-react";
+import { Loader2, Volume2 } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { useTranslation, useNoteSaving } from "./hooks";
-import { useTTS } from "./hooks/useTTS";
+import { useTTS } from "@/hooks/useTTS";
 import { useTTSConfigStore } from "@/stores/useTTSConfigStore";
 import type { PanelStatus } from "./hooks";
 
@@ -62,9 +62,22 @@ export function AITranslationPanelView({
         <div className="flex-1 overflow-y-auto space-y-4">
           {/* Original text */}
           <div>
-            <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1 font-sans">
-              Original
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark font-sans">
+                Original
+              </label>
+              {isTTSAvailable && (
+                <button
+                  onClick={onSpeak}
+                  className={`p-1 rounded transition-opacity ${
+                    isSpeaking ? "opacity-100" : "opacity-50 hover:opacity-75"
+                  }`}
+                  title={isSpeaking ? "Stop speaking" : "Listen"}
+                >
+                  <Volume2 size={14} className="text-text-secondary dark:text-text-secondary-dark" />
+                </button>
+              )}
+            </div>
             <p className="text-sm text-text dark:text-text-dark bg-bg dark:bg-bg-dark rounded-md p-3 font-serif leading-relaxed">
               {selectedText}
             </p>
@@ -143,15 +156,6 @@ export function AITranslationPanelView({
               loading={isSaving}
             >
               Add as Note
-            </Button>
-          )}
-          {isTTSAvailable && status === "success" && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={onSpeak}
-            >
-              {isSpeaking ? "停止" : "Listen"}
             </Button>
           )}
         </div>

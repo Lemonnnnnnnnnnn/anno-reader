@@ -1,9 +1,10 @@
 /**
- * TTS hook for AITranslationPanel.
+ * Shared TTS hook.
  *
  * Handles:
  * - Speak/stop toggle behavior
  * - Speaking state tracking
+ * - Playback lifecycle via onEnd subscription (isSpeaking resets when audio ends naturally)
  * - Auto-stop on unmount
  */
 
@@ -32,6 +33,14 @@ export function useTTS(text: string) {
       setIsSpeaking(false);
     }
   }, [text, isSpeaking, stop]);
+
+  // Subscribe to playback end events to reset isSpeaking
+  useEffect(() => {
+    const unsubscribe = ttsSynthesizer.onEnd(() => {
+      setIsSpeaking(false);
+    });
+    return unsubscribe;
+  }, []);
 
   // Auto-stop on unmount
   useEffect(() => () => ttsSynthesizer.stopPlayback(), []);

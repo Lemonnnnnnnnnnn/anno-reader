@@ -77,7 +77,7 @@ vi.mock("@/stores/useTTSConfigStore", () => ({
   }),
 }));
 
-vi.mock("../hooks/useTTS", () => ({
+vi.mock("@/hooks/useTTS", () => ({
   useTTS: () => ({
     speak: vi.fn(),
     stop: vi.fn(),
