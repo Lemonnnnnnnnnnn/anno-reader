@@ -5,9 +5,10 @@
  * that wires into the RAG orchestrator pipeline.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 import { askQuestion, indexBookFromCache } from "./orchestrator";
+import { bookIndexExists } from "./indexer";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,6 +67,36 @@ export function useRAG(): UseRAGReturn {
   const [error, setError] = useState<string | null>(null);
 
   const currentBook = useBookStore((s) => s.currentBook);
+
+  // Check backend index state on mount and when book changes
+  useEffect(() => {
+    if (!currentBook) {
+      setIsIndexed(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function checkIndex() {
+      try {
+        const exists = await bookIndexExists(currentBook!.id);
+        if (!cancelled) {
+          setIsIndexed(exists);
+        }
+      } catch (err) {
+        // If check fails, assume not indexed (will re-index on first query)
+        if (!cancelled) {
+          setIsIndexed(false);
+        }
+      }
+    }
+
+    checkIndex();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentBook]);
 
   const handleAskQuestion = useCallback(
     async (query: string): Promise<{ systemMessage: string } | null> => {

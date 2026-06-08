@@ -429,6 +429,21 @@ export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp, initialMessage
     loadConversations();
   }, [loadConversations]);
 
+  // Auto-create new session when initialMessage is provided (e.g., from "Ask AI" selection)
+  useEffect(() => {
+    if (isOpen && initialMessage) {
+      // Create a new conversation with truncated selection text as title
+      const title = initialMessage.length > 50
+        ? initialMessage.slice(0, 50) + "..."
+        : initialMessage;
+      const newId = crypto.randomUUID();
+      createConversation(newId, bookId);
+      // Rename with the selection text as title
+      useChatStore.getState().renameConversation(newId, title);
+      setView("conversation");
+    }
+  }, [isOpen, initialMessage]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Abort on drawer close
   useEffect(() => {
     if (!isOpen) {
