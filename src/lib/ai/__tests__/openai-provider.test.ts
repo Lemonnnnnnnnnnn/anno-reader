@@ -267,9 +267,6 @@ describe("OpenAIProvider", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(AIServiceError);
         expect((error as AIServiceError).code).toBe("NETWORK_ERROR");
-        expect((error as AIServiceError).message).toContain(
-          "Failed to connect to provider",
-        );
         expect((error as AIServiceError).message).toContain("fetch failed");
         expect((error as AIServiceError).retryable).toBe(true);
       }
@@ -428,6 +425,49 @@ describe("OpenAIProvider", () => {
       capturedOnError!({ error: originalError });
 
       expect(onError).toHaveBeenCalledWith(originalError);
+    });
+
+    it("should map stream iteration network errors to NETWORK_ERROR", async () => {
+      mockStreamText.mockReturnValue({
+        textStream: (async function* () {
+          yield "partial";
+          throw new Error("net::ERR_CONNECTION_RESET");
+        })(),
+      });
+
+      const result = await provider.translateStream(mockRequest, mockProvider);
+
+      await expect(async () => {
+        for await (const _chunk of result.textStream) {
+          // consume stream
+        }
+      }).rejects.toSatisfy((error: AIServiceError) => {
+        expect(error).toBeInstanceOf(AIServiceError);
+        expect(error.code).toBe("NETWORK_ERROR");
+        expect(error.retryable).toBe(true);
+        return true;
+      });
+    });
+
+    it("should map stream iteration 429 errors to RATE_LIMITED", async () => {
+      mockStreamText.mockReturnValue({
+        textStream: (async function* () {
+          throw makeApiCallError(429, "Too Many Requests");
+        })(),
+      });
+
+      const result = await provider.translateStream(mockRequest, mockProvider);
+
+      await expect(async () => {
+        for await (const _chunk of result.textStream) {
+          // consume stream
+        }
+      }).rejects.toSatisfy((error: AIServiceError) => {
+        expect(error).toBeInstanceOf(AIServiceError);
+        expect(error.code).toBe("RATE_LIMITED");
+        expect(error.retryable).toBe(true);
+        return true;
+      });
     });
   });
 

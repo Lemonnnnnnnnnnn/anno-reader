@@ -106,7 +106,7 @@ describe("AIErrorHandler", () => {
     it("handles non-Error values", () => {
       const error = handler.classifyError("string error");
       expect(error.code).toBe("UNKNOWN_ERROR");
-      expect(error.message).toBe("Unknown error");
+      expect(error.message).toBe("string error");
     });
   });
 

@@ -8,6 +8,9 @@ import type {
   TranslationResponse,
 } from "../service";
 import { AIServiceError } from "../service";
+import { AIErrorHandler } from "../error-handler";
+
+const errorHandler = new AIErrorHandler();
 
 /**
  * Create an AI SDK provider instance from our config shape.
@@ -21,6 +24,59 @@ function createProvider(config: AIProvider) {
   });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getCause(error: unknown): unknown {
+  return isRecord(error) ? error.cause : undefined;
+}
+
+function getStatusCode(error: unknown): number | undefined {
+  if (!isRecord(error)) return undefined;
+  const status = error.statusCode ?? error.status;
+  return typeof status === "number" ? status : undefined;
+}
+
+function getIsRetryable(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  return error.isRetryable === true || error.retryable === true;
+}
+
+function getMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+function isAbortError(error: unknown): boolean {
+  return isRecord(error) && error.name === "AbortError";
+}
+
+function isApiCallError(error: unknown): boolean {
+  const isInstance =
+    typeof APICallError.isInstance === "function" && APICallError.isInstance(error);
+
+  return (
+    isInstance ||
+    error instanceof APICallError ||
+    getStatusCode(error) !== undefined
+  );
+}
+
+function findApiCallError(
+  error: unknown,
+  seen = new Set<unknown>(),
+): unknown | null {
+  if (seen.has(error)) return null;
+  seen.add(error);
+
+  if (isApiCallError(error)) {
+    return error;
+  }
+
+  const cause = getCause(error);
+  return cause === undefined ? null : findApiCallError(cause, seen);
+}
+
 /**
  * Map AI SDK errors to our domain error codes.
  */
@@ -29,25 +85,34 @@ function toAIServiceError(error: unknown): AIServiceError {
     return error;
   }
 
-  if (error instanceof APICallError) {
-    const status = error.statusCode;
-    if (status === 401 || status === 403) {
-      return new AIServiceError("AUTH_ERROR", error.message);
-    }
-    if (status === 429) {
-      return new AIServiceError("RATE_LIMITED", error.message, true);
-    }
-    if (status !== undefined && status >= 500) {
-      return new AIServiceError("API_ERROR", error.message, true);
-    }
-    return new AIServiceError("API_ERROR", error.message, error.isRetryable);
+  if (isAbortError(error)) {
+    return new AIServiceError("UNKNOWN_ERROR", getMessage(error));
   }
 
-  // Network / abort / unknown
-  const message =
-    error instanceof Error ? error.message : "Unknown error";
-  return new AIServiceError("NETWORK_ERROR",
-    `Failed to connect to provider: ${message}`,
+  const apiError = findApiCallError(error);
+  if (apiError) {
+    const status = getStatusCode(apiError);
+    const message = getMessage(apiError);
+    if (status === 401 || status === 403) {
+      return new AIServiceError("AUTH_ERROR", message);
+    }
+    if (status === 429) {
+      return new AIServiceError("RATE_LIMITED", message, true);
+    }
+    if (status !== undefined && status >= 500) {
+      return new AIServiceError("API_ERROR", message, true);
+    }
+    return new AIServiceError("API_ERROR", message, getIsRetryable(apiError));
+  }
+
+  const classified = errorHandler.classifyError(error);
+  if (classified.code !== "UNKNOWN_ERROR") {
+    return classified;
+  }
+
+  return new AIServiceError(
+    "NETWORK_ERROR",
+    `Failed to connect to provider: ${getMessage(error)}`,
     true,
   );
 }
@@ -94,27 +159,47 @@ export class OpenAIProvider implements AITranslationService {
     provider: AIProvider,
     options?: { abortSignal?: AbortSignal; onError?: (error: Error) => void },
   ): Promise<StreamingTranslationResponse> {
-    const sdkProvider = createProvider(provider);
-    const model = sdkProvider.chatModel(provider.model);
+    try {
+      const sdkProvider = createProvider(provider);
+      const model = sdkProvider.chatModel(provider.model);
+      let streamError: Error | null = null;
 
-    const result = streamText({
-      model,
-      system: request.systemMessage,
-      prompt: request.userMessage,
-      maxOutputTokens: provider.maxTokens,
-      temperature: provider.temperature,
-      abortSignal: options?.abortSignal,
-      onError: ({ error }) => {
-        options?.onError?.(
-          error instanceof Error ? error : new Error(String(error)),
-        );
-      },
-    });
+      const result = streamText({
+        model,
+        system: request.systemMessage,
+        prompt: request.userMessage,
+        maxOutputTokens: provider.maxTokens,
+        temperature: provider.temperature,
+        abortSignal: options?.abortSignal,
+        onError: ({ error }) => {
+          streamError = error instanceof Error ? error : new Error(String(error));
+          options?.onError?.(streamError);
+        },
+      });
 
-    return {
-      textStream: result.textStream,
-      provider,
-    };
+      async function* textStream() {
+        try {
+          for await (const chunk of result.textStream) {
+            yield chunk;
+          }
+          if (streamError) {
+            throw streamError;
+          }
+        } catch (error) {
+          if (isAbortError(error)) {
+            throw error;
+          }
+          throw toAIServiceError(error);
+        }
+      }
+
+      return {
+        textStream: textStream(),
+        provider,
+      };
+    } catch (error) {
+      throw toAIServiceError(error);
+    }
   }
 
   async testConnection(provider: AIProvider): Promise<boolean> {

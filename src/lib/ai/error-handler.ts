@@ -12,6 +12,59 @@ const ERROR_MESSAGES: Record<AIServiceErrorCode, string> = {
   UNKNOWN_ERROR: "发生未知错误",
 };
 
+const NETWORK_ERROR_PATTERNS = [
+  "network",
+  "fetch",
+  "failed to fetch",
+  "load failed",
+  "err_connection_reset",
+  "connection reset",
+  "connection refused",
+  "connection closed",
+  "connection aborted",
+  "socket",
+  "econnreset",
+  "econnrefused",
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getStringProperty(error: unknown, key: string): string | undefined {
+  const value = isRecord(error) ? error[key] : undefined;
+  return typeof value === "string" ? value : undefined;
+}
+
+function getErrorCause(error: unknown): unknown {
+  return isRecord(error) ? error.cause : undefined;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function errorText(error: unknown): string {
+  return [
+    getStringProperty(error, "name"),
+    getStringProperty(error, "code"),
+    error instanceof Error ? error.message : undefined,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" ")
+    .toLowerCase();
+}
+
+function isAbortError(error: unknown): boolean {
+  const text = errorText(error);
+  return getStringProperty(error, "name") === "AbortError" || text.includes("aborterror");
+}
+
+function isNetworkError(error: unknown): boolean {
+  const text = errorText(error);
+  return NETWORK_ERROR_PATTERNS.some((pattern) => text.includes(pattern));
+}
+
 /**
  * Centralized error handler for AI service operations.
  */
@@ -30,14 +83,38 @@ export class AIErrorHandler {
    * Classify an unknown error into an AIServiceError.
    */
   classifyError(error: unknown): AIServiceError {
+    return this.classifyErrorInternal(error, new Set<unknown>());
+  }
+
+  private classifyErrorInternal(
+    error: unknown,
+    seen: Set<unknown>,
+  ): AIServiceError {
     if (error instanceof AIServiceError) {
       return error;
+    }
+
+    if (seen.has(error)) {
+      return new AIServiceError("UNKNOWN_ERROR", getErrorMessage(error));
+    }
+    seen.add(error);
+
+    if (isAbortError(error)) {
+      return new AIServiceError("UNKNOWN_ERROR", getErrorMessage(error));
+    }
+
+    const cause = getErrorCause(error);
+    if (cause !== undefined) {
+      const causeError = this.classifyErrorInternal(cause, seen);
+      if (causeError.code !== "UNKNOWN_ERROR" || causeError.retryable) {
+        return causeError;
+      }
     }
 
     if (error instanceof Error) {
       const message = error.message.toLowerCase();
 
-      if (message.includes("network") || message.includes("fetch")) {
+      if (isNetworkError(error)) {
         return new AIServiceError("NETWORK_ERROR", error.message, true);
       }
       if (message.includes("timeout")) {
@@ -48,10 +125,7 @@ export class AIErrorHandler {
       }
     }
 
-    return new AIServiceError(
-      "UNKNOWN_ERROR",
-      error instanceof Error ? error.message : "Unknown error"
-    );
+    return new AIServiceError("UNKNOWN_ERROR", getErrorMessage(error));
   }
 
   /**
@@ -60,7 +134,7 @@ export class AIErrorHandler {
   async withRetry<T>(
     operation: () => Promise<T>,
     maxRetries = 3,
-    onRetry?: (attempt: number, error: AIServiceError) => void
+    onRetry?: (attempt: number, error: AIServiceError) => void,
   ): Promise<T> {
     let lastError: AIServiceError | null = null;
 
@@ -76,9 +150,8 @@ export class AIErrorHandler {
 
         onRetry?.(attempt + 1, lastError);
 
-        // Exponential backoff: 500ms, 1000ms, 2000ms
         await new Promise((resolve) =>
-          setTimeout(resolve, 500 * Math.pow(2, attempt))
+          setTimeout(resolve, 500 * Math.pow(2, attempt)),
         );
       }
     }

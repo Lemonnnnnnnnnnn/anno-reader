@@ -14,8 +14,11 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { streamText, APICallError } from "ai";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 import { AIServiceError, type AIServiceErrorCode } from "@/lib/ai/service";
+import { AIErrorHandler } from "@/lib/ai/error-handler";
 import type { AIProvider } from "@/lib/ai/types";
 import type { ChatMessage } from "./types";
+
+const errorHandler = new AIErrorHandler();
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,6 +48,59 @@ export interface SendMessageResult {
 // Error Mapping
 // ---------------------------------------------------------------------------
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getCause(error: unknown): unknown {
+  return isRecord(error) ? error.cause : undefined;
+}
+
+function getStatusCode(error: unknown): number | undefined {
+  if (!isRecord(error)) return undefined;
+  const status = error.statusCode ?? error.status;
+  return typeof status === "number" ? status : undefined;
+}
+
+function getIsRetryable(error: unknown): boolean {
+  if (!isRecord(error)) return false;
+  return error.isRetryable === true || error.retryable === true;
+}
+
+function getMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+function isAbortError(error: unknown): boolean {
+  return isRecord(error) && error.name === "AbortError";
+}
+
+function isApiCallError(error: unknown): boolean {
+  const isInstance =
+    typeof APICallError.isInstance === "function" && APICallError.isInstance(error);
+
+  return (
+    isInstance ||
+    error instanceof APICallError ||
+    getStatusCode(error) !== undefined
+  );
+}
+
+function findApiCallError(
+  error: unknown,
+  seen = new Set<unknown>(),
+): unknown | null {
+  if (seen.has(error)) return null;
+  seen.add(error);
+
+  if (isApiCallError(error)) {
+    return error;
+  }
+
+  const cause = getCause(error);
+  return cause === undefined ? null : findApiCallError(cause, seen);
+}
+
 /**
  * Map unknown errors to AIServiceError, matching the provider pattern.
  */
@@ -53,24 +109,34 @@ function toChatError(error: unknown): AIServiceError {
     return error;
   }
 
-  if (error instanceof APICallError) {
-    const status = error.statusCode;
-    if (status === 401 || status === 403) {
-      return new AIServiceError("AUTH_ERROR", error.message);
-    }
-    if (status === 429) {
-      return new AIServiceError("RATE_LIMITED", error.message, true);
-    }
-    if (status !== undefined && status >= 500) {
-      return new AIServiceError("API_ERROR", error.message, true);
-    }
-    return new AIServiceError("API_ERROR", error.message, error.isRetryable);
+  if (isAbortError(error)) {
+    return new AIServiceError("UNKNOWN_ERROR", getMessage(error));
   }
 
-  const message = error instanceof Error ? error.message : "Unknown error";
+  const apiError = findApiCallError(error);
+  if (apiError) {
+    const status = getStatusCode(apiError);
+    const message = getMessage(apiError);
+    if (status === 401 || status === 403) {
+      return new AIServiceError("AUTH_ERROR", message);
+    }
+    if (status === 429) {
+      return new AIServiceError("RATE_LIMITED", message, true);
+    }
+    if (status !== undefined && status >= 500) {
+      return new AIServiceError("API_ERROR", message, true);
+    }
+    return new AIServiceError("API_ERROR", message, getIsRetryable(apiError));
+  }
+
+  const classified = errorHandler.classifyError(error);
+  if (classified.code !== "UNKNOWN_ERROR") {
+    return classified;
+  }
+
   return new AIServiceError(
     "NETWORK_ERROR",
-    `Failed to connect to provider: ${message}`,
+    `Failed to connect to provider: ${getMessage(error)}`,
     true,
   );
 }
@@ -109,6 +175,7 @@ export async function sendMessage(
       content: msg.content,
     }));
 
+    let streamError: Error | null = null;
     const result = streamText({
       model,
       system: options?.system,
@@ -117,9 +184,8 @@ export async function sendMessage(
       temperature: provider.temperature,
       abortSignal: options?.abortSignal,
       onError: ({ error }) => {
-        options?.onError?.(
-          error instanceof Error ? error : new Error(String(error)),
-        );
+        streamError = error instanceof Error ? error : new Error(String(error));
+        options?.onError?.(streamError);
       },
     });
 
@@ -130,8 +196,15 @@ export async function sendMessage(
       options?.onChunk?.(chunk, content);
     }
 
+    if (streamError) {
+      throw streamError;
+    }
+
     return { content, provider };
   } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
     throw toChatError(error);
   }
 }
@@ -153,7 +226,7 @@ export interface ChatStreamingState {
   status: ChatStreamingStatus;
   /** Error message, if any. */
   error: string | null;
-  /** Classified error code for type-aware UI. */
+  /** Classified error code for type-aware error UI. */
   errorCode: AIServiceErrorCode | null;
   /** Send a user message and stream the response. */
   sendChatMessage: (content: string, systemMessage?: string) => Promise<void>;
@@ -205,11 +278,9 @@ export function useChatStreaming(
         return;
       }
 
-      // Create abort controller for this request
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
-      // Add user message immediately
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
@@ -233,7 +304,6 @@ export function useChatStreaming(
       setStatus("loading");
 
       try {
-        // Build messages for API (without the empty assistant placeholder)
         const apiMessages = currentMessages.slice(0, -1);
 
         const result = await sendMessage(apiMessages, provider, {
@@ -246,7 +316,6 @@ export function useChatStreaming(
           onError: (err) => setError(err.message),
         });
 
-        // Update the assistant message with final content
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMessage.id
@@ -257,7 +326,6 @@ export function useChatStreaming(
         setStatus("idle");
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
-          // Preserve partial streamed content as the assistant message
           const partial = streamingTextRef.current;
           if (partial) {
             setMessages((prev) =>
@@ -277,7 +345,6 @@ export function useChatStreaming(
         setErrorCode(chatError.code);
         setStatus("error");
 
-        // Remove the empty assistant message on error
         setMessages((prev) =>
           prev.filter((msg) => msg.id !== assistantMessage.id),
         );

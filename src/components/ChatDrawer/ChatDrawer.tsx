@@ -499,11 +499,10 @@ export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp, initialMessage
     setView("list");
   }, [stopStreaming, setCurrentConversation, reset]);
 
-  const handleSend = useCallback(
-    async (content: string) => {
-      // Debounce: reject rapid consecutive sends
+  const sendContent = useCallback(
+    async (content: string, options?: { skipDebounce?: boolean }) => {
       const now = Date.now();
-      if (now - lastSendTimeRef.current < DEBOUNCE_MIN_MS) {
+      if (!options?.skipDebounce && now - lastSendTimeRef.current < DEBOUNCE_MIN_MS) {
         return;
       }
       lastSendTimeRef.current = now;
@@ -525,11 +524,18 @@ export function ChatDrawer({ isOpen, onClose, bookId: bookIdProp, initialMessage
     [currentConversationId, createConversation, sendChatMessage, bookId, rag],
   );
 
+  const handleSend = useCallback(
+    (content: string) => {
+      void sendContent(content);
+    },
+    [sendContent],
+  );
+
   const handleRetry = useCallback(() => {
     if (lastContentRef.current) {
-      handleSend(lastContentRef.current);
+      void sendContent(lastContentRef.current, { skipDebounce: true });
     }
-  }, [handleSend]);
+  }, [sendContent]);
 
   // Retry RAG indexing — re-triggers the hook's internal state by sending last query
   const handleRetryIndexing = useCallback(() => {
