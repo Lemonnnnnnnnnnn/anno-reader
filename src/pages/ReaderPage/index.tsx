@@ -174,7 +174,7 @@ export function ReaderPage() {
     const truncated = selectedText.length > 500
       ? selectedText.slice(0, 500) + "..."
       : selectedText;
-    setPendingChatMessage(`Please explain this passage: "${truncated}"`);
+    setPendingChatMessage(`"${truncated}"`);
     setChatDrawerOpen(true);
     // Close other drawers
     setTocDrawerOpen(false);
