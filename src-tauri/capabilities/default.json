@@ -34,8 +34,8 @@
     {
       "identifier": "http:allow-fetch",
       "allow": [
-        { "url": "https://www.vocabulary.com/**" },
-        { "url": "https://www.etymonline.com/**" }
+        { "url": "http://*:*" },
+        { "url": "https://*" }
       ]
     },
     {
