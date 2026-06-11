@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 /** Supported TTS provider types. */
-export type TTSProviderType = "mimo" | "browser";
+export type TTSProviderType = "browser";
 
 /**
  * Configuration for a single TTS provider.
@@ -20,12 +20,6 @@ export interface TTSProvider {
   name: string;
   /** Provider backend type */
   type: TTSProviderType;
-  /** API base URL (optional, for remote providers) */
-  baseUrl?: string;
-  /** API key for authentication (optional, for remote providers) */
-  apiKey?: string;
-  /** Model identifier (optional, for providers that support model selection) */
-  model?: string;
   /** Default voice for this provider */
   voice: string;
   /** Default language code (e.g. "en", "zh") */

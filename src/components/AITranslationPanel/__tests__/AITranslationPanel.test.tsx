@@ -68,15 +68,6 @@ vi.mock("@/stores/useAIConfigStore", () => ({
   }),
 }));
 
-vi.mock("@/stores/useTTSConfigStore", () => ({
-  useTTSConfigStore: () => ({
-    config: {
-      providers: [],
-      selectedProviderId: null,
-    },
-  }),
-}));
-
 vi.mock("@/hooks/useTTS", () => ({
   useTTS: () => ({
     speak: vi.fn(),

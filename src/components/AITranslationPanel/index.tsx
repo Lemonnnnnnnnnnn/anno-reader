@@ -3,7 +3,6 @@ import { Loader2, Volume2 } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { useTranslation, useNoteSaving } from "./hooks";
 import { useTTS } from "@/hooks/useTTS";
-import { useTTSConfigStore } from "@/stores/useTTSConfigStore";
 import type { PanelStatus } from "./hooks";
 
 interface AITranslationPanelProps {
@@ -196,8 +195,6 @@ export function AITranslationPanel({
     onError: setError,
   });
 
-  const ttsConfig = useTTSConfigStore((s) => s.config);
-  const isTTSAvailable = Boolean(ttsConfig.selectedProviderId);
   const { speak, isSpeaking } = useTTS(selectedText);
 
   return (
@@ -213,7 +210,7 @@ export function AITranslationPanel({
       onRetry={translate}
       onAddNote={handleAddNote}
       onStop={stopTranslation}
-      isTTSAvailable={isTTSAvailable}
+      isTTSAvailable={true}
       isSpeaking={isSpeaking}
       onSpeak={speak}
     />
