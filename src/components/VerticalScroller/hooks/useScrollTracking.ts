@@ -88,29 +88,41 @@ export function injectScrollScript(srcdoc: string): string {
 
 /**
  * Script injected into the iframe srcdoc to forward keyboard events to parent.
- * This allows keyboard navigation (arrow keys) to work even when the iframe
- * has focus (e.g., after clicking inside the chapter content).
+ * This allows keyboard navigation (arrow keys, j/k vim keys) to work even
+ * when the iframe has focus (e.g., after clicking inside the chapter content).
  *
  * - ArrowLeft/ArrowRight: forwarded for chapter navigation
  * - ArrowUp/ArrowDown: forwarded for scroll control, with default prevented
  *   to avoid double-scrolling (parent handles smooth scrolling)
+ * - j/k: forwarded for vim-like scroll control
+ * - keyup: forwarded so parent can stop smooth scrolling when key is released
  */
 export const KEYBOARD_FORWARDER_SCRIPT = `
 <script>
 (function() {
+  var FORWARD_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'j', 'k'];
+
   window.addEventListener('keydown', function(e) {
-    // Only forward arrow keys used for navigation
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
-        e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      // Prevent native scroll for up/down — parent handles smooth scrolling
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-      }
-      window.parent.postMessage({
-        type: 'keydown',
-        key: e.key
-      }, '*');
+    if (FORWARD_KEYS.indexOf(e.key) === -1) return;
+
+    // Prevent native scroll for arrow up/down — parent handles smooth scrolling
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
     }
+
+    window.parent.postMessage({
+      type: 'iframe-keydown',
+      key: e.key
+    }, '*');
+  });
+
+  window.addEventListener('keyup', function(e) {
+    if (FORWARD_KEYS.indexOf(e.key) === -1) return;
+
+    window.parent.postMessage({
+      type: 'iframe-keyup',
+      key: e.key
+    }, '*');
   });
 })();
 </script>`;

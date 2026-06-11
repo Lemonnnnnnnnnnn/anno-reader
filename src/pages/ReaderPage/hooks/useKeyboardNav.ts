@@ -14,7 +14,7 @@ import type { ParsedEpub } from "@/lib/epub";
 
 /** Message shape posted from the iframe keyboard forwarder script */
 export interface KeyboardMessage {
-  type: "keydown";
+  type: "iframe-keydown";
   key: string;
 }
 
@@ -130,7 +130,7 @@ export function useKeyboardNav(parsedEpub: ParsedEpub | null) {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const data = event.data as KeyboardMessage | undefined;
-      if (!data || data.type !== "keydown") return;
+      if (!data || data.type !== "iframe-keydown") return;
 
       if (data.key === "ArrowLeft" || data.key === "ArrowRight") {
         handleNavigation(data.key);

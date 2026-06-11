@@ -179,17 +179,22 @@ export function useVimScroll(
       }
     };
 
-    // Handle arrow keys forwarded from iframe via postMessage
+    // Handle keys forwarded from iframe via postMessage
     const handleMessage = (e: MessageEvent) => {
-      if (e.data?.type !== "keydown") return;
+      if (e.data?.type === "iframe-keydown") {
+        const scroller = getScroller();
+        if (!scroller) return;
 
-      const scroller = getScroller();
-      if (!scroller) return;
-
-      if (e.data.key === "ArrowDown") {
-        scroller.scrollDown();
-      } else if (e.data.key === "ArrowUp") {
-        scroller.scrollUp();
+        if (e.data.key === "ArrowDown" || e.data.key === "j") {
+          scroller.scrollDown();
+        } else if (e.data.key === "ArrowUp" || e.data.key === "k") {
+          scroller.scrollUp();
+        }
+      } else if (e.data?.type === "iframe-keyup") {
+        if (e.data.key === "ArrowUp" || e.data.key === "ArrowDown" ||
+            e.data.key === "j" || e.data.key === "k") {
+          scrollerRef.current?.stopScroll();
+        }
       }
     };
 
