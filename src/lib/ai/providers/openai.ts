@@ -9,18 +9,24 @@ import type {
 } from "../service";
 import { AIServiceError } from "../service";
 import { AIErrorHandler } from "../error-handler";
+import { createProxyFetch } from "@/lib/proxy/fetch";
+import { useProxyConfigStore } from "@/stores/useProxyConfigStore";
 
 const errorHandler = new AIErrorHandler();
 
 /**
  * Create an AI SDK provider instance from our config shape.
- * Reused per-call to pick up any config changes.
+ * Reused per-call to pick up any config changes, including proxy settings.
  */
 function createProvider(config: AIProvider) {
+  const { enabled, address, port } = useProxyConfigStore.getState();
+  const proxyFetch = createProxyFetch({ enabled, address, port });
+
   return createOpenAICompatible({
     name: config.name,
     baseURL: config.baseUrl,
     apiKey: config.apiKey,
+    fetch: proxyFetch,
   });
 }
 
@@ -204,7 +210,10 @@ export class OpenAIProvider implements AITranslationService {
 
   async testConnection(provider: AIProvider): Promise<boolean> {
     try {
-      const response = await fetch(`${provider.baseUrl}/models`, {
+      const { enabled, address, port } = useProxyConfigStore.getState();
+      const proxyFetch = createProxyFetch({ enabled, address, port });
+
+      const response = await proxyFetch(`${provider.baseUrl}/models`, {
         headers: {
           Authorization: `Bearer ${provider.apiKey}`,
         },

@@ -13,7 +13,7 @@
 
 import { useState, useCallback } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { writeConfig, ensureDataSubdirs } from "@/lib/storage/config";
+import { writeConfig, ensureDataSubdirs, DEFAULT_CONFIG } from "@/lib/storage/config";
 import { Button, ErrorBanner } from "@/components/primitives";
 import { Folder } from "lucide-react";
 
@@ -38,7 +38,7 @@ export function DataDirSetup({ onComplete }: { onComplete: () => void }) {
         return;
       }
 
-      await writeConfig({ dataDir: selected });
+      await writeConfig({ ...DEFAULT_CONFIG, dataDir: selected });
       await ensureDataSubdirs(selected);
 
       onComplete();

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/primitives";
+import { ProxySection } from "./ProxySection";
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export function SettingsPage() {
       {/* Content */}
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-[600px] mx-auto flex flex-col gap-6">
+          <ProxySection />
           <button
             onClick={() => navigate("/ai-config")}
             className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"

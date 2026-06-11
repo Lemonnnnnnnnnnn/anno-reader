@@ -116,11 +116,13 @@ describe("OpenAIProvider", () => {
 
       await provider.translate(mockRequest, mockProvider);
 
-      expect(createOpenAICompatible).toHaveBeenCalledWith({
-        name: "Test OpenAI",
-        baseURL: "https://api.openai.com/v1",
-        apiKey: "sk-test-key",
-      });
+      expect(createOpenAICompatible).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Test OpenAI",
+          baseURL: "https://api.openai.com/v1",
+          apiKey: "sk-test-key",
+        }),
+      );
       expect(mockChatModel).toHaveBeenCalledWith("gpt-4o");
     });
 

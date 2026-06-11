@@ -12,14 +12,27 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { appLocalDataDir } from "@tauri-apps/api/path";
 
+/** Proxy settings for network requests. */
+export interface ProxyConfig {
+  enabled: boolean;
+  address: string;
+  port: string;
+}
+
 /** App configuration — user-selected data directory. */
 export interface AppConfig {
   dataDir: string;
+  proxy: ProxyConfig;
 }
 
 /** Default configuration — used to fill missing fields for backward compatibility. */
 export const DEFAULT_CONFIG: AppConfig = {
   dataDir: "",
+  proxy: {
+    enabled: false,
+    address: "",
+    port: "",
+  },
 };
 
 /** Configuration filename within appLocalDataDir */
@@ -43,7 +56,11 @@ export async function readConfig(): Promise<AppConfig | null> {
   const json = await readTextFile(configPath);
   try {
     const parsed = JSON.parse(json) as Partial<AppConfig>;
-    return { ...DEFAULT_CONFIG, ...parsed };
+    return {
+      ...DEFAULT_CONFIG,
+      ...parsed,
+      proxy: { ...DEFAULT_CONFIG.proxy, ...parsed.proxy },
+    };
   } catch {
     return null;
   }
