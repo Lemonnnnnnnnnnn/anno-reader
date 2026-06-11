@@ -12,6 +12,10 @@ import {
   validateProxyConfig,
   type ProxyValidationError,
 } from "@/lib/proxy/validation";
+import { createProxyFetch } from "@/lib/proxy/fetch";
+
+/** URL used to test proxy connectivity. */
+const PROXY_TEST_URL = "http://www.gstatic.com/generate_204";
 
 export function ProxySection() {
   const { enabled, address, port, isLoaded, setEnabled, setAddress, setPort, loadConfig } =
@@ -47,9 +51,17 @@ export function ProxySection() {
       if (enabled) {
         const proxyUrl = `http://${address.trim()}:${port.trim()}`;
         try {
+          const testFetch = createProxyFetch({
+            enabled: true,
+            address: address.trim(),
+            port: port.trim(),
+          });
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 5000);
-          await fetch(proxyUrl, { method: "HEAD", signal: controller.signal });
+          await testFetch(PROXY_TEST_URL, {
+            method: "HEAD",
+            signal: controller.signal,
+          });
           clearTimeout(timeout);
         } catch {
           setProxyError(

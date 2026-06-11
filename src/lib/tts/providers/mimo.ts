@@ -8,6 +8,7 @@ import type { TTSService } from "../service";
 import { TTSServiceError } from "../service";
 import { classifyError } from "../error-handler";
 import { MIMO_VOICES } from "../constants";
+import { proxyFetch } from "@/lib/proxy/fetch";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -46,7 +47,7 @@ export class MiMoProvider implements TTSService {
     provider: TTSProvider,
   ): Promise<SynthesizeResponse> {
     try {
-      const response = await fetch(MIMO_API_URL, {
+      const response = await proxyFetch(MIMO_API_URL, {
         method: "POST",
         headers: {
           "api-key": provider.apiKey ?? "",

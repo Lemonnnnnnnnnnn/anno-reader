@@ -4,9 +4,14 @@
  * Routes requests through a proxy when enabled, using tauriFetch from
  * @tauri-apps/plugin-http. Falls back to standard browser fetch when
  * proxy is disabled.
+ *
+ * Usage:
+ *   import { proxyFetch } from "@/lib/proxy/fetch";
+ *   const response = await proxyFetch("https://api.example.com");
  */
 
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
+import { useProxyConfigStore } from "@/stores/useProxyConfigStore";
 import type { ProxyConfig } from "../storage/config";
 
 /**
@@ -60,4 +65,23 @@ export function createProxyFetch(proxyConfig: ProxyConfig): typeof fetch {
   };
 
   return proxyFetch;
+}
+
+/**
+ * Convenience fetch that reads proxy config from the store automatically.
+ *
+ * Use this as a drop-in replacement for `fetch()` — it routes through
+ * the proxy when enabled, falls back to browser fetch when disabled.
+ *
+ * @example
+ *   import { proxyFetch } from "@/lib/proxy/fetch";
+ *   const response = await proxyFetch("https://api.example.com/data");
+ */
+export async function proxyFetch(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+): Promise<Response> {
+  const { enabled, address, port } = useProxyConfigStore.getState();
+  const fetchFn = createProxyFetch({ enabled, address, port });
+  return fetchFn(input, init);
 }
