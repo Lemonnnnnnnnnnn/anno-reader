@@ -7,7 +7,7 @@
 
 import type { EpubResource } from "epubix";
 import type { ResolvedImage, ImageResolutionOptions, ImageCacheEntry } from "./types";
-import { findResourceByHref, normalizePath, resolveRelativePath, extractFilename as extractFilenameBase } from "@/lib/epub/resource-resolver";
+import { findResourceByHref, normalizePath, resolveRelativePath } from "@/lib/epub/resource-resolver";
 
 /** Regex to match <img> tags and capture src attribute */
 const IMG_TAG_RE = /<img[^>]+src\s*=\s*["']([^"']+)["'][^>]*>/gi;
