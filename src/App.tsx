@@ -7,13 +7,16 @@ import { ReaderPage } from "./pages/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AIConfigPage } from "./pages/AIConfigPage";
 import { useAIConfigStore } from "./stores/useAIConfigStore";
+import { useProxyConfigStore } from "./stores/useProxyConfigStore";
 
 function App() {
-  const loadConfig = useAIConfigStore((s) => s.loadConfig);
+  const loadAIConfig = useAIConfigStore((s) => s.loadConfig);
+  const loadProxyConfig = useProxyConfigStore((s) => s.loadConfig);
 
   useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
+    loadAIConfig();
+    loadProxyConfig();
+  }, [loadAIConfig, loadProxyConfig]);
 
   return (
     <ErrorBoundary>

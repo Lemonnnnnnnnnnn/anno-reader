@@ -37,6 +37,10 @@ import { APICallError } from "ai";
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
+vi.mock("@tauri-apps/plugin-http", () => ({
+  fetch: (...args: unknown[]) => mockFetch(...args),
+}));
+
 // --- Test fixtures ---
 
 const mockProvider: AIProvider = {

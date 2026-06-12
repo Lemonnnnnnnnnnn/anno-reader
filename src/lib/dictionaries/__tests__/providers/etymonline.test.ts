@@ -24,6 +24,10 @@ import type { DictionaryConfig } from "../../types";
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
+vi.mock("@tauri-apps/plugin-http", () => ({
+  fetch: (...args: unknown[]) => mockFetch(...args),
+}));
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

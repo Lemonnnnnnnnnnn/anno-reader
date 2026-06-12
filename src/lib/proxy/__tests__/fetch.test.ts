@@ -1,14 +1,13 @@
 /**
- * Tests for createProxyFetch — proxy-aware fetch wrapper.
+ * Tests for createProxyFetch — tauri-aware fetch wrapper.
  *
  * Comprehensive test suite covering all code paths:
- * - Proxy disabled: returns standard browser fetch
- * - Proxy enabled: returns proxy-aware fetch via tauriFetch
+ * - Proxy disabled: returns tauriFetch without proxy config
+ * - Proxy enabled: returns tauriFetch with proxy config
  * - Proxy URL construction: http://address:port
- * - Error handling: tauriFetch failures, non-Error throws
- * - Non-Tauri environment fallback
+ * - Error handling: tauriFetch failures
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { ProxyConfig } from "../../storage/config";
 
 // --- Mocks ---
@@ -22,17 +21,6 @@ vi.mock("@tauri-apps/plugin-http", () => ({
 // Import AFTER vi.mock so it gets the mocked version
 
 import { createProxyFetch } from "../fetch";
-
-// --- Helpers ---
-
-/** Set or clear the Tauri runtime marker on window. */
-function setTauriEnvironment(isTauri: boolean) {
-  if (isTauri) {
-    (window as Record<string, unknown>).__TAURI_INTERNALS__ = {};
-  } else {
-    delete (window as Record<string, unknown>).__TAURI_INTERNALS__;
-  }
-}
 
 // --- Fixtures ---
 
@@ -66,85 +54,49 @@ const emptyEnabledConfig: ProxyConfig = {
   port: "",
 };
 
-const unreachableProxyConfig: ProxyConfig = {
-  enabled: true,
-  address: "unreachable.proxy",
-  port: "8080",
-};
-
 // --- Tests ---
 
 describe("createProxyFetch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setTauriEnvironment(true);
-  });
-
-  afterEach(() => {
-    delete (window as Record<string, unknown>).__TAURI_INTERNALS__;
   });
 
   // =========================================================================
   // Proxy disabled
   // =========================================================================
   describe("proxy disabled", () => {
-    it("should return a function (standard browser fetch)", () => {
+    it("should return a function", () => {
       const fetchFn = createProxyFetch(disabledConfig);
 
       expect(typeof fetchFn).toBe("function");
     });
 
-    it("should not call tauriFetch when proxy is disabled", () => {
-      createProxyFetch(disabledConfig);
+    it("should call tauriFetch without proxy config when disabled", async () => {
+      mockTauriFetch.mockResolvedValue(new Response("ok"));
 
-      expect(mockTauriFetch).not.toHaveBeenCalled();
+      const fetchFn = createProxyFetch(disabledConfig);
+      await fetchFn("https://example.com");
+
+      expect(mockTauriFetch).toHaveBeenCalledTimes(1);
+      expect(mockTauriFetch.mock.calls[0][0]).toBe("https://example.com");
     });
 
-    it("should not route through tauriFetch even with address/port set", () => {
-      createProxyFetch(disabledWithAddress);
+    it("should not route through proxy even with address/port set", async () => {
+      mockTauriFetch.mockResolvedValue(new Response("ok"));
 
-      expect(mockTauriFetch).not.toHaveBeenCalled();
-    });
-  });
+      const fetchFn = createProxyFetch(disabledWithAddress);
+      await fetchFn("https://example.com");
 
-  // =========================================================================
-  // Proxy enabled — non-Tauri environment
-  // =========================================================================
-  describe("proxy enabled but not in Tauri runtime", () => {
-    beforeEach(() => {
-      setTauriEnvironment(false);
-    });
-
-    it("should fall back to browser fetch with console warning", () => {
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      const fetchFn = createProxyFetch(enabledConfig);
-
-      expect(typeof fetchFn).toBe("function");
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("not running in Tauri"),
-      );
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("falling back to browser fetch"),
-      );
-
-      warnSpy.mockRestore();
-    });
-
-    it("should not call tauriFetch when not in Tauri", () => {
-      vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      createProxyFetch(enabledConfig);
-
-      expect(mockTauriFetch).not.toHaveBeenCalled();
+      expect(mockTauriFetch).toHaveBeenCalledTimes(1);
+      expect(mockTauriFetch.mock.calls[0][0]).toBe("https://example.com");
     });
   });
 
   // =========================================================================
-  // Proxy enabled — Tauri runtime
+  // Proxy enabled
   // =========================================================================
-  describe("proxy enabled in Tauri runtime", () => {
-    it("should call tauriFetch instead of browser fetch", async () => {
+  describe("proxy enabled", () => {
+    it("should call tauriFetch with proxy config", async () => {
       mockTauriFetch.mockResolvedValue(new Response("proxied"));
 
       const fetchFn = createProxyFetch(enabledConfig);
@@ -278,60 +230,34 @@ describe("createProxyFetch", () => {
   // Error handling
   // =========================================================================
   describe("error handling", () => {
-    it("should wrap tauriFetch errors with proxy URL", async () => {
+    it("should propagate tauriFetch errors", async () => {
       mockTauriFetch.mockRejectedValue(new Error("ECONNREFUSED"));
 
       const fetchFn = createProxyFetch(enabledConfig);
 
       await expect(
         fetchFn("https://example.com"),
-      ).rejects.toThrow(
-        "Proxy request failed (http://127.0.0.1:8080): ECONNREFUSED",
-      );
+      ).rejects.toThrow("ECONNREFUSED");
     });
 
-    it("should wrap non-Error throws with String conversion", async () => {
+    it("should propagate non-Error throws", async () => {
       mockTauriFetch.mockRejectedValue("string error");
 
       const fetchFn = createProxyFetch(enabledConfig);
 
       await expect(
         fetchFn("https://example.com"),
-      ).rejects.toThrow(
-        "Proxy request failed (http://127.0.0.1:8080): string error",
-      );
+      ).rejects.toBe("string error");
     });
 
-    it("should include proxy URL for unreachable proxy", async () => {
-      mockTauriFetch.mockRejectedValue(
-        new Error("connect EHOSTUNREACH 10.0.0.1:9090"),
-      );
+    it("should propagate errors when proxy is disabled", async () => {
+      mockTauriFetch.mockRejectedValue(new Error("Network error"));
 
-      const fetchFn = createProxyFetch({
-        enabled: true,
-        address: "10.0.0.1",
-        port: "9090",
-      });
+      const fetchFn = createProxyFetch(disabledConfig);
 
       await expect(
         fetchFn("https://example.com"),
-      ).rejects.toThrow(
-        "Proxy request failed (http://10.0.0.1:9090)",
-      );
-    });
-
-    it("should throw an Error instance (not raw value)", async () => {
-      mockTauriFetch.mockRejectedValue(new TypeError("Network error"));
-
-      const fetchFn = createProxyFetch(enabledConfig);
-
-      try {
-        await fetchFn("https://example.com");
-        expect.fail("Should have thrown");
-      } catch (error) {
-        expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toContain("Proxy request failed");
-      }
+      ).rejects.toThrow("Network error");
     });
   });
 });
