@@ -7,6 +7,7 @@
 
 import type { EpubStyleSheet } from "./types";
 import type { EpubResource } from "epubix";
+import { findResourceByHref, normalizePath } from "@/lib/epub/resource-resolver";
 
 /**
  * Extract all CSS from a chapter's HTML content and EPUB resources.
@@ -19,6 +20,7 @@ import type { EpubResource } from "epubix";
  * @param resources - The EPUB's resource map (from epub.resources)
  * @param chapterHref - The chapter's href for resolving relative paths (e.g., "Text/chapter1.xhtml")
  * @param opfFolder - The OPF base folder for path resolution (e.g., "OEBPS/")
+ * @param manifestHrefs - Map from normalized file path to manifest resource ID
  * @returns Array of extracted stylesheets
  */
 export function extractCssFromChapter(
@@ -26,6 +28,7 @@ export function extractCssFromChapter(
   resources: Record<string, EpubResource>,
   chapterHref: string,
   opfFolder: string,
+  manifestHrefs: Record<string, string> = {},
 ): EpubStyleSheet[] {
   const stylesheets: EpubStyleSheet[] = [];
 
@@ -34,7 +37,7 @@ export function extractCssFromChapter(
   stylesheets.push(...inlineStyles);
 
   // Extract external <link> stylesheet references
-  const externalStyles = extractExternalStyles(htmlContent, resources, chapterHref, opfFolder);
+  const externalStyles = extractExternalStyles(htmlContent, resources, chapterHref, opfFolder, manifestHrefs);
   stylesheets.push(...externalStyles);
 
   return stylesheets;
@@ -48,6 +51,7 @@ export function extractCssFromChapter(
  * @param resources - The EPUB's resource map
  * @param chapterHref - The chapter's href for resolving relative paths
  * @param opfFolder - The OPF base folder
+ * @param manifestHrefs - Map from normalized file path to manifest resource ID
  * @returns Array of CSS content strings
  */
 export function extractCssStrings(
@@ -55,8 +59,9 @@ export function extractCssStrings(
   resources: Record<string, EpubResource>,
   chapterHref: string,
   opfFolder: string,
+  manifestHrefs: Record<string, string> = {},
 ): string[] {
-  return extractCssFromChapter(htmlContent, resources, chapterHref, opfFolder).map(
+  return extractCssFromChapter(htmlContent, resources, chapterHref, opfFolder, manifestHrefs).map(
     (s) => s.content,
   );
 }
@@ -128,6 +133,7 @@ function extractExternalStyles(
   resources: Record<string, EpubResource>,
   chapterHref: string,
   opfFolder: string,
+  manifestHrefs: Record<string, string>,
 ): EpubStyleSheet[] {
   const styles: EpubStyleSheet[] = [];
   const seenHrefs = new Set<string>();
@@ -136,12 +142,12 @@ function extractExternalStyles(
   const hrefs = collectStylesheetHrefs(htmlContent);
 
   for (const href of hrefs) {
-    const normalizedHref = normalizeHref(href);
+    const normalizedHref = normalizePath(href);
     if (seenHrefs.has(normalizedHref)) continue;
     seenHrefs.add(normalizedHref);
 
     // Try to find the CSS content in resources
-    const cssContent = resolveCssFromResources(href, resources, chapterHref, opfFolder);
+    const cssContent = resolveCssFromResources(href, resources, chapterHref, opfFolder, manifestHrefs);
     if (cssContent) {
       styles.push({
         href: normalizedHref,
@@ -178,98 +184,27 @@ function collectStylesheetHrefs(htmlContent: string): string[] {
 
 /**
  * Resolve a CSS href to its content from EPUB resources.
- * Tries multiple resolution strategies:
- * 1. Direct match by resource ID
- * 2. Match by normalized path
- * 3. Match against href field in manifest
+ * Uses the common findResourceByHref utility for reliable resolution.
  */
 function resolveCssFromResources(
   cssHref: string,
   resources: Record<string, EpubResource>,
   chapterHref: string,
   opfFolder: string,
+  manifestHrefs: Record<string, string>,
 ): string | null {
-  const normalizedCssPath = normalizeHref(cssHref);
-  const resolvedPath = resolveRelativeHref(cssHref, chapterHref, opfFolder);
+  const resource = findResourceByHref(
+    cssHref,
+    resources,
+    chapterHref,
+    opfFolder,
+    manifestHrefs,
+    "text/css",
+  );
 
-  for (const [_id, resource] of Object.entries(resources)) {
-    if (resource.type !== "text/css" || typeof resource.content !== "string") continue;
-
-    // Strategy 1: Direct ID match
-    if (resource.id === normalizedCssPath || resource.id === cssHref) {
-      return resource.content;
-    }
-
-    // Strategy 2: Normalized path match against resource ID
-    if (normalizeHref(resource.id) === normalizedCssPath) {
-      return resource.content;
-    }
-
-    // Strategy 3: Match against resolved absolute path
-    if (resolvedPath && normalizeHref(resource.id) === normalizeHref(resolvedPath)) {
-      return resource.content;
-    }
+  if (resource && typeof resource.content === "string") {
+    return resource.content;
   }
 
   return null;
-}
-
-/**
- * Resolve a relative href against a chapter's location within the EPUB.
- *
- * @example
- * resolveRelativeHref("../Styles/main.css", "Text/chapter1.xhtml", "OEBPS/")
- * // → "OEBPS/Styles/main.css"
- */
-function resolveRelativeHref(
-  cssHref: string,
-  chapterHref: string,
-  opfFolder: string,
-): string | null {
-  // If already absolute (starts with /), use as-is
-  if (cssHref.startsWith("/")) {
-    return cssHref.slice(1);
-  }
-
-  // Get the directory of the chapter within the OPF folder
-  const chapterDir = chapterHref.includes("/")
-    ? chapterHref.substring(0, chapterHref.lastIndexOf("/"))
-    : "";
-
-  // Resolve relative path
-  const baseDir = chapterDir ? `${opfFolder}${chapterDir}` : opfFolder;
-  const resolved = resolvePath(baseDir, cssHref);
-
-  return resolved;
-}
-
-/**
- * Simple path resolution for EPUB internal paths.
- * Handles ./ and ../ segments.
- */
-function resolvePath(base: string, relative: string): string {
-  // Combine base and relative
-  const combined = base.endsWith("/") ? `${base}${relative}` : `${base}/${relative}`;
-
-  // Split into segments and resolve
-  const segments = combined.split("/");
-  const resolved: string[] = [];
-
-  for (const segment of segments) {
-    if (segment === "." || segment === "") continue;
-    if (segment === "..") {
-      resolved.pop();
-    } else {
-      resolved.push(segment);
-    }
-  }
-
-  return resolved.join("/");
-}
-
-/**
- * Normalize an href for comparison (strip leading ./ and ../, lowercase).
- */
-function normalizeHref(href: string): string {
-  return href.replace(/^(\.\.?\/)+/, "").toLowerCase();
 }

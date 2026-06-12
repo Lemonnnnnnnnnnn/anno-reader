@@ -7,6 +7,7 @@
 
 import type { EpubResource } from "epubix";
 import type { ResolvedImage, ImageResolutionOptions, ImageCacheEntry } from "./types";
+import { findResourceByHref, normalizePath, resolveRelativePath, extractFilename as extractFilenameBase } from "@/lib/epub/resource-resolver";
 
 /** Regex to match <img> tags and capture src attribute */
 const IMG_TAG_RE = /<img[^>]+src\s*=\s*["']([^"']+)["'][^>]*>/gi;
@@ -86,7 +87,7 @@ export function resolveImagePaths(
 
 /**
  * Resolve a single image path against EPUB resources.
- * Tries multiple resolution strategies similar to CSS resolution.
+ * Uses common resource resolution plus image-specific fallback strategies.
  *
  * @param src - The image src attribute value
  * @param resources - EPUB resource map
@@ -117,56 +118,19 @@ export function resolveImageFromResources(
     };
   }
 
-  // Strategy 0: Use manifest href mapping to find resource by path
-  // This is the most reliable method when available
-  if (resolvedPath) {
-    const normalizedResolved = normalizePath(resolvedPath);
-    const resourceId = manifestHrefs[normalizedResolved] || manifestHrefs[normalizedSrc];
-    if (resourceId && resources[resourceId]) {
-      const resource = resources[resourceId];
-      if (resource.type.startsWith("image/")) {
-        const result = buildDataUrlFromResource(resource);
-        if (result) {
-          addToCache(cacheKey, result.dataUrl, result.mimeType);
-          return { originalSrc: src, ...result, resolved: true };
-        }
-      }
+  // Strategy 0-3: Use common resource resolution (most reliable)
+  const resource = findResourceByHref(src, resources, chapterHref, opfFolder, manifestHrefs, "image/");
+  if (resource) {
+    const result = buildDataUrlFromResource(resource);
+    if (result) {
+      addToCache(cacheKey, result.dataUrl, result.mimeType);
+      return { originalSrc: src, ...result, resolved: true };
     }
   }
 
-  // Search through resources for image match
+  // Strategy 4-5: Image-specific fallback strategies
   for (const [_id, resource] of Object.entries(resources)) {
-    // Only process image resources
-    if (!resource.type.startsWith("image/")) {
-      continue;
-    }
-
-    // Strategy 1: Direct ID match
-    if (resource.id === normalizedSrc || resource.id === src) {
-      const result = buildDataUrlFromResource(resource);
-      if (result) {
-        addToCache(cacheKey, result.dataUrl, result.mimeType);
-        return { originalSrc: src, ...result, resolved: true };
-      }
-    }
-
-    // Strategy 2: Normalized path match
-    if (normalizePath(resource.id) === normalizedSrc) {
-      const result = buildDataUrlFromResource(resource);
-      if (result) {
-        addToCache(cacheKey, result.dataUrl, result.mimeType);
-        return { originalSrc: src, ...result, resolved: true };
-      }
-    }
-
-    // Strategy 3: Match against resolved absolute path
-    if (resolvedPath && normalizePath(resource.id) === normalizePath(resolvedPath)) {
-      const result = buildDataUrlFromResource(resource);
-      if (result) {
-        addToCache(cacheKey, result.dataUrl, result.mimeType);
-        return { originalSrc: src, ...result, resolved: true };
-      }
-    }
+    if (!resource.type.startsWith("image/")) continue;
 
     // Strategy 4: Filename match — resource ID often equals the filename
     // e.g., resource.id="cover.jpg" should match resolvedPath="OEBPS/images/cover.jpg"
@@ -306,59 +270,14 @@ function extractImageSrcs(htmlContent: string): string[] {
   return srcs;
 }
 
-/** Resolve a relative path against chapter location within EPUB */
-function resolveRelativePath(
-  src: string,
-  chapterHref: string,
-  opfFolder: string,
-): string | null {
-  // If already absolute (starts with /), use as-is
-  if (src.startsWith("/")) {
-    return src.slice(1);
-  }
-
-  // Get the directory of the chapter within the OPF folder
-  const chapterDir = chapterHref.includes("/")
-    ? chapterHref.substring(0, chapterHref.lastIndexOf("/"))
-    : "";
-
-  // Resolve relative path
-  const baseDir = chapterDir ? `${opfFolder}${chapterDir}` : opfFolder;
-  return resolvePath(baseDir, src);
-}
-
-/** Simple path resolution for EPUB internal paths */
-function resolvePath(base: string, relative: string): string {
-  // Combine base and relative
-  const combined = base.endsWith("/") ? `${base}${relative}` : `${base}/${relative}`;
-
-  // Split into segments and resolve
-  const segments = combined.split("/");
-  const resolved: string[] = [];
-
-  for (const segment of segments) {
-    if (segment === "." || segment === "") continue;
-    if (segment === "..") {
-      resolved.pop();
-    } else {
-      resolved.push(segment);
-    }
-  }
-
-  return resolved.join("/");
-}
-
-/** Normalize a path for comparison */
-function normalizePath(path: string): string {
-  return path.replace(/^(\.\.?\/)+/, "").toLowerCase();
-}
-
-/** Extract filename from a path (without extension) */
+/**
+ * Extract filename from a path (with extension).
+ * Wraps the base utility to keep the original behavior for image matching.
+ */
 function extractFilename(path: string): string | null {
   if (!path) return null;
   const parts = path.split("/");
-  const filename = parts[parts.length - 1];
-  return filename || null;
+  return parts[parts.length - 1] || null;
 }
 
 /** Convert ArrayBuffer to base64 string */

@@ -21,3 +21,12 @@ export type {
   ParsedEpub,
   LoadEpubOptions,
 } from "./types";
+
+// Resource resolution utilities (shared by CSS, images, fonts)
+export {
+  normalizePath,
+  resolveRelativePath,
+  resolvePath,
+  findResourceByHref,
+  extractFilename,
+} from "./resource-resolver";

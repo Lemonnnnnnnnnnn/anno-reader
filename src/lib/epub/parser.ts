@@ -7,6 +7,7 @@ import type {
   LoadEpubOptions,
 } from "./types";
 import { extractCssStrings } from "@/lib/css/extract";
+import { normalizePath } from "./resource-resolver";
 
 // Re-export types for convenience
 export type {
@@ -43,11 +44,11 @@ export async function loadEpub(
 
   const metadata = extractMetadata(epub);
   const coverUrl = await extractCover(epub);
-  const chapters = extractContent ? extractChapters(epub) : [];
   const toc = extractToc(epub);
   const resources = epub.resources;
   const opfFolder = epub.opfFolder || "";
   const manifestHrefs = await extractManifestHrefs(epub);
+  const chapters = extractContent ? extractChapters(epub, manifestHrefs) : [];
 
   return { metadata, coverUrl, chapters, toc, resources, opfFolder, manifestHrefs };
 }
@@ -123,7 +124,7 @@ export async function extractCover(epub: Epub): Promise<string | null> {
  * Extract all chapters from a loaded EPUB in spine (reading) order.
  * Also extracts CSS content for each chapter from linked stylesheets and inline styles.
  */
-export function extractChapters(epub: Epub): EpubChapterInfo[] {
+export function extractChapters(epub: Epub, manifestHrefs: Record<string, string> = {}): EpubChapterInfo[] {
   const opfFolder = epub.opfFolder || "";
 
   return epub.chapters.map((ch) => {
@@ -132,6 +133,7 @@ export function extractChapters(epub: Epub): EpubChapterInfo[] {
       epub.resources,
       ch.href,
       opfFolder,
+      manifestHrefs,
     );
 
     return {
@@ -158,11 +160,13 @@ export function extractToc(epub: Epub): EpubTocEntry[] {
  *
  * @param epub - A loaded Epub instance
  * @param href - The href from a TOC entry (may include fragment, e.g., "chapter1.html#section2")
+ * @param manifestHrefs - Map from normalized file path to manifest resource ID
  * @returns The matching chapter and fragment, or null if not found
  */
 export function resolveHref(
   epub: Epub,
-  href: string
+  href: string,
+  manifestHrefs: Record<string, string> = {},
 ): { chapter: EpubChapterInfo | null; fragment: string | null } {
   const { path, fragment } = splitHref(href);
   const opfFolder = epub.opfFolder || "";
@@ -176,6 +180,7 @@ export function resolveHref(
         epub.resources,
         result.chapter.href,
         opfFolder,
+        manifestHrefs,
       );
 
       return {
@@ -202,6 +207,7 @@ export function resolveHref(
         epub.resources,
         ch.href,
         opfFolder,
+        manifestHrefs,
       );
 
       return {
@@ -309,9 +315,4 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
-}
-
-/** Normalize a path for comparison (strip leading ./ and ../) */
-function normalizePath(path: string): string {
-  return path.replace(/^\.?\.?\//, "").toLowerCase();
 }
