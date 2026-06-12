@@ -104,16 +104,21 @@ export function buildReaderOverrides(
     return `
       ${layoutOverrides}
 
-      /* Dark theme overrides - forces dark colors over hardcoded EPUB styles */
-      body {
-        color: #e5e5e5 !important;
-        background: #1a1a1a !important;
+      /* Dark theme: invert colors via CSS filter */
+      .epub-content {
+        filter: invert(1) hue-rotate(180deg);
       }
 
-      p, h1, h2, h3, h4, h5, h6, span, a, li, td, th, div {
-        color: #e5e5e5 !important;
+      /* Re-invert media elements to restore original colors */
+      .epub-content img,
+      .epub-content video,
+      .epub-content svg,
+      .epub-content canvas,
+      .epub-content [style*="background-image"] {
+        filter: invert(1) hue-rotate(180deg);
       }
 
+      /* Keep annotation highlights readable */
       .anno-highlight {
         color: #1a1a1a !important;
       }

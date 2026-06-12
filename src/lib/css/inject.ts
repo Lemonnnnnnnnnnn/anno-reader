@@ -30,7 +30,6 @@ export const DEFAULT_BASE_CSS = `
     font-size: 18px;
     line-height: 1.8;
     color: #1a1a1a;
-    background: #fafafa;
     max-width: 700px;
     margin-left: auto;
     margin-right: auto;
@@ -136,8 +135,9 @@ export function buildSrcdoc(
     theme = "light",
   } = options;
 
-  // Select base CSS: explicit override wins, otherwise theme-based selection
-  const baseCss = explicitBaseCss ?? (theme === "dark" ? DARK_BASE_CSS : DEFAULT_BASE_CSS);
+  // Select base CSS: explicit override wins, otherwise always use DEFAULT_BASE_CSS
+  // Dark mode uses CSS filter inversion (in buildReaderOverrides), so no need for separate dark base CSS
+  const baseCss = explicitBaseCss ?? DEFAULT_BASE_CSS;
 
   // Process EPUB CSS
   const processedEpubCss = epubCss.map((css) =>
