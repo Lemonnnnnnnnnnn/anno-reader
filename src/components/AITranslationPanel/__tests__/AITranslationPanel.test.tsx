@@ -26,6 +26,15 @@ const viewDefaults = {
   isTTSAvailable: false,
   isSpeaking: false,
   onSpeak: vi.fn(),
+  // Chat continuation props
+  chatMode: false,
+  onEnterChat: vi.fn(),
+  onExitChat: vi.fn(),
+  chatMessages: [],
+  chatStreamingText: "",
+  chatStatus: "idle" as const,
+  onChatSend: vi.fn(),
+  onChatStop: vi.fn(),
 };
 
 // Mock external dependencies for the stateful component
@@ -73,6 +82,20 @@ vi.mock("@/hooks/useTTS", () => ({
     speak: vi.fn(),
     stop: vi.fn(),
     isSpeaking: false,
+  }),
+}));
+
+vi.mock("@/lib/chat/streaming", () => ({
+  useChatStreaming: () => ({
+    messages: [],
+    streamingText: "",
+    status: "idle",
+    error: null,
+    errorCode: null,
+    sendChatMessage: vi.fn(),
+    stopStreaming: vi.fn(),
+    clearMessages: vi.fn(),
+    reset: vi.fn(),
   }),
 }));
 

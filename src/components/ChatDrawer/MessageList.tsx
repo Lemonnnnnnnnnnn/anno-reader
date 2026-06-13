@@ -12,9 +12,10 @@
  * ```
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Copy, Check } from "lucide-react";
 import type { ChatMessage } from "@/lib/chat/types";
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,13 @@ function formatTimestamp(createdAt: number): string {
  */
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(message.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [message.content]);
 
   return (
     <div className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
@@ -83,10 +91,25 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         )}
       </div>
 
-      {/* Timestamp */}
-      <span className="mt-1 text-[0.72rem] text-text-muted dark:text-text-muted-dark px-1">
-        {formatTimestamp(message.createdAt)}
-      </span>
+      {/* Timestamp + copy button */}
+      <div className={`mt-1 flex items-center gap-1 px-1 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+        <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
+          {formatTimestamp(message.createdAt)}
+        </span>
+        {!isUser && (
+          <button
+            onClick={handleCopy}
+            className="p-0.5 rounded text-text-muted dark:text-text-muted-dark hover:text-text-secondary dark:hover:text-text-secondary-dark transition-colors"
+            title="Copy"
+          >
+            {copied ? (
+              <Check className="h-3 w-3 text-green-500" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

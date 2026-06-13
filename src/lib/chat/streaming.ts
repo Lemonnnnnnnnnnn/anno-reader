@@ -15,6 +15,8 @@ import { streamText, APICallError } from "ai";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 import { AIServiceError, type AIServiceErrorCode } from "@/lib/ai/service";
 import { AIErrorHandler } from "@/lib/ai/error-handler";
+import { createProxyFetch } from "@/lib/proxy/fetch";
+import { useProxyConfigStore } from "@/stores/useProxyConfigStore";
 import type { AIProvider } from "@/lib/ai/types";
 import type { ChatMessage } from "./types";
 
@@ -163,10 +165,14 @@ export async function sendMessage(
   options?: SendMessageOptions,
 ): Promise<SendMessageResult> {
   try {
+    const { enabled, address, port } = useProxyConfigStore.getState();
+    const proxyFetch = createProxyFetch({ enabled, address, port });
+
     const sdkProvider = createOpenAICompatible({
       name: provider.name,
       baseURL: provider.baseUrl,
       apiKey: provider.apiKey,
+      fetch: proxyFetch,
     });
     const model = sdkProvider.chatModel(provider.model);
 
