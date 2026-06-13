@@ -6,6 +6,7 @@ import { BookshelfPage } from "./pages/BookshelfPage";
 import { ReaderPage } from "./pages/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AIConfigPage } from "./pages/AIConfigPage";
+import { WebReaderPage } from "./pages/WebReaderPage";
 import { useAIConfigStore } from "./stores/useAIConfigStore";
 import { useProxyConfigStore } from "./stores/useProxyConfigStore";
 
@@ -26,6 +27,7 @@ function App() {
           <Route path="/reader" element={<ReaderPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/ai-config" element={<AIConfigPage />} />
+          <Route path="/web-reader" element={<WebReaderPage />} />
           <Route path="/" element={<Navigate to="/bookshelf" replace />} />
           <Route path="*" element={<Navigate to="/bookshelf" replace />} />
         </Routes>

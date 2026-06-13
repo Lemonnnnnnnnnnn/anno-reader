@@ -31,6 +31,7 @@ import { AnnotationDetailDrawer } from "../AnnotationDetailDrawer";
 import { HighlightPopover } from "../HighlightPopover";
 import { AITranslationPanel } from "../AITranslationPanel";
 import { injectLinkNavigationScript, type LinkClickMessage } from "@/lib/linkNavigation";
+import type { ContentRef } from "@/lib/content/types";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
 import { injectScrollScript, injectKeyboardScript } from "./hooks/useScrollTracking";
 
@@ -41,8 +42,10 @@ interface VerticalScrollerProps {
   chapterText: string | null;
   /** Current chapter index (triggers scroll restoration on change) */
   chapterIndex: number;
-  /** Current chapter href (for progress tracking) */
-  chapterHref: string;
+  /** Current chapter href (for progress tracking) - optional if contentRef is provided */
+  chapterHref?: string;
+  /** Content reference for unified content identification */
+  contentRef?: ContentRef;
   /** Optional title for the iframe */
   title?: string;
   /** Callback to expose the iframe element ref to parent components */
@@ -62,6 +65,7 @@ export function VerticalScroller({
   chapterText,
   chapterIndex,
   chapterHref,
+  contentRef,
   title,
   onIframeRef,
   onAskAI,
@@ -70,6 +74,14 @@ export function VerticalScroller({
   onLinkBack,
 }: VerticalScrollerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Derive effective ContentRef - prefer contentRef prop, fallback to chapterHref + currentBook.id
+  const currentBook = useBookStore((state) => state.currentBook);
+  const effectiveContentRef: ContentRef = contentRef ?? {
+    collectionId: currentBook?.id ?? "",
+    sourceId: chapterHref ?? "",
+  };
+  const effectiveSourceId = effectiveContentRef.sourceId;
 
   // Annotation popover state
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -85,7 +97,7 @@ export function VerticalScroller({
   useEffect(() => {
     setActiveHighlightId(null);
     setHighlightPosition(null);
-  }, [chapterHref]);
+  }, [effectiveSourceId]);
 
   // Look up the full highlight object from the store
   const activeHighlight = useBookStore((state) =>
@@ -93,7 +105,6 @@ export function VerticalScroller({
       ? state.highlights.find((h) => h.id === activeHighlightId) ?? null
       : null,
   );
-  const currentBook = useBookStore((state) => state.currentBook);
 
   // AI translation panel state
   const [translationPanel, setTranslationPanel] = useState<{
@@ -111,7 +122,7 @@ export function VerticalScroller({
   }, [onLinkClick]);
 
   // Scroll position tracking and restoration
-  const { iframeRef, handleIframeLoad } = useScrollTracking(chapterHref);
+  const { iframeRef, handleIframeLoad } = useScrollTracking(effectiveContentRef);
 
   // Expose iframe ref to parent
   useEffect(() => {
@@ -122,7 +133,7 @@ export function VerticalScroller({
   }, [iframeRef, onIframeRef]);
 
   // Annotation state and synchronization
-  const { annotationScript } = useAnnotationSync(chapterHref, iframeRef);
+  const { annotationScript } = useAnnotationSync(effectiveContentRef, iframeRef);
 
   // Listen for note-click and highlight-click messages from iframe
   useEffect(() => {
@@ -233,7 +244,7 @@ export function VerticalScroller({
       />
       <TextSelectionToolbar
         containerRef={containerRef}
-        chapterHref={chapterHref}
+        chapterHref={effectiveSourceId}
         onTranslate={handleTranslate}
         onAskAI={onAskAI}
       />

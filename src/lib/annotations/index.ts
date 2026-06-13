@@ -31,6 +31,7 @@
  */
 
 import { useBookStore, type Note, type Highlight } from "@/stores/useBookStore";
+import type { ContentRef } from "@/lib/content/types";
 import {
   loadNotesFromFile,
   saveNotesToFile,
@@ -66,6 +67,7 @@ function toNoteData(note: Note): NoteData {
     content: note.content,
     createdAt: new Date(note.createdAt).toISOString(),
     updatedAt: new Date().toISOString(),
+    contentRef: note.contentRef,
   };
 }
 
@@ -81,6 +83,7 @@ function toStoreNote(data: NoteData): Note {
     text: data.text,
     content: data.content,
     createdAt: new Date(data.createdAt).getTime(),
+    contentRef: data.contentRef,
   };
 }
 
@@ -103,6 +106,7 @@ function toHighlightData(highlight: Highlight): HighlightData {
     text: highlight.text,
     color: highlight.color,
     createdAt: new Date(highlight.createdAt).toISOString(),
+    contentRef: highlight.contentRef,
   };
 }
 
@@ -118,6 +122,7 @@ function toStoreHighlight(data: HighlightData): Highlight {
     text: data.text,
     color: data.color,
     createdAt: new Date(data.createdAt).getTime(),
+    contentRef: data.contentRef,
   };
 }
 
@@ -560,6 +565,134 @@ export async function deleteAllHighlights(bookId: string): Promise<void> {
 
   // Delete persistence file
   await deleteHighlightsFile(bookId);
+}
+
+// --- ContentRef-aware functions ---
+
+/**
+ * Create a new note with a ContentRef for web page annotations.
+ *
+ * Maps ContentRef fields to the existing bookId/chapterHref fields
+ * for backward compatibility while storing the original ContentRef.
+ *
+ * @param contentRef - The content reference (collectionId + sourceId).
+ * @param cfiRange - The CFI range of the selected text.
+ * @param text - The selected text being annotated.
+ * @param content - The user's note content.
+ * @returns The created note.
+ */
+export async function createNoteWithRef(
+  contentRef: ContentRef,
+  cfiRange: string,
+  text: string,
+  content: string
+): Promise<Note> {
+  const now = Date.now();
+  const note: Note = {
+    id: generateNoteId(),
+    bookId: contentRef.collectionId,
+    chapterHref: contentRef.sourceId,
+    cfiRange,
+    text,
+    content,
+    createdAt: now,
+    contentRef,
+  };
+
+  // Add to store
+  const store = useBookStore.getState();
+  store.addNote(note);
+
+  // Persist to disk
+  await persistNotes(contentRef.collectionId);
+
+  return note;
+}
+
+/**
+ * Create a new highlight with a ContentRef for web page annotations.
+ *
+ * Maps ContentRef fields to the existing bookId/chapterHref fields
+ * for backward compatibility while storing the original ContentRef.
+ * Does NOT merge overlapping highlights (unlike createHighlight).
+ *
+ * @param contentRef - The content reference (collectionId + sourceId).
+ * @param cfiRange - The CFI range of the selected text.
+ * @param text - The selected text being highlighted.
+ * @param color - The highlight color.
+ * @returns The created highlight.
+ */
+export async function createHighlightWithRef(
+  contentRef: ContentRef,
+  cfiRange: string,
+  text: string,
+  color: string
+): Promise<Highlight> {
+  const now = Date.now();
+  const highlight: Highlight = {
+    id: generateHighlightId(),
+    bookId: contentRef.collectionId,
+    chapterHref: contentRef.sourceId,
+    cfiRange,
+    text,
+    color,
+    createdAt: now,
+    contentRef,
+  };
+
+  const store = useBookStore.getState();
+  store.addHighlight(highlight);
+  await persistHighlights(contentRef.collectionId);
+
+  return highlight;
+}
+
+/**
+ * Get all notes for a specific content source.
+ *
+ * Matches notes by contentRef.collectionId and contentRef.sourceId.
+ * Falls back to matching by bookId and chapterHref for notes without contentRef.
+ *
+ * @param contentRef - The content reference to filter by.
+ * @returns Array of notes for the content source.
+ */
+export function getNotesForSource(contentRef: ContentRef): Note[] {
+  const { notes } = useBookStore.getState();
+
+  return notes.filter((n) => {
+    if (n.contentRef) {
+      return (
+        n.contentRef.collectionId === contentRef.collectionId &&
+        n.contentRef.sourceId === contentRef.sourceId
+      );
+    }
+    // Backward compat: match by bookId/chapterHref
+    return n.bookId === contentRef.collectionId && n.chapterHref === contentRef.sourceId;
+  });
+}
+
+/**
+ * Get all highlights for a specific content source.
+ *
+ * Matches highlights by contentRef.collectionId and contentRef.sourceId.
+ * Falls back to matching by bookId and chapterHref for highlights without contentRef.
+ *
+ * @param contentRef - The content reference to filter by.
+ * @returns Array of highlights for the content source.
+ */
+export function getHighlightsForSource(contentRef: ContentRef): Highlight[] {
+  const { highlights } = useBookStore.getState();
+
+  return highlights.filter((h) => {
+    if (h.contentRef) {
+      return (
+        h.contentRef.collectionId === contentRef.collectionId &&
+        h.contentRef.sourceId === contentRef.sourceId
+      );
+    }
+    // Backward compat: match by bookId/chapterHref
+    return h.bookId === contentRef.collectionId && h.chapterHref === contentRef.sourceId;
+  });
 }
 
 // Re-export public API

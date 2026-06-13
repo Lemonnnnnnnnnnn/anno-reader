@@ -25,6 +25,11 @@ export interface NoteData {
   createdAt: string;
   /** ISO timestamp of last update */
   updatedAt: string;
+  /**
+   * Optional reference to the content source (for web page annotations).
+   * When present, enables querying annotations by content source.
+   */
+  contentRef?: { collectionId: string; sourceId: string };
 }
 
 /**
@@ -46,6 +51,11 @@ export interface HighlightData {
   color: string;
   /** ISO timestamp of creation */
   createdAt: string;
+  /**
+   * Optional reference to the content source (for web page annotations).
+   * When present, enables querying annotations by content source.
+   */
+  contentRef?: { collectionId: string; sourceId: string };
 }
 
 /**
