@@ -1,5 +1,6 @@
-import { Button, ErrorBanner, Drawer } from "@/components/primitives";
-import { Loader2, Volume2 } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Button, ErrorBanner, Drawer, TextArea } from "@/components/primitives";
+import { Loader2, Pencil, Volume2 } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { useTranslation, useNoteSaving } from "./hooks";
 import { useTTS } from "@/hooks/useTTS";
@@ -35,6 +36,7 @@ export function AITranslationPanelView({
   onRetry,
   onAddNote,
   onStop,
+  onTranslationChange,
   isTTSAvailable,
   isSpeaking,
   onSpeak,
@@ -50,15 +52,33 @@ export function AITranslationPanelView({
   onRetry: () => void;
   onAddNote: () => void;
   onStop: () => void;
+  onTranslationChange: (text: string) => void;
   isTTSAvailable: boolean;
   isSpeaking: boolean;
   onSpeak: () => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(translationText);
+
+  const handleEdit = useCallback(() => {
+    setEditedText(translationText);
+    setIsEditing(true);
+  }, [translationText]);
+
+  const handleSave = useCallback(() => {
+    onTranslationChange(editedText);
+    setIsEditing(false);
+  }, [editedText, onTranslationChange]);
+
+  const handleCancel = useCallback(() => {
+    setIsEditing(false);
+  }, []);
+
   return (
     <Drawer open={isOpen} onClose={onClose} title="AI Translation">
       <div className="flex flex-col h-full">
         {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-4 min-h-0 flex flex-col">
           {/* Original text */}
           <div>
             <div className="flex items-center justify-between mb-1">
@@ -68,9 +88,8 @@ export function AITranslationPanelView({
               {isTTSAvailable && (
                 <button
                   onClick={onSpeak}
-                  className={`p-1 rounded transition-opacity ${
-                    isSpeaking ? "opacity-100" : "opacity-50 hover:opacity-75"
-                  }`}
+                  className={`p-1 rounded transition-opacity ${isSpeaking ? "opacity-100" : "opacity-50 hover:opacity-75"
+                    }`}
                   title={isSpeaking ? "Stop speaking" : "Listen"}
                 >
                   <Volume2 size={14} className="text-text-secondary dark:text-text-secondary-dark" />
@@ -127,17 +146,27 @@ export function AITranslationPanelView({
             </div>
           )}
 
-          {/* Success state */}
+          {/* Success state - editable */}
           {status === "success" && (
-            <div>
+            <div className="flex-1 flex flex-col min-h-0">
               <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1 font-sans">
                 Translation
               </label>
-              <div className="text-sm text-text dark:text-text-dark font-serif leading-relaxed">
-                <Streamdown mode="static" isAnimating={false}>
-                  {translationText}
-                </Streamdown>
-              </div>
+              {isEditing ? (
+                <TextArea
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  onSubmit={handleSave}
+                  onCancel={handleCancel}
+                  className="flex-1 min-h-0"
+                />
+              ) : (
+                <div className="text-sm text-text dark:text-text-dark font-serif leading-relaxed">
+                  <Streamdown mode="static" isAnimating={false}>
+                    {translationText}
+                  </Streamdown>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -147,15 +176,42 @@ export function AITranslationPanelView({
           <Button variant="secondary" size="sm" onClick={onClose}>
             Close
           </Button>
-          {status === "success" && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={onAddNote}
-              loading={isSaving}
-            >
-              Add as Note
-            </Button>
+          {status === "success" && !isEditing && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleEdit}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onAddNote}
+                loading={isSaving}
+              >
+                Add as Note
+              </Button>
+            </>
+          )}
+          {isEditing && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCancel}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSave}
+              >
+                Save
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -182,6 +238,7 @@ export function AITranslationPanel({
     streamingText,
     error,
     setError,
+    setTranslationText,
     translate,
     stopTranslation,
   } = useTranslation({ selectedText, chapterText, offset: startOffset, selectionSentence: sentence });
@@ -210,6 +267,7 @@ export function AITranslationPanel({
       onRetry={translate}
       onAddNote={handleAddNote}
       onStop={stopTranslation}
+      onTranslationChange={setTranslationText}
       isTTSAvailable={true}
       isSpeaking={isSpeaking}
       onSpeak={speak}
