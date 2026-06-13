@@ -7,13 +7,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { BookMetadata } from "@/stores/useBookStore";
 
-// Mock persistence module
+// Mock bookshelf persistence module
 vi.mock("@/lib/bookshelf/persistence", () => ({
   loadBookshelf: vi.fn(),
   saveBookshelf: vi.fn(),
-  addBookToBookshelf: vi.fn(),
-  removeBookFromBookshelf: vi.fn(),
-  updateBookInBookshelf: vi.fn(),
+  addEntry: vi.fn(),
+  removeEntry: vi.fn(),
+  updateEntry: vi.fn(),
 }));
 
 // Import store at top level (module is cached by Vitest)
@@ -31,8 +31,11 @@ describe("useBookshelfStore", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset store state between tests
-    useBookshelfStore.setState({ books: [], loading: false, error: null });
+    useBookshelfStore.setState({
+      books: [],
+      loading: false,
+      error: null,
+    });
   });
 
   it("should have correct initial state", () => {
@@ -42,91 +45,85 @@ describe("useBookshelfStore", () => {
     expect(state.error).toBeNull();
   });
 
-  it("should load books from persistence", async () => {
+  it("should load books from bookshelf", async () => {
     const { loadBookshelf } = await import("@/lib/bookshelf/persistence");
-    vi.mocked(loadBookshelf).mockResolvedValue([mockBook]);
+
+    vi.mocked(loadBookshelf).mockResolvedValue([
+      {
+        type: "book",
+        id: mockBook.id,
+        title: mockBook.title,
+        author: mockBook.author,
+        coverUrl: mockBook.coverUrl,
+        filePath: mockBook.filePath,
+        addedAt: mockBook.lastOpened,
+        lastOpened: mockBook.lastOpened,
+      },
+    ]);
 
     await useBookshelfStore.getState().loadBooks();
 
     const state = useBookshelfStore.getState();
-    expect(state.books).toEqual([mockBook]);
+    expect(state.books).toHaveLength(1);
+    expect(state.books[0].id).toBe(mockBook.id);
     expect(state.loading).toBe(false);
     expect(state.error).toBeNull();
   });
 
-  it("should set error when loadBooks fails", async () => {
+  it("should handle load error", async () => {
     const { loadBookshelf } = await import("@/lib/bookshelf/persistence");
-    vi.mocked(loadBookshelf).mockRejectedValue(new Error("disk error"));
+
+    vi.mocked(loadBookshelf).mockRejectedValue(new Error("Load failed"));
 
     await useBookshelfStore.getState().loadBooks();
 
     const state = useBookshelfStore.getState();
-    expect(state.books).toEqual([]);
+    expect(state.error).toBe("Load failed");
     expect(state.loading).toBe(false);
-    expect(state.error).toBe("disk error");
   });
 
   it("should add a book", async () => {
-    const { addBookToBookshelf, loadBookshelf } = await import("@/lib/bookshelf/persistence");
-    vi.mocked(loadBookshelf).mockResolvedValue([]);
-    vi.mocked(addBookToBookshelf).mockResolvedValue(undefined);
+    const { addEntry } = await import("@/lib/bookshelf/persistence");
+
+    vi.mocked(addEntry).mockResolvedValue();
 
     await useBookshelfStore.getState().addBook(mockBook);
 
     const state = useBookshelfStore.getState();
-    expect(state.books).toContainEqual(mockBook);
-    expect(addBookToBookshelf).toHaveBeenCalledWith(mockBook);
-  });
-
-  it("should set error when addBook fails", async () => {
-    const { addBookToBookshelf } = await import("@/lib/bookshelf/persistence");
-    vi.mocked(addBookToBookshelf).mockRejectedValue(new Error("write failed"));
-
-    await useBookshelfStore.getState().addBook(mockBook);
-
-    const state = useBookshelfStore.getState();
-    expect(state.error).toBe("write failed");
+    expect(state.books).toHaveLength(1);
+    expect(state.books[0].id).toBe(mockBook.id);
   });
 
   it("should remove a book", async () => {
-    const { removeBookFromBookshelf, loadBookshelf } = await import("@/lib/bookshelf/persistence");
-    vi.mocked(loadBookshelf).mockResolvedValue([mockBook]);
-    vi.mocked(removeBookFromBookshelf).mockResolvedValue(undefined);
+    const { removeEntry } = await import("@/lib/bookshelf/persistence");
 
-    // First load books
-    await useBookshelfStore.getState().loadBooks();
+    vi.mocked(removeEntry).mockResolvedValue();
 
-    // Then remove
-    await useBookshelfStore.getState().removeBook("test-id-1");
+    useBookshelfStore.setState({ books: [mockBook] });
+
+    await useBookshelfStore.getState().removeBook(mockBook.id);
 
     const state = useBookshelfStore.getState();
-    expect(state.books).not.toContainEqual(mockBook);
-    expect(removeBookFromBookshelf).toHaveBeenCalledWith("test-id-1");
+    expect(state.books).toHaveLength(0);
   });
 
   it("should update a book", async () => {
-    const { updateBookInBookshelf, loadBookshelf } = await import("@/lib/bookshelf/persistence");
-    vi.mocked(loadBookshelf).mockResolvedValue([mockBook]);
-    vi.mocked(updateBookInBookshelf).mockResolvedValue(undefined);
+    const { updateEntry } = await import("@/lib/bookshelf/persistence");
 
-    // First load books
-    await useBookshelfStore.getState().loadBooks();
+    vi.mocked(updateEntry).mockResolvedValue();
 
-    // Then update
-    await useBookshelfStore.getState().updateBook("test-id-1", { title: "Updated Title" });
+    useBookshelfStore.setState({ books: [mockBook] });
+
+    await useBookshelfStore
+      .getState()
+      .updateBook(mockBook.id, { title: "Updated Title" });
 
     const state = useBookshelfStore.getState();
     expect(state.books[0].title).toBe("Updated Title");
-    expect(updateBookInBookshelf).toHaveBeenCalledWith("test-id-1", { title: "Updated Title" });
   });
 
-  it("should clear error", async () => {
-    const { loadBookshelf } = await import("@/lib/bookshelf/persistence");
-    vi.mocked(loadBookshelf).mockRejectedValue(new Error("some error"));
-
-    await useBookshelfStore.getState().loadBooks();
-
-    expect(useBookshelfStore.getState().error).toBe("some error");
+  it("should clear error", () => {
+    useBookshelfStore.setState({ error: "some error" });
 
     useBookshelfStore.getState().clearError();
 

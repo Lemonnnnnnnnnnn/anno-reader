@@ -1,14 +1,37 @@
 /**
  * Bookshelf type definitions.
- *
- * Extends BookMetadata with progress information for bookshelf display.
  */
 
 import type { BookMetadata } from "@/stores/useBookStore";
 
 /**
- * Reading progress summary for bookshelf display.
- * Lighter than full ReadingProgress - only what's needed for the card UI.
+ * A bookshelf entry representing a book (EPUB).
+ */
+export interface BookEntry {
+  type: "book";
+  id: string;
+  title: string;
+  author: string;
+  coverUrl: string | null;
+  filePath: string;
+  addedAt: number;
+  lastOpened: number;
+}
+
+/**
+ * Union type for all bookshelf entries.
+ */
+export type BookshelfEntry = BookEntry;
+
+/**
+ * Bookshelf data stored in bookshelf.json.
+ */
+export interface BookshelfData {
+  entries: BookshelfEntry[];
+}
+
+/**
+ * Reading progress summary for display.
  */
 export interface ProgressSummary {
   percentage: number;
@@ -16,16 +39,22 @@ export interface ProgressSummary {
 }
 
 /**
- * Book item as displayed on the bookshelf.
- * Extends BookMetadata with progress information.
+ * Bookshelf item with progress information.
  */
 export interface BookshelfItem extends BookMetadata {
   progress: ProgressSummary | null;
 }
 
 /**
- * Raw bookshelf data stored in bookshelf.json.
+ * Convert BookEntry to BookMetadata for backward compatibility.
  */
-export interface BookshelfData {
-  books: BookMetadata[];
+export function entryToBookMetadata(entry: BookEntry): BookMetadata {
+  return {
+    id: entry.id,
+    title: entry.title,
+    author: entry.author,
+    coverUrl: entry.coverUrl,
+    filePath: entry.filePath,
+    lastOpened: entry.lastOpened,
+  };
 }

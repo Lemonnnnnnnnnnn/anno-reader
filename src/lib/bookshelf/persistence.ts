@@ -1,7 +1,8 @@
 /**
  * Bookshelf persistence layer using Tauri filesystem plugin.
  *
- * Stores bookshelf data as a single JSON file in the app's data directory.
+ * Stores bookshelf index as bookshelf.json and each entry's data
+ * in entries/{id}/ directory structure.
  */
 
 import {
@@ -9,13 +10,16 @@ import {
   writeTextFile,
   mkdir,
   exists,
+  remove,
 } from "@tauri-apps/plugin-fs";
 import { readConfig } from "@/lib/storage/config";
-import type { BookMetadata } from "@/stores/useBookStore";
-import type { BookshelfData } from "./types";
+import type { BookshelfEntry, BookshelfData } from "./types";
 
-/** Filename for bookshelf data within the data directory */
+/** Filename for bookshelf index */
 const BOOKSHELF_FILE = "bookshelf.json";
+
+/** Subdirectory for entries */
+const ENTRIES_DIR = "entries";
 
 /**
  * Get the full path to the bookshelf file.
@@ -29,11 +33,39 @@ async function getBookshelfPath(): Promise<string> {
 }
 
 /**
- * Load all books from the bookshelf file.
- *
- * @returns Array of book metadata, or empty array if file doesn't exist.
+ * Get the full path to the entries directory.
  */
-export async function loadBookshelf(): Promise<BookMetadata[]> {
+async function getEntriesDir(): Promise<string> {
+  const config = await readConfig();
+  if (!config) {
+    throw new Error("Data directory not configured");
+  }
+  return `${config.dataDir}/${ENTRIES_DIR}`;
+}
+
+/**
+ * Get the full path to a specific entry's directory.
+ */
+async function getEntryDir(entryId: string): Promise<string> {
+  const entriesDir = await getEntriesDir();
+  return `${entriesDir}/${entryId}`;
+}
+
+/**
+ * Ensure the entries directory exists.
+ */
+async function ensureEntriesDir(): Promise<void> {
+  const entriesDir = await getEntriesDir();
+  const dirExists = await exists(entriesDir);
+  if (!dirExists) {
+    await mkdir(entriesDir, { recursive: true });
+  }
+}
+
+/**
+ * Load all entries from the bookshelf file.
+ */
+export async function loadBookshelf(): Promise<BookshelfEntry[]> {
   try {
     const filePath = await getBookshelfPath();
     const fileExists = await exists(filePath);
@@ -45,7 +77,7 @@ export async function loadBookshelf(): Promise<BookMetadata[]> {
     const json = await readTextFile(filePath);
     const data = JSON.parse(json) as BookshelfData;
 
-    return Array.isArray(data.books) ? data.books : [];
+    return Array.isArray(data.entries) ? data.entries : [];
   } catch (err) {
     console.error("Failed to load bookshelf:", err);
     return [];
@@ -53,11 +85,9 @@ export async function loadBookshelf(): Promise<BookMetadata[]> {
 }
 
 /**
- * Save all books to the bookshelf file.
- *
- * @param books - Array of book metadata to persist.
+ * Save all entries to the bookshelf file.
  */
-export async function saveBookshelf(books: BookMetadata[]): Promise<void> {
+export async function saveBookshelf(entries: BookshelfEntry[]): Promise<void> {
   const config = await readConfig();
   if (!config) {
     throw new Error("Data directory not configured");
@@ -70,57 +100,109 @@ export async function saveBookshelf(books: BookMetadata[]): Promise<void> {
   }
 
   const filePath = await getBookshelfPath();
-  const data: BookshelfData = { books };
+  const data: BookshelfData = { entries };
   const json = JSON.stringify(data, null, 2);
   await writeTextFile(filePath, json);
 }
 
 /**
- * Add a single book to the bookshelf.
- *
- * @param book - Book metadata to add.
+ * Add a single entry to the bookshelf.
  */
-export async function addBookToBookshelf(book: BookMetadata): Promise<void> {
-  const books = await loadBookshelf();
-  const existingIndex = books.findIndex((b) => b.id === book.id);
+export async function addEntry(entry: BookshelfEntry): Promise<void> {
+  await ensureEntriesDir();
+
+  const entries = await loadBookshelf();
+  const existingIndex = entries.findIndex((e) => e.id === entry.id);
 
   if (existingIndex >= 0) {
-    // Update existing book
-    books[existingIndex] = book;
+    entries[existingIndex] = entry;
   } else {
-    // Add new book
-    books.push(book);
+    entries.push(entry);
   }
 
-  await saveBookshelf(books);
+  // Create entry directory
+  const entryDir = await getEntryDir(entry.id);
+  const dirExists = await exists(entryDir);
+  if (!dirExists) {
+    await mkdir(entryDir, { recursive: true });
+  }
+
+  // Save metadata
+  const metadataPath = `${entryDir}/metadata.json`;
+  await writeTextFile(metadataPath, JSON.stringify(entry, null, 2));
+
+  // Save bookshelf index
+  await saveBookshelf(entries);
 }
 
 /**
- * Remove a single book from the bookshelf.
- *
- * @param bookId - ID of the book to remove.
+ * Remove a single entry from the bookshelf.
  */
-export async function removeBookFromBookshelf(bookId: string): Promise<void> {
-  const books = await loadBookshelf();
-  const filtered = books.filter((b) => b.id !== bookId);
+export async function removeEntry(
+  entryId: string,
+  deleteData: boolean = false
+): Promise<void> {
+  const entries = await loadBookshelf();
+  const filtered = entries.filter((e) => e.id !== entryId);
+
+  if (deleteData) {
+    const entryDir = await getEntryDir(entryId);
+    const dirExists = await exists(entryDir);
+    if (dirExists) {
+      await remove(entryDir, { recursive: true });
+    }
+  }
+
   await saveBookshelf(filtered);
 }
 
 /**
- * Update a book's metadata in the bookshelf.
- *
- * @param bookId - ID of the book to update.
- * @param updates - Partial metadata to merge.
+ * Update an entry's metadata in the bookshelf.
  */
-export async function updateBookInBookshelf(
-  bookId: string,
-  updates: Partial<BookMetadata>
+export async function updateEntry(
+  entryId: string,
+  updates: Partial<BookshelfEntry>
 ): Promise<void> {
-  const books = await loadBookshelf();
-  const index = books.findIndex((b) => b.id === bookId);
+  const entries = await loadBookshelf();
+  const index = entries.findIndex((e) => e.id === entryId);
 
   if (index >= 0) {
-    books[index] = { ...books[index], ...updates };
-    await saveBookshelf(books);
+    entries[index] = { ...entries[index], ...updates } as BookshelfEntry;
+    await saveBookshelf(entries);
+
+    // Update metadata file
+    const entryDir = await getEntryDir(entryId);
+    const dirExists = await exists(entryDir);
+    if (dirExists) {
+      const metadataPath = `${entryDir}/metadata.json`;
+      await writeTextFile(
+        metadataPath,
+        JSON.stringify(entries[index], null, 2)
+      );
+    }
   }
+}
+
+/**
+ * Get the path to an entry's annotations directory.
+ * Creates it if it doesn't exist.
+ */
+export async function getAnnotationsDir(entryId: string): Promise<string> {
+  const entryDir = await getEntryDir(entryId);
+  const annotationsDir = `${entryDir}/annotations`;
+
+  const dirExists = await exists(annotationsDir);
+  if (!dirExists) {
+    await mkdir(annotationsDir, { recursive: true });
+  }
+
+  return annotationsDir;
+}
+
+/**
+ * Get the path to an entry's progress file.
+ */
+export async function getProgressPath(entryId: string): Promise<string> {
+  const entryDir = await getEntryDir(entryId);
+  return `${entryDir}/progress.json`;
 }

@@ -2,11 +2,22 @@
  * Bookshelf module barrel export.
  */
 
-export type { BookshelfItem, ProgressSummary, BookshelfData } from "./types";
+export type {
+  BookshelfEntry,
+  BookEntry,
+  BookshelfData,
+  ProgressSummary,
+  BookshelfItem,
+} from "./types";
+
+export { entryToBookMetadata } from "./types";
+
 export {
   loadBookshelf,
   saveBookshelf,
-  addBookToBookshelf,
-  removeBookFromBookshelf,
-  updateBookInBookshelf,
+  addEntry,
+  removeEntry,
+  updateEntry,
+  getAnnotationsDir,
+  getProgressPath,
 } from "./persistence";

@@ -18,8 +18,8 @@ import useTheme from "@/hooks/useTheme";
 
 export function BookshelfPage() {
   const navigate = useNavigate();
-  const loadBooks = useBookshelfStore((state) => state.loadBooks);
 
+  const loadBooks = useBookshelfStore((state) => state.loadBooks);
   const books = useBookshelfStore((state) => state.books);
   const loading = useBookshelfStore((state) => state.loading);
   const error = useBookshelfStore((state) => state.error);
