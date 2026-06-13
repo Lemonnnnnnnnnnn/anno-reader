@@ -10,7 +10,6 @@
 import { useEffect, useRef, useMemo } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 import { useShallow } from "zustand/shallow";
-import type { ContentRef } from "@/lib/content/types";
 
 // ---------------------------------------------------------------------------
 // Annotation script builder
@@ -256,22 +255,21 @@ export function buildAnnotationScript(
 // ---------------------------------------------------------------------------
 
 export function useAnnotationSync(
-  contentRef: ContentRef,
+  chapterHref: string,
   iframeRef: React.RefObject<HTMLIFrameElement | null>,
 ) {
-  const sourceId = contentRef.sourceId;
   // Track if this is the initial render (to skip postMessage on mount)
   const isInitialRenderRef = useRef(true);
 
   // Get annotations for the current chapter - use useShallow to avoid infinite re-renders
   const highlights = useBookStore(
     useShallow((state) =>
-      state.highlights.filter((h) => h.chapterHref === sourceId),
+      state.highlights.filter((h) => h.chapterHref === chapterHref),
     ),
   );
   const notes = useBookStore(
     useShallow((state) =>
-      state.notes.filter((n) => n.chapterHref === sourceId),
+      state.notes.filter((n) => n.chapterHref === chapterHref),
     ),
   );
   const theme = useBookStore((state) => state.ui.theme);

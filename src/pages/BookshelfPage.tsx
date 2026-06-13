@@ -12,7 +12,7 @@ import { useBookStore } from "@/stores/useBookStore";
 import { importEpub, EpubImportError } from "@/lib/import";
 import { BookCard } from "@/components/BookCard";
 import { Button, ErrorBanner } from "@/components/primitives";
-import { Settings, Book, Sun, Moon, Globe } from "lucide-react";
+import { Settings, Book, Sun, Moon } from "lucide-react";
 import type { BookshelfItem } from "@/lib/bookshelf";
 import useTheme from "@/hooks/useTheme";
 
@@ -107,9 +107,6 @@ export function BookshelfPage() {
           <div className="flex items-center gap-2">
             <Button variant="primary" onClick={handleImport}>
               Import EPUB
-            </Button>
-            <Button variant="icon" onClick={() => navigate("/web-reader")} title="Web Reader">
-              <Globe size={16} />
             </Button>
             <Button variant="icon" onClick={handleToggleTheme} title="Toggle theme">
               {theme === "light" ? <Sun size={16} /> : <Moon size={16} />}

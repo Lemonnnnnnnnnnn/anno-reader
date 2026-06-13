@@ -27,8 +27,6 @@ export interface Note {
   text: string;
   content: string;
   createdAt: number;
-  /** Optional reference to the content source (for web page annotations) */
-  contentRef?: { collectionId: string; sourceId: string };
 }
 
 export interface Highlight {
@@ -39,8 +37,6 @@ export interface Highlight {
   text: string;
   color: string;
   createdAt: number;
-  /** Optional reference to the content source (for web page annotations) */
-  contentRef?: { collectionId: string; sourceId: string };
 }
 
 export interface UIState {

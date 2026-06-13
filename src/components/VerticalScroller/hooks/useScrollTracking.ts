@@ -10,7 +10,6 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useBookStore } from "@/stores/useBookStore";
-import type { ContentRef } from "@/lib/content/types";
 
 const RESTORE_MIN_FRAME_COUNT = 4;
 const RESTORE_STABLE_FRAME_COUNT = 3;
@@ -291,8 +290,7 @@ function waitForScrollStability(win: Window, onStable: () => void): () => void {
 // useScrollTracking hook
 // ---------------------------------------------------------------------------
 
-export function useScrollTracking(contentRef: ContentRef) {
-  const sourceId = contentRef.sourceId;
+export function useScrollTracking(chapterHref: string) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const setScrollPosition = useBookStore((state) => state.setScrollPosition);
   const setPendingScrollCfi = useBookStore((state) => state.setPendingScrollCfi);
@@ -377,7 +375,7 @@ export function useScrollTracking(contentRef: ContentRef) {
     const { pendingScrollCfi } = useBookStore.getState().ui;
     if (pendingScrollCfi) {
       isRestoringRef.current = true;
-      restoredChapterRef.current = sourceId;
+      restoredChapterRef.current = chapterHref;
 
       // Clear the pending CFI immediately to avoid re-processing
       setPendingScrollCfi(null);
@@ -397,7 +395,7 @@ export function useScrollTracking(contentRef: ContentRef) {
     const { pendingScrollAnchor } = useBookStore.getState().ui;
     if (pendingScrollAnchor) {
       isRestoringRef.current = true;
-      restoredChapterRef.current = sourceId;
+      restoredChapterRef.current = chapterHref;
 
       // Clear the pending anchor immediately
       setPendingScrollAnchor(null);
@@ -412,7 +410,7 @@ export function useScrollTracking(contentRef: ContentRef) {
     const { pendingScrollY } = useBookStore.getState().ui;
     if (pendingScrollY !== null && pendingScrollY !== undefined) {
       isRestoringRef.current = true;
-      restoredChapterRef.current = sourceId;
+      restoredChapterRef.current = chapterHref;
 
       // Clear the pending scrollY immediately
       setPendingScrollY(null);
@@ -428,9 +426,9 @@ export function useScrollTracking(contentRef: ContentRef) {
 
     // Otherwise, restore saved scroll position if available
     const savedPosition = useBookStore.getState().ui.scrollPosition;
-    if (savedPosition > 0 && restoredChapterRef.current !== sourceId) {
+    if (savedPosition > 0 && restoredChapterRef.current !== chapterHref) {
       isRestoringRef.current = true;
-      restoredChapterRef.current = sourceId;
+      restoredChapterRef.current = chapterHref;
 
       runScrollRestore(iframe, () => {
         iframe.contentWindow?.scrollTo({
@@ -440,10 +438,10 @@ export function useScrollTracking(contentRef: ContentRef) {
       });
     } else {
       // New chapter without saved position — scroll to top
-      restoredChapterRef.current = sourceId;
+      restoredChapterRef.current = chapterHref;
     }
   }, [
-    sourceId,
+    chapterHref,
     runScrollRestore,
     setPendingScrollCfi,
     setPendingScrollAnchor,
@@ -462,7 +460,7 @@ export function useScrollTracking(contentRef: ContentRef) {
       restoreCleanupRef.current = null;
       isRestoringRef.current = false;
     };
-  }, [sourceId]);
+  }, [chapterHref]);
 
   return { iframeRef, handleIframeLoad };
 }
