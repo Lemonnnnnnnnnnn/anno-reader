@@ -16,8 +16,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowLeft, Loader2, Bot, BookOpen, Lightbulb, HelpCircle, Settings, RefreshCw, Clock } from "lucide-react";
 import { Drawer, Button, ErrorBanner } from "@/components/primitives";
-import { MessageList } from "./MessageList";
-import { ChatInput } from "./ChatInput";
+import { MessageList } from "@/components/chat/MessageList";
+import { ChatInput } from "@/components/chat/ChatInput";
 import { SessionList } from "./SessionList";
 import { useChatStore } from "@/stores/useChatStore";
 import { useBookStore } from "@/stores/useBookStore";

@@ -1,9 +1,9 @@
 import { useState, useCallback } from "react";
 import { Button, ErrorBanner, Drawer, TextArea } from "@/components/primitives";
-import { Loader2, Volume2, MessageSquare } from "lucide-react";
+import { Loader2, Volume2 } from "lucide-react";
 import { Streamdown } from "streamdown";
-import { MessageList } from "@/components/ChatDrawer/MessageList";
-import { ChatInput } from "@/components/ChatDrawer/ChatInput";
+import { MessageList } from "@/components/chat/MessageList";
+import { ChatInput } from "@/components/chat/ChatInput";
 import { useTranslation, useNoteSaving } from "./hooks";
 import { useChatStreaming } from "@/lib/chat/streaming";
 import { useTTS } from "@/hooks/useTTS";

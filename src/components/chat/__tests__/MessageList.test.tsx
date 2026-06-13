@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from "vitest";
 import { renderToString } from "react-dom/server";
-import { MessageList } from "..";
+import { MessageList } from "@/components/chat";
 import type { ChatMessage } from "@/lib/chat/types";
 
 // ---------------------------------------------------------------------------
