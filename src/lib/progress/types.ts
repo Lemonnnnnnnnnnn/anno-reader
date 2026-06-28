@@ -21,6 +21,8 @@ export interface ProgressData {
   scrollOffset: number;
   /** Reading percentage (0-100) */
   percentage: number;
+  /** Font size in pixels (per-book setting) */
+  fontSize?: number;
   /** ISO timestamp of last progress update */
   lastUpdated: string;
 }

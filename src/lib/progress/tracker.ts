@@ -40,6 +40,7 @@ function toProgressData(
   filePath: string,
   progress: ReadingProgress
 ): ProgressData {
+  const { fontSize } = useBookStore.getState().ui;
   return {
     bookId,
     filePath,
@@ -47,6 +48,7 @@ function toProgressData(
     chapterIndex: progress.chapterIndex,
     scrollOffset: progress.scrollOffset,
     percentage: progress.percentage,
+    fontSize,
     lastUpdated: new Date().toISOString(),
   };
 }

@@ -33,7 +33,7 @@ import type { ProgressData, ProgressConfig } from "./types";
  * Restore reading progress for a book.
  *
  * Loads persisted progress from disk and updates the Zustand store
- * with the saved chapter, scroll position, and percentage.
+ * with the saved chapter, scroll position, percentage, and font size.
  *
  * @param bookId - The book ID to restore progress for.
  * @param _filePath - Path to the EPUB file (unused, kept for API consistency).
@@ -63,6 +63,11 @@ export async function restoreProgress(
   store.setReadingProgress(readingProgress);
   store.setCurrentChapter(saved.chapterHref, saved.chapterIndex);
   store.setScrollPosition(saved.scrollOffset);
+
+  // Restore per-book font size
+  if (saved.fontSize) {
+    store.setFontSize(saved.fontSize);
+  }
 
   return saved;
 }
