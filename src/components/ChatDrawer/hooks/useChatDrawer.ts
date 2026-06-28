@@ -213,9 +213,24 @@ export function useChatDrawer({
       // Track content for retry
       lastContentRef.current = content;
 
+      // Track if we're creating a new conversation (for auto-naming)
+      let isNewConversation = false;
+
       // Ensure conversation exists before sending
       if (!currentConversationId) {
         createConversation(crypto.randomUUID(), bookId);
+        isNewConversation = true;
+      }
+
+      // Auto-rename new conversation with truncated message content
+      if (isNewConversation) {
+        const title = content.length > 50
+          ? content.slice(0, 50) + "..."
+          : content;
+        const newId = useChatStore.getState().currentConversationId;
+        if (newId) {
+          useChatStore.getState().renameConversation(newId, title);
+        }
       }
 
       // Get RAG context for the query
