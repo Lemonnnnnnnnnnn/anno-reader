@@ -26,3 +26,26 @@ For more details on the AI module internals, see `src/lib/ai/README.md`.
 ## Recommended IDE Setup
 
 - [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+
+## Release
+
+Version numbers are synchronized across `package.json` and `src-tauri/Cargo.toml`. The `tauri.conf.json` reads the version from `Cargo.toml` automatically.
+
+```bash
+# 1. Bump version (updates both package.json and Cargo.toml)
+bun run bump 0.2.0
+
+# 2. Commit
+git add -A
+git commit -m "chore: bump version to 0.2.0"
+
+# 3. Tag and push (triggers CI build + release)
+git tag v0.2.0
+git push && git push --tags
+```
+
+GitHub Actions will:
+- Verify tag version matches code versions
+- Build for Windows, macOS (universal), and Linux
+- Create a draft release with all binaries
+- Publish the release after all builds complete
