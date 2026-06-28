@@ -4,6 +4,9 @@
  * Combines file dialog, file reading, EPUB parsing, and store integration
  * into a single high-level import flow. Handles various error scenarios
  * gracefully with user-friendly messages.
+ *
+ * Books are copied into the data directory as entries/{id}/book.epub,
+ * enabling portable data directories for cloud sync across devices.
  */
 
 import { openFileDialog } from "./dialog";
@@ -11,7 +14,9 @@ import { readFileAsArrayBuffer } from "./fileReader";
 import { loadEpub } from "@/lib/epub";
 import { addEntry, type BookEntry } from "@/lib/bookshelf";
 import { useBookStore, type BookMetadata } from "@/stores/useBookStore";
+import { readConfig } from "@/lib/storage/config";
 import { EpubImportError, ImportErrorCode } from "./errors";
+import { copyFile, mkdir, exists } from "@tauri-apps/plugin-fs";
 
 /**
  * Result of a successful EPUB import.
@@ -25,6 +30,41 @@ export interface ImportResult {
 
 /** Maximum file size: 100MB */
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
+
+/** Filename for the persisted book copy */
+const BOOK_FILENAME = "book.epub";
+
+/**
+ * Copy the EPUB file into the data directory under entries/{id}/book.epub.
+ *
+ * @param bookId - The book's unique ID.
+ * @param srcPath - Absolute path to the source EPUB file.
+ * @returns The relative path (entries/{id}/book.epub) for storage in bookshelf.
+ */
+async function copyBookToDataDir(
+  bookId: string,
+  srcPath: string
+): Promise<string> {
+  const config = await readConfig();
+  if (!config?.dataDir) {
+    throw new EpubImportError(
+      ImportErrorCode.FileReadError,
+      "Data directory not configured"
+    );
+  }
+
+  const entryDir = `${config.dataDir}/entries/${bookId}`;
+  const dirExists = await exists(entryDir);
+  if (!dirExists) {
+    await mkdir(entryDir, { recursive: true });
+  }
+
+  const destPath = `${entryDir}/${BOOK_FILENAME}`;
+  await copyFile(srcPath, destPath);
+
+  // Return relative path for portability
+  return `entries/${bookId}/${BOOK_FILENAME}`;
+}
 
 /**
  * Validate that the file has a valid EPUB extension.
@@ -134,13 +174,24 @@ export async function importEpub(): Promise<ImportResult> {
   // Step 7: Validate parsed data
   validateParsedEpub(parsed);
 
-  // Step 8: Build BookMetadata and register in store
+  // Step 8: Copy book to data directory for portability
+  const bookId = crypto.randomUUID();
+  let persistedPath: string;
+  try {
+    persistedPath = await copyBookToDataDir(bookId, filePath);
+  } catch (copyErr) {
+    // Non-fatal: fall back to original path if copy fails
+    console.warn("Failed to copy book to data directory:", copyErr);
+    persistedPath = filePath;
+  }
+
+  // Step 9: Build BookMetadata and register in store
   const book: BookMetadata = {
-    id: crypto.randomUUID(),
+    id: bookId,
     title: parsed.metadata.title,
     author: parsed.metadata.author,
     coverUrl: parsed.coverUrl,
-    filePath,
+    filePath: persistedPath,
     lastOpened: Date.now(),
   };
 
