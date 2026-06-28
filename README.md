@@ -32,16 +32,11 @@ For more details on the AI module internals, see `src/lib/ai/README.md`.
 Version numbers are synchronized across `package.json` and `src-tauri/Cargo.toml`. The `tauri.conf.json` reads the version from `Cargo.toml` automatically.
 
 ```bash
-# 1. Bump version (updates both package.json and Cargo.toml)
+# Bump version, commit, tag, and push (triggers CI build + release)
 bun run bump 0.2.0
 
-# 2. Commit
-git add -A
-git commit -m "chore: bump version to 0.2.0"
-
-# 3. Tag and push (triggers CI build + release)
-git tag v0.2.0
-git push && git push --tags
+# Preview without making changes
+bun run bump 0.2.0 --dry-run
 ```
 
 GitHub Actions will:
