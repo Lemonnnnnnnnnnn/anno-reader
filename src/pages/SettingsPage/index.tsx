@@ -32,14 +32,15 @@ export function SettingsPage() {
             <span>Data & Sync</span>
           </button>
 
-          <ProxySection />
-
           <button
             onClick={() => navigate("/ai-config")}
             className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
           >
             AI 配置
           </button>
+          
+          <ProxySection />
+
         </div>
       </main>
     </div>
