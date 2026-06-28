@@ -1,4 +1,5 @@
 mod db;
+mod git;
 
 use rusqlite::Connection;
 use std::sync::Mutex;
@@ -34,6 +35,8 @@ pub fn run() {
             db::search_book,
             db::delete_book_index,
             db::book_index_exists,
+            git::git_status,
+            git::git_sync,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

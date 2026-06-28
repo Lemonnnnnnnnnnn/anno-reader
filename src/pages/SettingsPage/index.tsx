@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Database } from "lucide-react";
 import { Button } from "@/components/primitives";
 import { ProxySection } from "./ProxySection";
 
@@ -23,7 +23,17 @@ export function SettingsPage() {
       {/* Content */}
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-[600px] mx-auto flex flex-col gap-6">
+          {/* Data & Sync entry */}
+          <button
+            onClick={() => navigate("/data-sync")}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
+          >
+            <Database size={18} className="text-text-muted dark:text-text-muted-dark" />
+            <span>Data & Sync</span>
+          </button>
+
           <ProxySection />
+
           <button
             onClick={() => navigate("/ai-config")}
             className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
