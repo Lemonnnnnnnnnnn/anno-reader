@@ -26,6 +26,7 @@ import { ArrowLeft } from "lucide-react";
 import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
 import { updateHighlight, deleteHighlight } from "@/lib/annotations";
 import { useBookStore } from "@/stores/useBookStore";
+import { injectCssIntoIframe } from "@/lib/css";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
 import { AnnotationDetailDrawer } from "../AnnotationDetailDrawer";
 import { HighlightPopover } from "../HighlightPopover";
@@ -45,6 +46,8 @@ interface VerticalScrollerProps {
   chapterHref: string;
   /** Optional title for the iframe */
   title?: string;
+  /** Font size in pixels for dynamic CSS injection (preserves scroll position) */
+  fontSize?: number;
   /** Callback to expose the iframe element ref to parent components */
   onIframeRef?: (ref: HTMLIFrameElement | null) => void;
   /** Callback when user clicks "Ask AI" in selection toolbar */
@@ -63,6 +66,7 @@ export function VerticalScroller({
   chapterIndex,
   chapterHref,
   title,
+  fontSize,
   onIframeRef,
   onAskAI,
   onLinkClick,
@@ -120,6 +124,31 @@ export function VerticalScroller({
       onIframeRef?.(null);
     };
   }, [iframeRef, onIframeRef]);
+
+  // Inject font size into iframe (called on load and when fontSize changes)
+  const injectFontSize = useCallback(() => {
+    if (!fontSize || !iframeRef.current) return;
+    const iframe = iframeRef.current;
+    // Wait for iframe content to be ready
+    if (!iframe.contentDocument?.body) return;
+    const css = `body { font-size: ${fontSize}px !important; }`;
+    injectCssIntoIframe(iframe, css, "font-size-override");
+  }, [fontSize, iframeRef]);
+
+  // Inject font size when iframe loads
+  const handleIframeLoadWithFontSize = useCallback(() => {
+    handleIframeLoad();
+    // Inject font size after iframe is loaded
+    // Use requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(() => {
+      injectFontSize();
+    });
+  }, [handleIframeLoad, injectFontSize]);
+
+  // Inject font size when fontSize changes (runtime adjustment)
+  useEffect(() => {
+    injectFontSize();
+  }, [fontSize, injectFontSize]);
 
   // Annotation state and synchronization
   const { annotationScript } = useAnnotationSync(chapterHref, iframeRef);
@@ -229,7 +258,7 @@ export function VerticalScroller({
         title={title || `Chapter ${chapterIndex + 1}`}
         className="w-full h-full border-none bg-bg dark:bg-bg-dark"
         sandbox="allow-same-origin allow-scripts"
-        onLoad={handleIframeLoad}
+        onLoad={handleIframeLoadWithFontSize}
       />
       <TextSelectionToolbar
         containerRef={containerRef}

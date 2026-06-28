@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon, Expand, Shrink } from "lucide-react";
+import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon, Expand, Shrink, Type } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
@@ -23,6 +23,7 @@ import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DictionaryDrawer } from "@/components/DictionaryDrawer";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { DataDirSetup } from "@/components/DataDirSetup";
+import { FontSizePopover } from "@/components/FontSizePopover";
 import { Button } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
 import { parseCfiOffsets, scrollToAnchor, scrollToCharOffset } from "@/components/VerticalScroller/hooks/useScrollTracking";
@@ -59,6 +60,10 @@ export function ReaderPage() {
 
   // Immersive mode (distraction-free reading)
   const [immersive, setImmersive] = useState(false);
+
+  // Font size popover state
+  const [fontPopoverOpen, setFontPopoverOpen] = useState(false);
+  const fontButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -315,6 +320,14 @@ export function ReaderPage() {
                   >
                     <MessageSquare size={16} />
                   </Button>
+                  <button
+                    ref={fontButtonRef}
+                    className="ml-2 bg-transparent rounded p-1.5 w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-surface dark:hover:bg-surface-dark transition-colors"
+                    onClick={() => setFontPopoverOpen(!fontPopoverOpen)}
+                    title="Font size"
+                  >
+                    <Type size={16} className="text-text dark:text-text-dark" />
+                  </button>
                   <Button
                     variant="icon"
                     className="ml-2"
@@ -486,6 +499,14 @@ export function ReaderPage() {
         bookId={currentBook?.id}
         initialMessage={pendingChatMessage}
       />
+
+      {/* Font size popover */}
+      {fontPopoverOpen && fontButtonRef.current && (
+        <FontSizePopover
+          anchorRect={fontButtonRef.current.getBoundingClientRect()}
+          onClose={() => setFontPopoverOpen(false)}
+        />
+      )}
 
     </div>
   );

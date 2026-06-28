@@ -47,6 +47,7 @@ export interface UIState {
   pendingScrollAnchor: string | null;
   pendingScrollY: number | null;
   theme: "light" | "dark";
+  fontSize: number;
 }
 
 // --- Store ---
@@ -83,6 +84,7 @@ export interface BookStore {
   setPendingScrollAnchor: (anchor: string | null) => void;
   setPendingScrollY: (scrollY: number | null) => void;
   setTheme: (theme: "light" | "dark") => void;
+  setFontSize: (size: number) => void;
 }
 
 const DEFAULT_UI_STATE: UIState = {
@@ -93,6 +95,7 @@ const DEFAULT_UI_STATE: UIState = {
   pendingScrollAnchor: null,
   pendingScrollY: null,
   theme: "light",
+  fontSize: 18,
 };
 
 export const useBookStore = create<BookStore>((set) => ({
@@ -174,4 +177,7 @@ export const useBookStore = create<BookStore>((set) => ({
 
   setTheme: (theme) =>
     set((state) => ({ ui: { ...state.ui, theme } })),
+
+  setFontSize: (fontSize) =>
+    set((state) => ({ ui: { ...state.ui, fontSize } })),
 }));

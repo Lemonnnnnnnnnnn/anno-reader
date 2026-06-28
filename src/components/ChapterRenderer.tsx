@@ -72,10 +72,13 @@ export function ChapterRenderer({
     (state) => state.ui.currentChapterIndex,
   );
   const theme = useBookStore((state) => state.ui.theme);
+  const fontSize = useBookStore((state) => state.ui.fontSize);
 
   const currentChapter = chapters[currentChapterIndex] ?? null;
 
   // Build srcdoc with EPUB CSS and resolved images
+  // fontSize is NOT included here - it's applied via dynamic CSS injection in VerticalScroller
+  // This avoids rebuilding the iframe when font size changes (preserving scroll position)
   const srcdoc = useMemo(() => {
     if (!currentChapter) return "";
 
@@ -136,6 +139,7 @@ export function ChapterRenderer({
         chapterIndex={currentChapterIndex}
         chapterHref={currentChapter.href}
         title={currentChapter.title || `Chapter ${currentChapterIndex + 1}`}
+        fontSize={fontSize}
         onIframeRef={onIframeRef}
         onAskAI={onAskAI}
         onLinkClick={onLinkClick}

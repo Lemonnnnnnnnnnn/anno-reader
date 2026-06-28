@@ -18,16 +18,23 @@ import {
   sanitizeEpubCss,
 } from "./isolation";
 
+/** Default font size in pixels */
+const DEFAULT_FONT_SIZE = 18;
+
 /**
- * Default base CSS for the reader iframe.
- * Provides clean typography and layout without conflicting with EPUB styles.
+ * Build base CSS with dynamic font size.
+ * Generates reader CSS with the specified font size for the body text.
+ *
+ * @param fontSize - Font size in pixels
+ * @returns CSS string with the specified font size
  */
-export const DEFAULT_BASE_CSS = `
+function buildBaseCss(fontSize: number): string {
+  return `
   body {
     margin: 0;
     padding: 2rem 3rem;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 18px;
+    font-size: ${fontSize}px;
     line-height: 1.8;
     color: #1a1a1a;
     max-width: 700px;
@@ -63,6 +70,13 @@ export const DEFAULT_BASE_CSS = `
     line-height: 1.3;
   }
 `;
+}
+
+/**
+ * Default base CSS for the reader iframe.
+ * Uses the default font size (18px).
+ */
+export const DEFAULT_BASE_CSS = buildBaseCss(DEFAULT_FONT_SIZE);
 
 /**
  * Dark theme base CSS for the reader iframe.
@@ -73,7 +87,7 @@ export const DARK_BASE_CSS = `
     margin: 0;
     padding: 2rem 3rem;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: 18px;
+    font-size: ${DEFAULT_FONT_SIZE}px;
     line-height: 1.8;
     color: #e5e5e5;
     background: #1a1a1a;
@@ -133,11 +147,12 @@ export function buildSrcdoc(
     fontFaceCss,
     isolateEpubCss: shouldIsolate = true,
     theme = "light",
+    fontSize = DEFAULT_FONT_SIZE,
   } = options;
 
-  // Select base CSS: explicit override wins, otherwise always use DEFAULT_BASE_CSS
+  // Select base CSS: explicit override wins, otherwise build with dynamic font size
   // Dark mode uses CSS filter inversion (in buildReaderOverrides), so no need for separate dark base CSS
-  const baseCss = explicitBaseCss ?? DEFAULT_BASE_CSS;
+  const baseCss = explicitBaseCss ?? buildBaseCss(fontSize);
 
   // Process EPUB CSS
   const processedEpubCss = epubCss.map((css) =>

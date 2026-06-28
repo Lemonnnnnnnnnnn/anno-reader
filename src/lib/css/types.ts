@@ -25,6 +25,8 @@ export interface CssInjectionOptions {
   isolateEpubCss?: boolean;
   /** Theme variant for the reader (default: "light") */
   theme?: "light" | "dark";
+  /** Font size in pixels for the reader body text (default: 18) */
+  fontSize?: number;
 }
 
 /** Result of building an iframe srcdoc with CSS */
