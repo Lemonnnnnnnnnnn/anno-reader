@@ -22,10 +22,9 @@ import { TocDrawer } from "@/components/TocDrawer";
 import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DictionaryDrawer } from "@/components/DictionaryDrawer";
 import { ChatDrawer } from "@/components/ChatDrawer";
-import { DataDirSetup } from "@/components/DataDirSetup";
 import { FontSizePopover } from "@/components/FontSizePopover";
 import { Button } from "@/components/primitives";
-import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
+import { useRouteGuard, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
 import { parseCfiOffsets, scrollToAnchor, scrollToCharOffset } from "@/components/VerticalScroller/hooks/useScrollTracking";
 import { findChapterIndexByHref, resolveEpubHref } from "@/lib/linkNavigation";
 
@@ -86,9 +85,6 @@ export function ReaderPage() {
 
   // Route guard: redirect to bookshelf if no book
   const guardedBook = useRouteGuard();
-
-  // Config check for DataDirSetup
-  const { configReady, handleConfigComplete } = useConfig();
 
   // EPUB loading and state management
   const { parsedEpub, loading, error, setError, totalChapters, handleImport } = useEpubLoader();
@@ -213,25 +209,6 @@ export function ReaderPage() {
   // Return null if no book (before redirect completes)
   if (!guardedBook) {
     return null;
-  }
-
-  // Loading state while checking config
-  if (configReady === null) {
-    return (
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
-        <main className="flex-1 overflow-hidden relative">
-          <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="w-8 h-8 border-2 border-border dark:border-border-dark border-t-accent dark:border-t-accent-dark rounded-full animate-spin" />
-            <p className="text-sm text-text-secondary dark:text-text-secondary-dark">Loading...</p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // First launch — show DataDirSetup
-  if (!configReady) {
-    return <DataDirSetup onComplete={handleConfigComplete} />;
   }
 
   return (

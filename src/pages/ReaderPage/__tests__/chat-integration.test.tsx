@@ -44,7 +44,6 @@ vi.mock("@/hooks/useTheme", () => ({ default: vi.fn() }));
 
 vi.mock("@/pages/ReaderPage/hooks", () => ({
   useRouteGuard: () => "book",
-  useConfig: () => ({ configReady: true, handleConfigComplete: vi.fn() }),
   useEpubLoader: () => ({
     parsedEpub: {
       chapters: [{ href: "ch1", title: "Chapter 1" }],
