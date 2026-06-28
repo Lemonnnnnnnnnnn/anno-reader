@@ -202,10 +202,7 @@ export function ReaderPage() {
 
   // Handle "Ask AI" from text selection toolbar
   const handleAskAI = (selectedText: string) => {
-    const truncated = selectedText.length > 500
-      ? selectedText.slice(0, 500) + "..."
-      : selectedText;
-    setPendingChatMessage(`"${truncated}"`);
+    setPendingChatMessage(`"${selectedText}"`);
     setChatDrawerOpen(true);
     // Close other drawers
     setTocDrawerOpen(false);
