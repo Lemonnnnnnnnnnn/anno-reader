@@ -37,7 +37,7 @@ function buildBaseCss(fontSize: number): string {
     font-size: ${fontSize}px;
     line-height: 1.8;
     color: #1a1a1a;
-    max-width: 700px;
+    max-width: 60vw;
     margin-left: auto;
     margin-right: auto;
   }
@@ -91,7 +91,7 @@ export const DARK_BASE_CSS = `
     line-height: 1.8;
     color: #e5e5e5;
     background: #1a1a1a;
-    max-width: 700px;
+    max-width: 60vw;
     margin-left: auto;
     margin-right: auto;
   }

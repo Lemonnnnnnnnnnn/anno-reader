@@ -84,7 +84,7 @@ export function buildReaderOverrides(
   const layoutOverrides = `
     /* Reader layout overrides - prevents EPUB CSS from breaking reading experience */
     body {
-      max-width: 700px !important;
+      max-width: 60vw !important;
       margin-left: auto !important;
       margin-right: auto !important;
       padding-left: 3rem !important;

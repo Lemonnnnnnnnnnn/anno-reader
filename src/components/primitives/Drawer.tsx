@@ -75,7 +75,7 @@ export function Drawer({
 
       {/* Panel */}
       <div
-        className={`absolute inset-y-0 ${slideFrom} w-96 max-w-full bg-surface dark:bg-surface-dark shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out ${
+        className={`absolute inset-y-0 ${slideFrom} w-1/5 max-w-full bg-surface dark:bg-surface-dark shadow-xl flex flex-col transform transition-transform duration-300 ease-in-out ${
           open ? "translate-x-0" : translateHidden
         }`}
       >
