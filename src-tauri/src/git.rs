@@ -24,18 +24,34 @@ pub struct SyncResult {
 }
 
 /// Run a git command in the given directory and return stdout.
+/// Logs the full command, exit code, stdout, and stderr to stderr for debugging.
 fn run_git(data_dir: &str, args: &[&str]) -> Result<String, String> {
+    eprintln!("[git] $ git {} (cwd: {})", args.join(" "), data_dir);
     let output = Command::new("git")
         .current_dir(data_dir)
         .args(args)
         .output()
-        .map_err(|e| format!("Failed to run git: {}", e))?;
+        .map_err(|e| {
+            eprintln!("[git] failed to spawn git process: {}", e);
+            format!("Failed to run git: {}", e)
+        })?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let exit_code = output.status.code();
+
+    eprintln!(
+        "[git] exit={:?} stdout={:?} stderr={:?}",
+        exit_code, stdout, stderr
+    );
 
     if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+        Ok(stdout)
     } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        Err(stderr)
+        // Some git failures (e.g. "nothing to commit") print to stdout with
+        // empty stderr. Fall back to stdout so the surfaced error is never blank.
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        Err(detail)
     }
 }
 
@@ -124,11 +140,14 @@ pub async fn git_sync(
     message_template: Option<String>,
 ) -> Result<SyncResult, String> {
     let template = message_template.unwrap_or_else(|| "Sync at {datetime}".to_string());
+    eprintln!("[sync] starting git_sync in {}", data_dir);
 
     // Step 1: Pull with auto-merge for JSON files
+    eprintln!("[sync] step 1/4: pull with auto-merge");
     match git_pull(&data_dir) {
-        Ok(_) => {}
+        Ok(_) => eprintln!("[sync] pull ok"),
         Err(conflicts) => {
+            eprintln!("[sync] pull failed, conflicts: {:?}", conflicts);
             return Ok(SyncResult {
                 success: false,
                 message: "Pull failed".to_string(),
@@ -138,16 +157,28 @@ pub async fn git_sync(
     }
 
     // Step 2: Add all changes
-    run_git(&data_dir, &["add", "."]).map_err(|e| format!("Failed to add files: {}", e))?;
+    eprintln!("[sync] step 2/4: add .");
+    run_git(&data_dir, &["add", "."])
+        .map_err(|e| format!("Failed to add files: {}", e))?;
 
-    // Step 3: Commit
+    // Step 3: Commit. After a clean merge, git already created the merge commit,
+    // so there may be nothing left to commit — `git commit` then exits non-zero
+    // with "nothing to commit" on stdout. Treat that specific case as success.
     let message = render_message(&template);
-    run_git(&data_dir, &["commit", "-m", &message])
-        .map_err(|e| format!("Failed to commit: {}", e))?;
+    eprintln!("[sync] step 3/4: commit ({:?})", message);
+    match run_git(&data_dir, &["commit", "-m", &message]) {
+        Ok(out) => eprintln!("[sync] commit ok: {}", out),
+        Err(e) if e.contains("nothing to commit") || e.contains("no changes added") => {
+            eprintln!("[sync] nothing to commit (clean tree / merge already committed) — ok");
+        }
+        Err(e) => return Err(format!("Failed to commit: {}", e)),
+    }
 
     // Step 4: Push
+    eprintln!("[sync] step 4/4: push");
     run_git(&data_dir, &["push"]).map_err(|e| format!("Failed to push: {}", e))?;
 
+    eprintln!("[sync] sync complete");
     Ok(SyncResult {
         success: true,
         message: format!("Synced successfully: {}", message),
@@ -157,49 +188,78 @@ pub async fn git_sync(
 
 /// Pull with auto-merge for JSON files. Returns conflict file list on failure.
 fn git_pull(data_dir: &str) -> Result<(), Vec<String>> {
-    // Try fetch + merge (fast-forward only first)
-    run_git(data_dir, &["fetch", "origin"]).map_err(|e| vec![format!("Fetch failed: {}", e)])?;
+    // Try fetch + merge (fast-fail only first)
+    eprintln!("[pull] fetch origin");
+    run_git(data_dir, &["fetch", "origin"])
+        .map_err(|e| vec![format!("Fetch failed: {}", e)])?;
 
     // Try fast-forward merge
+    eprintln!("[pull] try fast-forward merge");
     match run_git(data_dir, &["merge", "--ff-only"]) {
-        Ok(_) => return Ok(()),
-        Err(_) => {
-            // Fast-forward failed, try regular merge
+        Ok(_) => {
+            eprintln!("[pull] fast-forward succeeded, nothing else to do");
+            return Ok(());
+        }
+        Err(e) => {
+            eprintln!("[pull] fast-forward failed: {}", e);
         }
     }
 
-    // Try regular merge (will create conflicts)
-    let merge_result = run_git(data_dir, &["merge", "origin/main", "--no-edit"]);
+    // Try regular merge against the tracked upstream (resolves to origin/master
+    // or origin/main depending on the repo). Hardcoding "origin/main" broke repos
+    // on "master" — the merge never happened and git_pull falsely reported success.
+    eprintln!("[pull] try regular merge with @{{upstream}}");
+    let merge_result = run_git(data_dir, &["merge", "@{upstream}", "--no-edit"]);
 
     match merge_result {
-        Ok(_) => Ok(()),
-        Err(_) => {
+        Ok(_) => {
+            eprintln!("[pull] regular merge succeeded without conflicts");
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("[pull] merge produced conflicts: {}", e);
             // Merge has conflicts, try to auto-resolve JSON files
             let conflicts = get_conflicted_files(data_dir);
+            eprintln!("[pull] conflicted files: {:?}", conflicts);
+
+            // If merge failed but there are no conflict markers, this is a real
+            // error (e.g. unknown ref, missing upstream) — NOT a conflict. Falling
+            // through here used to falsely report "all conflicts auto-resolved".
+            if conflicts.is_empty() {
+                let _ = run_git(data_dir, &["merge", "--abort"]);
+                return Err(vec![format!("Merge failed: {}", e)]);
+            }
+
             let mut unresolved = Vec::new();
 
             for file in &conflicts {
                 if file.ends_with(".json") {
                     // Try to auto-merge JSON files
+                    eprintln!("[pull] auto-merging JSON: {}", file);
                     match auto_merge_json(data_dir, file) {
                         Ok(_) => {
+                            eprintln!("[pull] auto-merge ok: {}", file);
                             // Successfully merged, mark as resolved
                             let _ = run_git(data_dir, &["add", file]);
                         }
-                        Err(e) => {
-                            unresolved.push(format!("{}: {}", file, e));
+                        Err(err) => {
+                            eprintln!("[pull] auto-merge FAILED for {}: {}", file, err);
+                            unresolved.push(format!("{}: {}", file, err));
                         }
                     }
                 } else {
+                    eprintln!("[pull] skipping non-JSON conflict: {}", file);
                     unresolved.push(file.clone());
                 }
             }
 
             if unresolved.is_empty() {
                 // All conflicts resolved
+                eprintln!("[pull] all conflicts auto-resolved");
                 Ok(())
             } else {
                 // Abort the merge
+                eprintln!("[pull] unresolved conflicts, aborting merge: {:?}", unresolved);
                 let _ = run_git(data_dir, &["merge", "--abort"]);
                 Err(unresolved)
             }
@@ -226,17 +286,23 @@ fn get_conflicted_files(data_dir: &str) -> Vec<String> {
 }
 
 /// Auto-merge a JSON file with conflict markers.
+/// Reads the two sides from git's index stages (stage 2 = ours/HEAD, stage 3 =
+/// theirs/upstream) rather than parsing conflict markers from the working tree.
+/// Those stages hold clean, complete copies of each version, so we can parse
+/// them as JSON directly. Parsing markers only worked when the *entire* file was
+/// one conflict block; scattered field changes produced fragments that aren't
+/// valid JSON.
 /// Strategy depends on file type:
 /// - progress.json: take the most recent (by lastUpdated)
 /// - notes.json: merge by id, keep latest updatedAt
 /// - highlights.json: merge by id
 /// - bookshelf.json: merge entries by id
 fn auto_merge_json(data_dir: &str, file: &str) -> Result<(), String> {
-    let path = Path::new(data_dir).join(file);
-    let content = fs::read_to_string(&path).map_err(|e| format!("Cannot read file: {}", e))?;
-
-    // Parse conflict markers
-    let (ours, theirs) = parse_conflict_markers(&content)?;
+    eprintln!("[merge] reading sides from index stages for {}", file);
+    let ours = run_git(data_dir, &["show", &format!(":2:{}", file)])
+        .map_err(|e| format!("Cannot read ours (stage 2): {}", e))?;
+    let theirs = run_git(data_dir, &["show", &format!(":3:{}", file)])
+        .map_err(|e| format!("Cannot read theirs (stage 3): {}", e))?;
 
     let our_value: Value =
         serde_json::from_str(&ours).map_err(|e| format!("Invalid local JSON: {}", e))?;
@@ -257,47 +323,14 @@ fn auto_merge_json(data_dir: &str, file: &str) -> Result<(), String> {
         their_value
     };
 
-    // Write merged result
+    // Write merged result back to the working tree
+    let path = Path::new(data_dir).join(file);
     let merged_str =
         serde_json::to_string_pretty(&merged).map_err(|e| format!("Serialize error: {}", e))?;
     fs::write(&path, merged_str).map_err(|e| format!("Write error: {}", e))?;
 
+    eprintln!("[merge] merged {} ({} bytes written)", file, path.metadata().map(|m| m.len()).unwrap_or(0));
     Ok(())
-}
-
-/// Parse conflict markers in a file.
-/// Returns (ours, theirs) content.
-fn parse_conflict_markers(content: &str) -> Result<(String, String), String> {
-    let mut ours = Vec::new();
-    let mut theirs = Vec::new();
-    let mut in_ours = false;
-    let mut in_theirs = false;
-
-    for line in content.lines() {
-        if line.starts_with("<<<<<<<") {
-            in_ours = true;
-            continue;
-        } else if line.starts_with("=======") {
-            in_ours = false;
-            in_theirs = true;
-            continue;
-        } else if line.starts_with(">>>>>>>") {
-            in_theirs = false;
-            continue;
-        }
-
-        if in_ours {
-            ours.push(line);
-        } else if in_theirs {
-            theirs.push(line);
-        }
-    }
-
-    if ours.is_empty() || theirs.is_empty() {
-        return Err("No conflict markers found".to_string());
-    }
-
-    Ok((ours.join("\n"), theirs.join("\n")))
 }
 
 /// Merge progress.json: take the one with most recent lastUpdated.
