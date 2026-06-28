@@ -11,9 +11,9 @@
  * for file selection, and ChapterRenderer for content display.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon } from "lucide-react";
+import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon, Expand, Shrink } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
@@ -27,6 +27,18 @@ import { Button } from "@/components/primitives";
 import { useRouteGuard, useConfig, useEpubLoader, useKeyboardNav, useVimScroll } from "./hooks";
 import { parseCfiOffsets, scrollToAnchor, scrollToCharOffset } from "@/components/VerticalScroller/hooks/useScrollTracking";
 import { findChapterIndexByHref, resolveEpubHref } from "@/lib/linkNavigation";
+
+/** Check if the user is typing in an input/textarea — don't hijack keys */
+function isTypingInInput(): boolean {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    (el as HTMLElement).isContentEditable
+  );
+}
 
 interface LinkHistoryEntry {
   chapterHref: string;
@@ -44,6 +56,20 @@ export function ReaderPage() {
   const setPendingScrollY = useBookStore((state) => state.setPendingScrollY);
   const theme = useBookStore((s) => s.ui.theme);
   const setTheme = useBookStore((s) => s.setTheme);
+
+  // Immersive mode (distraction-free reading)
+  const [immersive, setImmersive] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && immersive) {
+        if (isTypingInInput()) return;
+        setImmersive(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [immersive]);
 
   useTheme();
 
@@ -209,6 +235,7 @@ export function ReaderPage() {
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
       {/* Header: Book metadata */}
+      {!immersive && (
       <header className="shrink-0 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark relative z-10 reader-header">
         <div className="flex items-center justify-between px-4 py-3 max-w-[1200px] mx-auto w-full">
           <Button
@@ -296,6 +323,14 @@ export function ReaderPage() {
                   >
                     {theme === "light" ? <Sun size={16} /> : <Moon size={16} />}
                   </Button>
+                  <Button
+                    variant="icon"
+                    className="ml-2"
+                    onClick={() => setImmersive(true)}
+                    title="Immersive mode"
+                  >
+                    <Expand size={16} />
+                  </Button>
                 </>
               )}
             </div>
@@ -309,6 +344,7 @@ export function ReaderPage() {
           )}
         </div>
       </header>
+      )}
 
       {/* Content area: Chapter rendering */}
       <main className="flex-1 overflow-hidden relative">
@@ -375,6 +411,7 @@ export function ReaderPage() {
         </main>
 
       {/* Footer: Navigation controls */}
+      {!immersive && (
       <footer className="shrink-0 bg-surface dark:bg-surface-dark border-t border-border dark:border-border-dark relative z-10 reader-footer">
         <div className="flex items-center justify-end px-4 py-2 max-w-[1200px] mx-auto w-full min-h-[48px]">
           {parsedEpub && totalChapters > 0 && (
@@ -386,6 +423,18 @@ export function ReaderPage() {
           )}
         </div>
       </footer>
+      )}
+
+      {/* Immersive mode: floating exit button */}
+      {immersive && (
+        <button
+          onClick={() => setImmersive(false)}
+          className="fixed top-3 right-6 z-50 p-2 rounded-full bg-surface/80 dark:bg-surface-dark/80 hover:bg-surface dark:hover:bg-surface-dark text-text dark:text-text-dark border border-border dark:border-border-dark shadow-md transition-colors"
+          title="Exit immersive mode (Esc)"
+        >
+          <Shrink size={16} />
+        </button>
+      )}
 
       {/* Drawers */}
       <TocDrawer
