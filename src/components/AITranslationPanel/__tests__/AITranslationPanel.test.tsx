@@ -106,7 +106,7 @@ describe("AITranslationPanel", () => {
     expect(html).toContain("AI Translation");
   });
 
-  it("renders close button", () => {
+  it("renders a close affordance (drawer header X button)", () => {
     const html = renderToString(
       <AITranslationPanel
         selectedText="Test"
@@ -119,6 +119,7 @@ describe("AITranslationPanel", () => {
       />,
     );
 
-    expect(html).toContain(">Close<");
+    // The Drawer header always renders an X close button — no footer Close button
+    expect(html).toContain('aria-label="Close drawer"');
   });
 });

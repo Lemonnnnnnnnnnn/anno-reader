@@ -11,7 +11,6 @@ interface TranslationModeProps {
   streamingText: string;
   error: string | null;
   isSaving: boolean;
-  onClose: () => void;
   /** Retry from the error state — no cached result exists yet. */
   onRetry: () => void;
   /** Re-translate from the success state, bypassing/invalidating the cache. */
@@ -35,7 +34,6 @@ export function TranslationMode({
   streamingText,
   error,
   isSaving,
-  onClose,
   onRetry,
   onForceRetry,
   onAddNote,
@@ -161,9 +159,6 @@ export function TranslationMode({
 
       {/* Footer */}
       <div className="shrink-0 flex items-center justify-end gap-2 pt-3 mt-2 border-t border-border dark:border-border-dark">
-        <Button variant="secondary" size="sm" onClick={onClose}>
-          Close
-        </Button>
         {status === "success" && !isEditing && (
           <>
             <Button
@@ -187,14 +182,21 @@ export function TranslationMode({
             >
               <MessageSquare size={16} />
             </Button>
-            <Button
-              variant="icon"
+            {/* Primary action — highlighted to stand out from the secondary icon buttons */}
+            <button
+              type="button"
               onClick={onAddNote}
               disabled={isSaving}
+              aria-label="Add as note"
               title="Add as note"
+              className="w-8 h-8 flex items-center justify-center rounded-md bg-accent dark:bg-accent-dark text-white hover:bg-accent-hover dark:hover:bg-accent-hover-dark transition-colors disabled:opacity-60 disabled:cursor-not-allowed font-sans cursor-pointer"
             >
-              {isSaving ? <Loader2 size={16} className="animate-spin" /> : <StickyNote size={16} />}
-            </Button>
+              {isSaving ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <StickyNote size={16} />
+              )}
+            </button>
           </>
         )}
         {isEditing && (

@@ -166,7 +166,6 @@ export function AITranslationPanel({
             streamingText={streamingText}
             error={error}
             isSaving={isSaving}
-            onClose={onClose}
             onRetry={translate}
             onForceRetry={retryTranslation}
             onAddNote={handleAddNote}
