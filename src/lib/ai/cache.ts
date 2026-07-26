@@ -48,6 +48,17 @@ export class TranslationCache {
   }
 
   /**
+   * Invalidate a single cached translation.
+   *
+   * @param text - The original text
+   * @param targetLanguage - The target language
+   * @returns true if an entry was removed, false if it was not cached
+   */
+  invalidate(text: string, targetLanguage: string): boolean {
+    return this.cache.delete(this.getKey(text, targetLanguage));
+  }
+
+  /**
    * Clear all cached translations.
    */
   clear(): void {

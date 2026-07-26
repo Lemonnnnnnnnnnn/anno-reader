@@ -109,6 +109,14 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
     abortControllerRef.current?.abort();
   }, []);
 
+  // Re-translate from scratch: drop any cached result, then run the normal flow.
+  // Used by the panel's Retry button so the same text can be re-translated
+  // even when a prior result was cached.
+  const retryTranslation = useCallback(() => {
+    translationService.invalidateTranslation(selectedText, "Chinese");
+    void translate();
+  }, [selectedText, translate]);
+
   return {
     status,
     translationText,
@@ -117,6 +125,7 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
     error,
     setError,
     translate,
+    retryTranslation,
     stopTranslation,
   };
 }

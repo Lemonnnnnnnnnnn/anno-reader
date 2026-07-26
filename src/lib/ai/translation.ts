@@ -57,7 +57,7 @@ class TranslationService {
    * @param text - The text to translate
    * @param targetLanguage - Target language (e.g., "Chinese")
    * @param config - AI configuration with provider and prompt settings
-   * @param options - Optional abort signal and error callback
+   * @param options - Optional abort signal, error callback, and force-refresh flag
    * @param chapterText - Plain text content of the current chapter
    * @returns Streaming response with textStream and provider info
    */
@@ -65,19 +65,27 @@ class TranslationService {
     text: string,
     targetLanguage: string,
     config: AIConfig,
-    options?: { abortSignal?: AbortSignal; onError?: (error: Error) => void },
+    options?: {
+      abortSignal?: AbortSignal;
+      onError?: (error: Error) => void;
+      /** When true, bypass the cache and re-request from the provider. */
+      force?: boolean;
+    },
     chapterText?: string,
     offset?: number,
     selectionSentence?: string,
   ): Promise<StreamingTranslationResponse> {
     // 1. Check cache — wrap as single-yield AsyncIterable if hit
-    const cached = this.cache.get(text, targetLanguage);
-    if (cached) {
-      const cachedText = cached.translation;
-      return {
-        textStream: (async function* () { yield cachedText; })(),
-        provider: cached.provider,
-      };
+    //    Skipped when `force` is set so the caller can re-translate.
+    if (!options?.force) {
+      const cached = this.cache.get(text, targetLanguage);
+      if (cached) {
+        const cachedText = cached.translation;
+        return {
+          textStream: (async function* () { yield cachedText; })(),
+          provider: cached.provider,
+        };
+      }
     }
 
     // 2. Get selected provider
@@ -153,6 +161,15 @@ class TranslationService {
       cached: false,
     };
     this.cache.set(text, targetLanguage, response);
+  }
+
+  /**
+   * Invalidate a single cached translation so the next call re-translates.
+   *
+   * @returns true if an entry was removed, false if it was not cached
+   */
+  invalidateTranslation(text: string, targetLanguage: string): boolean {
+    return this.cache.invalidate(text, targetLanguage);
   }
 
   private getSelectedProvider(config: AIConfig): AIProvider | undefined {

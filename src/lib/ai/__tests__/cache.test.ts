@@ -39,6 +39,31 @@ describe("TranslationCache", () => {
     expect(cache.has("missing", "zh")).toBe(false);
   });
 
+  it("invalidate() removes a single entry and returns true", () => {
+    cache.set("hello", "zh", makeResponse());
+    cache.set("world", "zh", makeResponse());
+
+    expect(cache.invalidate("hello", "zh")).toBe(true);
+    expect(cache.has("hello", "zh")).toBe(false);
+    // Other entries are untouched
+    expect(cache.has("world", "zh")).toBe(true);
+    expect(cache.size).toBe(1);
+  });
+
+  it("invalidate() returns false when entry was not cached", () => {
+    expect(cache.invalidate("missing", "zh")).toBe(false);
+    expect(cache.size).toBe(0);
+  });
+
+  it("invalidate() only removes the matching language", () => {
+    cache.set("hello", "zh", makeResponse({ translation: "你好" }));
+    cache.set("hello", "ja", makeResponse({ translation: "こんにちは" }));
+
+    expect(cache.invalidate("hello", "zh")).toBe(true);
+    expect(cache.has("hello", "zh")).toBe(false);
+    expect(cache.has("hello", "ja")).toBe(true);
+  });
+
   it("clear() empties the cache", () => {
     cache.set("a", "zh", makeResponse());
     cache.set("b", "ja", makeResponse());

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Button, ErrorBanner, TextArea } from "@/components/primitives";
-import { Loader2, Volume2 } from "lucide-react";
+import { Loader2, Volume2, RefreshCw, Pencil, MessageSquare, StickyNote } from "lucide-react";
 import { Streamdown } from "streamdown";
 import type { PanelStatus } from "./hooks";
 
@@ -12,7 +12,10 @@ interface TranslationModeProps {
   error: string | null;
   isSaving: boolean;
   onClose: () => void;
+  /** Retry from the error state — no cached result exists yet. */
   onRetry: () => void;
+  /** Re-translate from the success state, bypassing/invalidating the cache. */
+  onForceRetry: () => void;
   onAddNote: () => void;
   onStop: () => void;
   onTranslationChange: (text: string) => void;
@@ -34,6 +37,7 @@ export function TranslationMode({
   isSaving,
   onClose,
   onRetry,
+  onForceRetry,
   onAddNote,
   onStop,
   onTranslationChange,
@@ -163,26 +167,33 @@ export function TranslationMode({
         {status === "success" && !isEditing && (
           <>
             <Button
-              variant="secondary"
-              size="sm"
+              variant="icon"
+              onClick={onForceRetry}
+              title="Retry translation"
+            >
+              <RefreshCw size={16} />
+            </Button>
+            <Button
+              variant="icon"
               onClick={handleEdit}
+              title="Edit translation"
             >
-              Edit
+              <Pencil size={16} />
             </Button>
             <Button
-              variant="secondary"
-              size="sm"
+              variant="icon"
               onClick={onEnterChat}
+              title="Continue chat"
             >
-              Continue Chat
+              <MessageSquare size={16} />
             </Button>
             <Button
-              variant="primary"
-              size="sm"
+              variant="icon"
               onClick={onAddNote}
-              loading={isSaving}
+              disabled={isSaving}
+              title="Add as note"
             >
-              Add as Note
+              {isSaving ? <Loader2 size={16} className="animate-spin" /> : <StickyNote size={16} />}
             </Button>
           </>
         )}

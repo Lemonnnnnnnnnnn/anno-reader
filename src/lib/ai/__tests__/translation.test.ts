@@ -208,6 +208,37 @@ describe("TranslationService", () => {
       expect(collected).toEqual(["你好世界"]);
     });
 
+    it("should bypass cache when force option is set", async () => {
+      mockGetContext.mockResolvedValue(mockContextData);
+
+      // Seed the cache
+      mockTranslateStream.mockResolvedValueOnce({
+        textStream: (async function* () { yield "你好世界"; })(),
+        provider: mockProvider,
+      });
+      const first = await service.translateStream("Hello world", "Chinese", mockConfig);
+      for await (const _ of first.textStream) { void _; }
+      service.cacheTranslation("Hello world", "Chinese", "你好世界", mockProvider);
+
+      // Force a fresh translation
+      mockTranslateStream.mockResolvedValueOnce({
+        textStream: (async function* () { yield "新译文"; })(),
+        provider: mockProvider,
+      });
+      const result = await service.translateStream("Hello world", "Chinese", mockConfig, {
+        force: true,
+      });
+
+      // Provider should have been called again despite the cache hit
+      expect(mockTranslateStream).toHaveBeenCalledTimes(2);
+
+      const collected: string[] = [];
+      for await (const chunk of result.textStream) {
+        collected.push(chunk);
+      }
+      expect(collected).toEqual(["新译文"]);
+    });
+
     it("should pass options to provider", async () => {
       mockGetContext.mockResolvedValue(mockContextData);
       const controller = new AbortController();
@@ -367,6 +398,45 @@ describe("TranslationService", () => {
         collected.push(chunk);
       }
       expect(collected).toEqual(["你好世界"]);
+    });
+  });
+
+  // =========================================================================
+  // invalidateTranslation()
+  // =========================================================================
+  describe("invalidateTranslation()", () => {
+    it("should remove a cached entry so the next call re-translates", async () => {
+      mockGetContext.mockResolvedValue(mockContextData);
+
+      // Prime cache
+      mockTranslateStream.mockResolvedValueOnce({
+        textStream: (async function* () { yield "你好世界"; })(),
+        provider: mockProvider,
+      });
+      const first = await service.translateStream("Hello world", "Chinese", mockConfig);
+      for await (const _ of first.textStream) { void _; }
+      service.cacheTranslation("Hello world", "Chinese", "你好世界", mockProvider);
+
+      // Invalidate — returns true since it was cached
+      expect(service.invalidateTranslation("Hello world", "Chinese")).toBe(true);
+
+      // Next call should hit the provider again
+      mockTranslateStream.mockResolvedValueOnce({
+        textStream: (async function* () { yield "新译文"; })(),
+        provider: mockProvider,
+      });
+      const result = await service.translateStream("Hello world", "Chinese", mockConfig);
+      expect(mockTranslateStream).toHaveBeenCalledTimes(2);
+
+      const collected: string[] = [];
+      for await (const chunk of result.textStream) {
+        collected.push(chunk);
+      }
+      expect(collected).toEqual(["新译文"]);
+    });
+
+    it("should return false when the entry was not cached", () => {
+      expect(service.invalidateTranslation("never", "Chinese")).toBe(false);
     });
   });
 });

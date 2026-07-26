@@ -44,6 +44,7 @@ export function AITranslationPanel({
     setError,
     setTranslationText,
     translate,
+    retryTranslation,
     stopTranslation,
   } = useTranslation({ selectedText, chapterText, offset: startOffset, selectionSentence: sentence });
 
@@ -167,6 +168,7 @@ export function AITranslationPanel({
             isSaving={isSaving}
             onClose={onClose}
             onRetry={translate}
+            onForceRetry={retryTranslation}
             onAddNote={handleAddNote}
             onStop={stopTranslation}
             onTranslationChange={setTranslationText}
