@@ -118,7 +118,18 @@ export function DataSyncPage() {
         await loadGitStatus(dataDir);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sync failed");
+      // Tauri invoke() can reject with a plain string, an object, or an
+      // Error instance. Preserve as much info as possible for debugging.
+      const message =
+        typeof err === "string"
+          ? err
+          : err instanceof Error
+            ? err.message
+            : typeof err === "object" && err !== null
+              ? JSON.stringify(err)
+              : "Sync failed";
+      console.error("[DataSyncPage] syncGit threw:", err);
+      setError(`Sync failed: ${message}`);
     } finally {
       setSyncing(false);
     }
