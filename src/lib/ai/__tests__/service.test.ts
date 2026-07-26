@@ -109,7 +109,7 @@ describe("AITranslationService", () => {
         provider,
         cached: false,
       }),
-      testConnection: async () => true,
+      testConnection: async () => ({ ok: true }),
     };
 
     expect(mockService.translate).toBeDefined();

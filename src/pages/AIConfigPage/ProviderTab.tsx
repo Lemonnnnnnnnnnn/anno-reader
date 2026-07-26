@@ -9,12 +9,27 @@
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 import type { ProviderType } from "@/lib/ai/types";
 import { Button } from "@/components/primitives";
+import { Loader2, Check, X } from "lucide-react";
 import { useProviderForm } from "./hooks";
 
 export function ProviderTab() {
   const { config, removeProvider, setSelectedProvider } = useAIConfigStore();
-  const { showForm, setShowForm, editingId, form, setForm, resetForm, handleEdit, handleSave } =
-    useProviderForm();
+  const {
+    showForm,
+    setShowForm,
+    editingId,
+    form,
+    setForm,
+    resetForm,
+    handleEdit,
+    handleSave,
+    test,
+    handleTest,
+  } = useProviderForm();
+
+  const isTesting = test.status === "testing";
+  const canTest =
+    !isTesting && form.baseUrl.trim().length > 0 && form.apiKey.trim().length > 0;
 
   return (
     <div className="flex flex-col gap-4" role="tabpanel" aria-label="Provider configuration">
@@ -131,9 +146,55 @@ export function ProviderTab() {
             />
           </label>
 
+          {/* Connection test result */}
+          {test.status !== "idle" && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-start gap-2 text-xs font-sans px-3 py-2 rounded-md bg-bg dark:bg-bg-dark border border-border dark:border-border-dark"
+            >
+              {test.status === "testing" && (
+                <>
+                  <Loader2 size={14} className="animate-spin shrink-0 mt-0.5 text-text-secondary dark:text-text-secondary-dark" />
+                  <span className="text-text-secondary dark:text-text-secondary-dark">
+                    Testing connection…
+                  </span>
+                </>
+              )}
+              {test.status === "success" && (
+                <>
+                  <Check size={14} className="shrink-0 mt-0.5 text-green-600 dark:text-green-400" />
+                  <span className="text-green-600 dark:text-green-400">
+                    Connected — provider configuration is valid
+                  </span>
+                </>
+              )}
+              {test.status === "error" && (
+                <>
+                  <X size={14} className="shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
+                  <span className="text-red-600 dark:text-red-400 break-words">
+                    {test.error ?? "Connection failed"}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-2 justify-end pt-2">
             <Button variant="secondary" onClick={resetForm}>
               Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => void handleTest()}
+              disabled={!canTest}
+              title={
+                canTest
+                  ? "Test this configuration"
+                  : "Enter Base URL and API key first"
+              }
+            >
+              {isTesting ? "Testing…" : "Test"}
             </Button>
             <Button onClick={handleSave} disabled={!form.name.trim()}>
               {editingId ? "Save" : "Add"}

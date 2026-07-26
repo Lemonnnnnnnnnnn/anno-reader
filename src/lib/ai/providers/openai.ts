@@ -3,6 +3,7 @@ import { generateText, streamText, APICallError } from "ai";
 import type { AIProvider } from "../types";
 import type {
   AITranslationService,
+  ConnectionTestResult,
   StreamingTranslationResponse,
   TranslationRequest,
   TranslationResponse,
@@ -208,19 +209,37 @@ export class OpenAIProvider implements AITranslationService {
     }
   }
 
-  async testConnection(provider: AIProvider): Promise<boolean> {
-    try {
-      const { enabled, address, port } = useProxyConfigStore.getState();
-      const proxyFetch = createProxyFetch({ enabled, address, port });
+  async testConnection(provider: AIProvider): Promise<ConnectionTestResult> {
+    const { enabled, address, port } = useProxyConfigStore.getState();
+    const proxyFetch = createProxyFetch({ enabled, address, port });
 
+    try {
       const response = await proxyFetch(`${provider.baseUrl}/models`, {
         headers: {
           Authorization: `Bearer ${provider.apiKey}`,
         },
       });
-      return response.ok;
-    } catch {
-      return false;
+
+      if (response.ok) {
+        return { ok: true };
+      }
+
+      // Map well-known HTTP status codes to actionable hints
+      let error = `HTTP ${response.status}`;
+      if (response.status === 401 || response.status === 403) {
+        error = `Authentication failed (HTTP ${response.status}) — check the API key`;
+      } else if (response.status === 404) {
+        error = `Endpoint not found (HTTP 404) — check the Base URL`;
+      } else if (response.status === 429) {
+        error = `Rate limited (HTTP 429) — try again later`;
+      } else if (response.status >= 500) {
+        error = `Provider server error (HTTP ${response.status})`;
+      }
+      return { ok: false, error };
+    } catch (err) {
+      // Network / DNS / proxy / TLS errors land here
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: `Network error: ${message}` };
     }
   }
 }

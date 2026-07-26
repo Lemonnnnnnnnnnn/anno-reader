@@ -481,12 +481,12 @@ describe("OpenAIProvider", () => {
   // testConnection()
   // =========================================================================
   describe("testConnection()", () => {
-    it("should return true for 200 response", async () => {
+    it("should return ok for 200 response", async () => {
       mockFetch.mockResolvedValue({ ok: true, status: 200 } as Response);
 
       const result = await provider.testConnection(mockProvider);
 
-      expect(result).toBe(true);
+      expect(result).toEqual({ ok: true });
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.openai.com/v1/models",
         {
@@ -497,20 +497,32 @@ describe("OpenAIProvider", () => {
       );
     });
 
-    it("should return false for non-200 response", async () => {
+    it("should return ok:false with error for non-200 response", async () => {
       mockFetch.mockResolvedValue({ ok: false, status: 401 } as Response);
 
       const result = await provider.testConnection(mockProvider);
 
-      expect(result).toBe(false);
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/HTTP 401/);
+      expect(result.error).toMatch(/API key/i);
     });
 
-    it("should return false for network error", async () => {
+    it("should include a Base URL hint for 404", async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 404 } as Response);
+
+      const result = await provider.testConnection(mockProvider);
+
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/Base URL/i);
+    });
+
+    it("should return ok:false with network error message on throw", async () => {
       mockFetch.mockRejectedValue(new Error("Network error"));
 
       const result = await provider.testConnection(mockProvider);
 
-      expect(result).toBe(false);
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/Network error: Network error/);
     });
   });
 });

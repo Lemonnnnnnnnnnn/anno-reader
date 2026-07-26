@@ -67,6 +67,16 @@ export class AIServiceError extends Error {
 }
 
 /**
+ * Result of a connection test against a provider configuration.
+ */
+export interface ConnectionTestResult {
+  /** Whether the provider responded successfully */
+  ok: boolean;
+  /** Human-readable failure reason when `ok` is false */
+  error?: string;
+}
+
+/**
  * Interface for AI translation service implementations.
  * Each provider (OpenAI, DeepSeek, etc.) implements this interface.
  */
@@ -85,5 +95,5 @@ export interface AITranslationService {
   ): Promise<StreamingTranslationResponse>;
 
   /** Test if a provider configuration is valid */
-  testConnection(provider: AIProvider): Promise<boolean>;
+  testConnection(provider: AIProvider): Promise<ConnectionTestResult>;
 }

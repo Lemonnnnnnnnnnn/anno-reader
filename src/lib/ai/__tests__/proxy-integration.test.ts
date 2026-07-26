@@ -212,7 +212,7 @@ describe("AI proxy integration", () => {
 
       const result = await provider.testConnection(mockProvider);
 
-      expect(result).toBe(true);
+      expect(result).toEqual({ ok: true });
       expect(mockProxyFetch).toHaveBeenCalledWith(
         "https://api.openai.com/v1/models",
         {
@@ -223,23 +223,24 @@ describe("AI proxy integration", () => {
       );
     });
 
-    it("should return true when proxy fetch returns ok", async () => {
+    it("should return ok when proxy fetch returns ok", async () => {
       mockProxyFetch.mockResolvedValue({ ok: true, status: 200 } as Response);
 
       const result = await provider.testConnection(mockProvider);
 
-      expect(result).toBe(true);
+      expect(result).toEqual({ ok: true });
     });
 
-    it("should return false when proxy fetch returns non-ok", async () => {
+    it("should return ok:false when proxy fetch returns non-ok", async () => {
       mockProxyFetch.mockResolvedValue({ ok: false, status: 401 } as Response);
 
       const result = await provider.testConnection(mockProvider);
 
-      expect(result).toBe(false);
+      expect(result.ok).toBe(false);
+      expect(result.error).toBeDefined();
     });
 
-    it("should return false when proxy fetch throws (unreachable proxy)", async () => {
+    it("should return ok:false when proxy fetch throws (unreachable proxy)", async () => {
       mockGetState.mockReturnValue({
         enabled: true,
         address: "unreachable",
@@ -249,7 +250,8 @@ describe("AI proxy integration", () => {
 
       const result = await provider.testConnection(mockProvider);
 
-      expect(result).toBe(false);
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/ECONNREFUSED/);
     });
 
     it("should use proxy fetch even when proxy is disabled", async () => {
