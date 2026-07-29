@@ -22,6 +22,7 @@ import { Search, X } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import { NoteItem } from "./NoteItem";
 import { HighlightItem } from "./HighlightItem";
+import { NotePreview } from "./NotePreview";
 import type { AnnotationDrawerProps, TabKey } from "./types";
 
 export type { AnnotationDrawerProps, TabKey };
@@ -29,6 +30,7 @@ export type { AnnotationDrawerProps, TabKey };
 export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: AnnotationDrawerProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("notes");
   const [searchQuery, setSearchQuery] = useState("");
+  const [previewNoteId, setPreviewNoteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus search input when drawer opens
@@ -181,9 +183,7 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
             <NoteItem
               key={note.id}
               note={note}
-              onNavigate={onNavigate}
-              onClose={onClose}
-              chapters={chapters}
+              onPreview={setPreviewNoteId}
             />
           ))}
         </div>
@@ -200,6 +200,15 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
           ))}
         </div>
       )}
+
+      {/* Quick full-content preview overlay */}
+      <NotePreview
+        previewNoteId={previewNoteId}
+        onClose={() => setPreviewNoteId(null)}
+        onNavigate={onNavigate}
+        onDrawerClose={onClose}
+        chapters={chapters}
+      />
     </Drawer>
   );
 }

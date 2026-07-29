@@ -2,24 +2,20 @@ import { useState, useCallback } from "react";
 import { Button, TextArea } from "@/components/primitives";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
-import { formatTimestamp, findChapterIndex } from "./utils";
+import { formatTimestamp } from "./utils";
 import type { NoteItemProps } from "./types";
 
 /** Single note card inside the drawer with edit/delete actions. */
-export function NoteItem({ note, onNavigate, onClose, chapters }: NoteItemProps) {
+export function NoteItem({ note, onPreview }: NoteItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
 
   const truncatedText =
     note.text.length > 50 ? `${note.text.slice(0, 50)}\u2026` : note.text;
 
-  const handleNavigate = useCallback(() => {
-    const index = findChapterIndex(note.chapterHref, chapters);
-    if (index !== -1) {
-      onNavigate(note.chapterHref, index, note.cfiRange);
-      onClose();
-    }
-  }, [note.chapterHref, note.cfiRange, chapters, onNavigate, onClose]);
+  const handlePreview = useCallback(() => {
+    onPreview(note.id);
+  }, [note.id, onPreview]);
 
   const handleStartEdit = useCallback(() => {
     setEditText(note.content);
@@ -44,10 +40,10 @@ export function NoteItem({ note, onNavigate, onClose, chapters }: NoteItemProps)
 
   return (
     <div className="border border-border dark:border-border-dark rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
-      {/* Main content — clickable to navigate */}
+      {/* Main content — clickable to open the full-content preview */}
       <button
         type="button"
-        onClick={handleNavigate}
+        onClick={handlePreview}
         className="w-full text-left p-3 cursor-pointer bg-transparent border-none transition-colors hover:bg-surface dark:hover:bg-surface-dark rounded-t-lg"
       >
         {/* Quoted text */}
