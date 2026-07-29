@@ -39,6 +39,17 @@ export interface Highlight {
   createdAt: number;
 }
 
+export interface ChapterSummary {
+  id: string;
+  bookId: string;
+  chapterHref: string;
+  chapterIndex: number;
+  chapterTitle: string | null;
+  content: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface UIState {
   currentChapter: string | null;
   currentChapterIndex: number;
@@ -58,6 +69,7 @@ export interface BookStore {
   readingProgress: ReadingProgress | null;
   notes: Note[];
   highlights: Highlight[];
+  summaries: ChapterSummary[];
   ui: UIState;
 
   // Book actions
@@ -76,6 +88,12 @@ export interface BookStore {
   addHighlight: (highlight: Highlight) => void;
   removeHighlight: (highlightId: string) => void;
   updateHighlight: (highlightId: string, updates: Partial<Pick<Highlight, "color">>) => void;
+
+  // Summary actions
+  addSummary: (summary: ChapterSummary) => void;
+  removeSummary: (summaryId: string) => void;
+  updateSummary: (summaryId: string, content: string) => void;
+  setSummaries: (summaries: ChapterSummary[]) => void;
 
   // UI actions
   setCurrentChapter: (chapter: string, index: number) => void;
@@ -104,6 +122,7 @@ export const useBookStore = create<BookStore>((set) => ({
   readingProgress: null,
   notes: [],
   highlights: [],
+  summaries: [],
   ui: DEFAULT_UI_STATE,
 
   // Book actions
@@ -148,6 +167,24 @@ export const useBookStore = create<BookStore>((set) => ({
         h.id === highlightId ? { ...h, ...updates } : h
       ),
     })),
+
+  // Summary actions
+  addSummary: (summary) =>
+    set((state) => ({ summaries: [...state.summaries, summary] })),
+
+  removeSummary: (summaryId) =>
+    set((state) => ({
+      summaries: state.summaries.filter((s) => s.id !== summaryId),
+    })),
+
+  updateSummary: (summaryId, content) =>
+    set((state) => ({
+      summaries: state.summaries.map((s) =>
+        s.id === summaryId ? { ...s, content, updatedAt: Date.now() } : s
+      ),
+    })),
+
+  setSummaries: (summaries) => set({ summaries }),
 
   // UI actions
   setCurrentChapter: (chapter, index) =>

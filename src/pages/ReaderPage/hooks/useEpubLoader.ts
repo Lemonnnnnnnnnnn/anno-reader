@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 import { importEpub, EpubImportError, ImportErrorCode, readFileAsArrayBuffer } from "@/lib/import";
 import { restoreNotes, restoreHighlights } from "@/lib/annotations";
+import { restoreSummaries } from "@/lib/summaries";
 import { restoreProgress, trackProgress, flushProgress } from "@/lib/progress";
 import type { ParsedEpub } from "@/lib/epub";
 import { loadEpub } from "@/lib/epub";
@@ -62,10 +63,11 @@ export function useEpubLoader() {
       setParsedEpub(parsed);
       setRAGCache(parsed);
 
-      // Restore saved notes, highlights, and progress for this book
+      // Restore saved notes, highlights, summaries, and progress for this book
       try {
         await restoreNotes(book.id);
         await restoreHighlights(book.id);
+        await restoreSummaries(book.id);
         await restoreProgress(book.id, filePath);
       } catch (restoreErr) {
         // Non-fatal: log but don't block import
@@ -118,10 +120,11 @@ export function useEpubLoader() {
         setParsedEpub(parsed);
         setRAGCache(parsed);
 
-        // Restore saved notes, highlights, and progress
+        // Restore saved notes, highlights, summaries, and progress
         try {
           await restoreNotes(currentBook!.id);
           await restoreHighlights(currentBook!.id);
+          await restoreSummaries(currentBook!.id);
           await restoreProgress(currentBook!.id, currentBook!.filePath);
         } catch (restoreErr) {
           console.warn("Failed to restore annotations:", restoreErr);

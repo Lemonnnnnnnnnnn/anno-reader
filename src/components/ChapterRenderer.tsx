@@ -138,6 +138,7 @@ export function ChapterRenderer({
         chapterText={chapterText}
         chapterIndex={currentChapterIndex}
         chapterHref={currentChapter.href}
+        chapterTitle={currentChapter.title || null}
         title={currentChapter.title || `Chapter ${currentChapterIndex + 1}`}
         fontSize={fontSize}
         onIframeRef={onIframeRef}

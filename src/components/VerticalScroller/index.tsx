@@ -25,6 +25,12 @@ import { useRef, useMemo, useEffect, useState, useCallback } from "react";
 import { ArrowLeft } from "lucide-react";
 import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
 import { updateHighlight, deleteHighlight } from "@/lib/annotations";
+import {
+  createSummary,
+  updateSummary,
+  generateSummaryStream,
+} from "@/lib/summaries";
+import { injectSummaryButton } from "@/lib/summaries/injectSummaryButton";
 import { useBookStore } from "@/stores/useBookStore";
 import { injectCssIntoIframe } from "@/lib/css";
 import { TextSelectionToolbar } from "../TextSelectionToolbar";
@@ -44,6 +50,8 @@ interface VerticalScrollerProps {
   chapterIndex: number;
   /** Current chapter href (for progress tracking) */
   chapterHref: string;
+  /** Chapter title (for AI summary context) */
+  chapterTitle?: string | null;
   /** Optional title for the iframe */
   title?: string;
   /** Font size in pixels for dynamic CSS injection (preserves scroll position) */
@@ -65,6 +73,7 @@ export function VerticalScroller({
   chapterText,
   chapterIndex,
   chapterHref,
+  chapterTitle,
   title,
   fontSize,
   onIframeRef,
@@ -91,6 +100,14 @@ export function VerticalScroller({
     setHighlightPosition(null);
   }, [chapterHref]);
 
+  // Cancel any in-flight summary generation when the chapter changes or on unmount.
+  useEffect(() => {
+    return () => {
+      summaryAbortRef.current?.abort();
+      summaryAbortRef.current = null;
+    };
+  }, [chapterHref]);
+
   // Look up the full highlight object from the store
   const activeHighlight = useBookStore((state) =>
     activeHighlightId
@@ -98,6 +115,35 @@ export function VerticalScroller({
       : null,
   );
   const currentBook = useBookStore((state) => state.currentBook);
+
+  // Existing summary for the current chapter (drives injected button state).
+  const existingSummary = useBookStore((state) =>
+    state.summaries.find(
+      (s) =>
+        s.chapterHref === chapterHref &&
+        (!state.currentBook || s.bookId === state.currentBook.id),
+    ) ?? null,
+  );
+
+  // AbortController for the in-flight summary generation; cancelled on unmount
+  // or chapter change.
+  const summaryAbortRef = useRef<AbortController | null>(null);
+  // Live refs so the postMessage handler (registered once) always reads
+  // the latest values without re-subscribing.
+  const chapterHrefRef = useRef(chapterHref);
+  const chapterIndexRef = useRef(chapterIndex);
+  const chapterTitleRef = useRef(chapterTitle);
+  const chapterTextRef = useRef(chapterText);
+  const existingSummaryRef = useRef(existingSummary);
+  const currentBookRef = useRef(currentBook);
+  useEffect(() => {
+    chapterHrefRef.current = chapterHref;
+    chapterIndexRef.current = chapterIndex;
+    chapterTitleRef.current = chapterTitle;
+    chapterTextRef.current = chapterText;
+    existingSummaryRef.current = existingSummary;
+    currentBookRef.current = currentBook;
+  }, [chapterHref, chapterIndex, chapterTitle, chapterText, existingSummary, currentBook]);
 
   // AI translation panel state
   const [translationPanel, setTranslationPanel] = useState<{
@@ -135,6 +181,17 @@ export function VerticalScroller({
     injectCssIntoIframe(iframe, css, "font-size-override");
   }, [fontSize, iframeRef]);
 
+  // Post a summary-init message to the iframe so the injected summary card
+  // reflects the persisted state (button vs. existing summary) after load.
+  // Uses refs so the load handler stays stable across summary changes.
+  const postToIframe = useCallback(
+    (message: unknown) => {
+      const iframe = iframeRef.current;
+      iframe?.contentWindow?.postMessage(message, "*");
+    },
+    [iframeRef],
+  );
+
   // Inject font size when iframe loads
   const handleIframeLoadWithFontSize = useCallback(() => {
     handleIframeLoad();
@@ -142,8 +199,18 @@ export function VerticalScroller({
     // Use requestAnimationFrame to ensure DOM is ready
     requestAnimationFrame(() => {
       injectFontSize();
+      // After the iframe DOM is ready, seed the summary card state. A short
+      // delay lets the injected summary script attach its message listener.
+      setTimeout(() => {
+        const existing = existingSummaryRef.current;
+        postToIframe({
+          type: "summary-init",
+          hasSummary: !!existing,
+          content: existing?.content ?? null,
+        });
+      }, 0);
     });
-  }, [handleIframeLoad, injectFontSize]);
+  }, [handleIframeLoad, injectFontSize, postToIframe]);
 
   // Inject font size when fontSize changes (runtime adjustment)
   useEffect(() => {
@@ -192,6 +259,10 @@ export function VerticalScroller({
         setActiveHighlightId(null);
         setHighlightPosition(null);
       }
+      if (event.data?.type === "summary-click") {
+        // Trigger (or re-trigger) streaming chapter summary generation.
+        void runSummaryRef.current();
+      }
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
@@ -237,18 +308,99 @@ export function VerticalScroller({
     setTranslationPanel(null);
   }, []);
 
-  // Build the final srcdoc with scroll tracker, keyboard forwarder, selection detector, and annotations injected
+  /**
+   * Run a streaming chapter summary for the current chapter.
+   * Streams chunks into the iframe and persists the final result.
+   * Cancels any in-flight generation first.
+   */
+  const runSummary = useCallback(async () => {
+    const book = currentBookRef.current;
+    const href = chapterHrefRef.current;
+    const text = chapterTextRef.current;
+    if (!book || !href) return;
+
+    // No usable chapter text — surface an error in the card.
+    if (!text || text.trim().length === 0) {
+      postToIframe({
+        type: "summary-error",
+        message: "本章没有可总结的文本内容。",
+      });
+      return;
+    }
+
+    // Tell the iframe to enter streaming state immediately so the spinner
+    // shows before the first chunk arrives.
+    postToIframe({ type: "summary-stream-start" });
+
+    // Cancel any previous stream.
+    summaryAbortRef.current?.abort();
+    const controller = new AbortController();
+    summaryAbortRef.current = controller;
+
+    try {
+      const fullText = await generateSummaryStream({
+        chapterText: text,
+        chapterTitle: chapterTitleRef.current,
+        abortSignal: controller.signal,
+        onChunk: (accumulated) => {
+          postToIframe({
+            type: "summary-stream-chunk",
+            text: accumulated,
+          });
+        },
+      });
+
+      // Persist: overwrite the existing summary or create a new one.
+      const existing = existingSummaryRef.current;
+      if (existing) {
+        await updateSummary(existing.id, fullText, book.id);
+      } else {
+        const created = await createSummary(
+          book.id,
+          href,
+          chapterIndexRef.current,
+          chapterTitleRef.current ?? null,
+          fullText,
+        );
+        existingSummaryRef.current = created;
+      }
+
+      postToIframe({ type: "summary-done", content: fullText });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      const message = err instanceof Error ? err.message : "生成总结失败";
+      postToIframe({ type: "summary-error", message });
+    } finally {
+      if (summaryAbortRef.current === controller) {
+        summaryAbortRef.current = null;
+      }
+    }
+  }, [postToIframe]);
+
+  // Keep a ref so the once-registered message listener always calls the
+  // latest runSummary without needing to re-subscribe.
+  const runSummaryRef = useRef(runSummary);
+  useEffect(() => {
+    runSummaryRef.current = runSummary;
+  }, [runSummary]);
+
+  // Build the final srcdoc with scroll tracker, keyboard forwarder, selection detector, and annotations injected.
+  // The summary trigger/card is stateless here — its real state is pushed via postMessage
+  // after the iframe loads (see summary-init). This keeps srcdoc stable across summary
+  // create/update so the iframe is not rebuilt and scroll position is preserved.
   const srcdocWithTracking = useMemo(() => {
     const withScroll = injectScrollScript(srcdoc);
     const withKeyboard = injectKeyboardScript(withScroll);
     const withSelection = injectSelectionScript(withKeyboard);
     const withLinks = injectLinkNavigationScript(withSelection);
+    // Inject summary trigger/card before closing body
+    const withSummary = injectSummaryButton(withLinks);
     // Inject annotation script before closing body
     const closingBody = "</body>";
-    const idx = withLinks.lastIndexOf(closingBody);
-    if (idx === -1) return withLinks + annotationScript;
-    return withLinks.slice(0, idx) + annotationScript + withLinks.slice(idx);
-  }, [srcdoc]); // Only depend on srcdoc, not annotationScript - annotations update via postMessage
+    const idx = withSummary.lastIndexOf(closingBody);
+    if (idx === -1) return withSummary + annotationScript;
+    return withSummary.slice(0, idx) + annotationScript + withSummary.slice(idx);
+  }, [srcdoc]); // Only depend on srcdoc — summary state is driven via postMessage
 
   return (
     <div ref={containerRef} className="flex-1 overflow-hidden relative">
