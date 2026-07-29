@@ -61,7 +61,7 @@ export function DataSyncPage() {
       setGitStatus(status);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to check git status"
+        err instanceof Error ? err.message : "Failed to check git status",
       );
     } finally {
       setLoadingGit(false);
@@ -89,7 +89,10 @@ export function DataSyncPage() {
       if (config) {
         await writeConfig({ ...config, dataDir: selected });
       } else {
-        await writeConfig({ dataDir: selected, proxy: { enabled: false, address: "", port: "" } });
+        await writeConfig({
+          dataDir: selected,
+          proxy: { enabled: false, address: "", port: "" },
+        });
       }
       await ensureDataSubdirs(selected);
 
@@ -97,7 +100,7 @@ export function DataSyncPage() {
       window.location.reload();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to switch directory"
+        err instanceof Error ? err.message : "Failed to switch directory",
       );
       setSwitching(false);
     }

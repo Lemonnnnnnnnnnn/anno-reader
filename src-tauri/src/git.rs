@@ -55,7 +55,11 @@ fn run_git(data_dir: &str, args: &[&str]) -> Result<String, String> {
                 Ok(stdout)
             } else {
                 log_git_failure(args, output.status.code(), &stdout, &stderr);
-                Err(stderr)
+                // Some git failures (e.g. "nothing to commit") print to stdout
+                // with empty stderr. Fall back to stdout so the surfaced error
+                // is never blank.
+                let detail = if !stderr.is_empty() { stderr } else { stdout };
+                Err(detail)
             }
         }
         Err(e) => {
