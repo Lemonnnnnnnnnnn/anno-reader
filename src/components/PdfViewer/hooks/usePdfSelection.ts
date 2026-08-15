@@ -105,11 +105,12 @@ export function usePdfSelection({
       const onLayer = root.contains(e.target as Node | null);
       mouseDownOnLayerRef.current = onLayer;
 
-      // Clicking anywhere else (margin, drawers, zoom controls) dismisses
-      // a stale selection toolbar; a new page gesture replaces it on mouseup
-      if (!onLayer) {
-        window.postMessage({ type: "text-selection-cleared" }, "*");
-      }
+      // ANY press outside the floating toolbar dismisses the selection
+      // toolbar — including clicks on empty page space (the text layer
+      // covers the whole page). A fresh selection arriving on mouseup
+      // cancels this delayed reset (text-selection clears the pending
+      // timer in useSelectionListener), so drags still work.
+      window.postMessage({ type: "text-selection-cleared" }, "*");
     };
 
     document.addEventListener("mouseup", handleMouseUp);
