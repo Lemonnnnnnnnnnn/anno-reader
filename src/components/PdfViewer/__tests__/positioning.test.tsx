@@ -86,7 +86,10 @@ const chapters: EpubChapterInfo[] = [
 
 const fakeDoc = {
   numPages: 2,
-  getPage: async () => ({ getViewport: () => ({ width: 600, height: 800 }) }),
+  getPage: async () => ({
+    getViewport: () => ({ width: 600, height: 800 }),
+    getAnnotations: async () => [],
+  }),
 } as unknown as PDFDocumentProxy;
 
 beforeEach(() => {
@@ -230,5 +233,48 @@ describe("PdfViewer overlay positioning", () => {
     const canvas = document.querySelector("canvas")!;
     expect(canvas.className).toContain("dark:invert-[.9]");
     expect(canvas.className).toContain("dark:hue-rotate-180");
+  });
+
+  it("navigates to the target page when an internal link anchor is clicked", async () => {
+    // Doc whose page 1 carries one internal link → page 2, y=100
+    const linkDoc = {
+      numPages: 2,
+      getPage: async (n: number) => ({
+        getViewport: () => ({
+          width: 600,
+          height: 800,
+          convertToViewportPoint: (x: number, y: number) => [x, y] as [number, number],
+        }),
+        getAnnotations: async () =>
+          n === 1
+            ? [{ id: "cite", subtype: "Link", rect: [10, 700, 30, 712], dest: "sec" }]
+            : [],
+      }),
+      getDestination: async (name: string) =>
+        name === "sec" ? [{ num: 1, gen: 0 }, { name: "XYZ" }, 0, 100] : null,
+      getPageIndex: async (ref: { num: number }) => ref.num,
+    } as unknown as PDFDocumentProxy;
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    await act(async () => {
+      createRoot(container).render(
+        <PdfViewer document={linkDoc} chapters={chapters} />,
+      );
+      await new Promise((r) => setTimeout(r, 20));
+    });
+
+    const anchor = document.querySelector<HTMLAnchorElement>(".pdfLinkAnchor");
+    expect(anchor).not.toBeNull();
+
+    await act(async () => {
+      anchor!.click();
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    // Chapter (page) state jumped to the link target
+    expect(useBookStore.getState().ui.currentChapterIndex).toBe(1);
+    expect(useBookStore.getState().ui.pdfNavigation).toBeNull(); // one-shot consumed
   });
 });

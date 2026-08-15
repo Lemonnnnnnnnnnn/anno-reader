@@ -54,4 +54,11 @@ describe("pdf text layer CSS", () => {
     expect(appCss).toMatch(/\.pdfTextLayer \.anno-note\s*\{[^}]*text-decoration-color:\s*#374151/s);
     expect(appCss).toMatch(/\.dark \.pdfTextLayer \.anno-note\s*\{[^}]*text-decoration-color:\s*#60a5fa/s);
   });
+
+  it("keeps the link layer non-interactive except for anchors", () => {
+    // Layer must be pointer-events:none so selection drags pass through;
+    // anchors re-enable interaction
+    expect(appCss).toMatch(/\.pdfLinkLayer\s*\{[^}]*pointer-events:\s*none/s);
+    expect(appCss).toMatch(/\.pdfLinkLayer \.pdfLinkAnchor\s*\{[^}]*pointer-events:\s*auto/s);
+  });
 });

@@ -71,6 +71,20 @@ export interface UIState {
   fontSize: number;
   /** PDF zoom multiplier (1 = fit width). Persisted with reading progress. */
   pdfZoom: number;
+  /** Pending PDF link navigation (internal GoTo target + return point). */
+  pdfNavigation: PdfNavigation | null;
+}
+
+/** A pending internal PDF link jump (e.g. citation → bibliography). */
+export interface PdfNavigation {
+  /** 1-based target page number. */
+  targetPage: number;
+  /** Target Y on the target page (viewport px from page top). */
+  targetY: number;
+  /** Page the user jumped FROM (for the back button). */
+  sourcePage: number;
+  /** Scroll offset of the source page (for the back button). */
+  sourceScrollY: number;
 }
 
 // --- Store ---
@@ -116,6 +130,7 @@ export interface BookStore {
   setTheme: (theme: "light" | "dark") => void;
   setFontSize: (size: number) => void;
   setPdfZoom: (zoom: number) => void;
+  setPdfNavigation: (nav: PdfNavigation | null) => void;
 }
 
 const DEFAULT_UI_STATE: UIState = {
@@ -128,6 +143,7 @@ const DEFAULT_UI_STATE: UIState = {
   theme: "light",
   fontSize: 18,
   pdfZoom: 1,
+  pdfNavigation: null,
 };
 
 export const useBookStore = create<BookStore>((set) => ({
@@ -234,4 +250,7 @@ export const useBookStore = create<BookStore>((set) => ({
 
   setPdfZoom: (pdfZoom) =>
     set((state) => ({ ui: { ...state.ui, pdfZoom } })),
+
+  setPdfNavigation: (pdfNavigation) =>
+    set((state) => ({ ui: { ...state.ui, pdfNavigation } })),
 }));

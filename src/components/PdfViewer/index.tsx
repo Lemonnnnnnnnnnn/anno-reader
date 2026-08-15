@@ -2,27 +2,32 @@
  * PdfViewer component.
  *
  * Renders PDF pages with pdf.js: canvas painting + transparent text
- * layer for text selection and annotation overlays. Page navigation is
- * driven by the shared chapter state (ui.currentChapterIndex) — each PDF
- * page is a "chapter" — so ChapterNavigation, keyboard nav, TOC, and
- * progress tracking work unchanged.
+ * layer for text selection + an annotation-derived LINK layer for
+ * embedded hyperlinks (citations [32] → bibliography, TOC entries,
+ * external URLs). Page navigation is driven by the shared chapter state
+ * (ui.currentChapterIndex) — each PDF page is a "chapter" — so
+ * ChapterNavigation, keyboard nav, TOC, and progress tracking work
+ * unchanged.
  *
  * Selection and annotation UX reuse the shared ReaderOverlays via the
  * window postMessage contract (see ReaderOverlays/index.tsx).
  */
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize, ArrowLeft } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useBookStore } from "@/stores/useBookStore";
 import { ReaderOverlays } from "../ReaderOverlays";
 import { usePdfPage } from "./hooks/usePdfPage";
 import { usePdfAnnotations } from "./hooks/usePdfAnnotations";
 import { usePdfSelection } from "./hooks/usePdfSelection";
+import { usePdfLinks } from "./hooks/usePdfLinks";
 import { usePageSummary } from "./hooks/usePageSummary";
 import { PageSummaryCard } from "./PageSummaryCard";
 import { extractPlainText } from "../ChapterRenderer";
 import type { EpubChapterInfo } from "@/lib/epub/types";
+import type { PdfLink } from "@/lib/pdf/links";
 import { parseCfiOffsets, wrapRange } from "./textLayerDom";
 
 interface PdfViewerProps {
@@ -55,6 +60,16 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
   const pendingScrollY = useBookStore((state) => state.ui.pendingScrollY);
   const setPendingScrollY = useBookStore((state) => state.setPendingScrollY);
   const setScrollPosition = useBookStore((state) => state.setScrollPosition);
+  const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
+  const setReadingProgress = useBookStore((state) => state.setReadingProgress);
+  const currentBook = useBookStore((state) => state.currentBook);
+
+  // --- PDF link navigation (citations, TOC, external URLs) ---
+  const pdfNavigation = useBookStore((state) => state.ui.pdfNavigation);
+  const setPdfNavigation = useBookStore((state) => state.setPdfNavigation);
+  const [linkBackStack, setLinkBackStack] = useState<
+    Array<{ pageNumber: number; scrollY: number }>
+  >([]);
 
   const currentChapter = chapters[currentChapterIndex] ?? null;
   const pageNumber = currentChapterIndex + 1;
@@ -128,6 +143,57 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
   } = usePdfPage(pdfDoc, pageNumber, scale);
 
   const chapterHref = currentChapter?.href ?? "";
+
+  // --- Link layer: embedded /Link annotations for the current page ---
+  const links = usePdfLinks(pdfDoc, pageNumber, scale);
+
+  /** Jump to an internal link target (citation, TOC entry, ...). */
+  const handleInternalLink = useCallback(
+    (link: PdfLink) => {
+      if (!link.target) return;
+      const scrollEl = scrollRef.current;
+      setLinkBackStack((stack) => [
+        ...stack.slice(-19),
+        { pageNumber, scrollY: scrollEl?.scrollTop ?? 0 },
+      ]);
+      setPdfNavigation({
+        targetPage: link.target.pageNumber,
+        targetY: link.target.y,
+        sourcePage: pageNumber,
+        sourceScrollY: scrollEl?.scrollTop ?? 0,
+      });
+    },
+    [pageNumber, setPdfNavigation],
+  );
+
+  /** Open an external link with the system browser (opener plugin). */
+  const handleExternalLink = useCallback((link: PdfLink) => {
+    if (!link.url) return;
+    openUrl(link.url).catch((err) => {
+      console.warn("[pdf] Failed to open external link:", link.url, err);
+    });
+  }, []);
+
+  /** Go back to the last link-jump origin. */
+  const handleLinkBack = useCallback(() => {
+    setLinkBackStack((stack) => {
+      const entry = stack[stack.length - 1];
+      if (!entry) return stack;
+      const remaining = stack.slice(0, -1);
+      const scrollEl = scrollRef.current;
+      if (entry.pageNumber !== currentChapterIndex + 1) {
+        setPdfNavigation({
+          targetPage: entry.pageNumber,
+          targetY: entry.scrollY,
+          sourcePage: currentChapterIndex + 1,
+          sourceScrollY: scrollEl?.scrollTop ?? 0,
+        });
+      } else {
+        setPendingScrollY(entry.scrollY);
+      }
+      return remaining;
+    });
+  }, [currentChapterIndex, setPdfNavigation, setPendingScrollY]);
 
   // --- Scroll persistence: report container scroll to the store ---
   // Mirrors the EPUB iframe scroll tracker: the progress tracker saves
@@ -208,6 +274,44 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
     lastAppliedPageRef.current = currentChapterIndex;
     scrollTargetRef.current = null;
   }, [renderEpoch, currentChapterIndex, pendingScrollY, setPendingScrollY, setScrollPosition]);
+
+  // --- Consume pdfNavigation (internal link jumps, one-shot) ---
+  // Cross-page: seed ui.scrollPosition with the target Y BEFORE switching
+  // the chapter, so the capture-on-render in the scroll-apply effect above
+  // lands exactly on the destination (a citation's footnote, not page top).
+  // Same-page: apply the scroll directly.
+  useEffect(() => {
+    if (!pdfNavigation) return;
+    setPdfNavigation(null); // one-shot
+
+    const targetIndex = pdfNavigation.targetPage - 1;
+    if (targetIndex < 0 || targetIndex >= chapters.length) return;
+
+    if (targetIndex !== currentChapterIndex) {
+      setScrollPosition(pdfNavigation.targetY);
+      const chapter = chapters[targetIndex];
+      setCurrentChapter(chapter.href, targetIndex);
+      if (currentBook) {
+        setReadingProgress({
+          bookId: currentBook.id,
+          chapterHref: chapter.href,
+          chapterIndex: targetIndex,
+          scrollOffset: 0,
+          percentage: Math.round(((targetIndex + 1) / chapters.length) * 100),
+        });
+      }
+    } else {
+      const el = scrollRef.current;
+      if (el) {
+        reportScrollRef.current = true;
+        el.scrollTop = pdfNavigation.targetY;
+        setScrollPosition(pdfNavigation.targetY);
+        requestAnimationFrame(() => {
+          reportScrollRef.current = false;
+        });
+      }
+    }
+  }, [pdfNavigation, chapters, currentChapterIndex, currentBook, setCurrentChapter, setReadingProgress, setScrollPosition, setPdfNavigation]);
 
   // --- Selection + annotation bridges ---
   usePdfSelection({ textLayerRef, containerRef, renderEpoch, pageLines });
@@ -324,6 +428,38 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
               className="block bg-white rounded-sm dark:invert-[.9] dark:hue-rotate-180"
             />
             <div ref={textLayerRef} className="pdfTextLayer" />
+
+            {/* Link layer: embedded /Link annotations (citations [32] →
+                bibliography, TOC entries, external URLs). Anchors only —
+                the layer itself is pointer-events:none so text selection
+                drags pass through the empty areas. */}
+            <div className="pdfLinkLayer">
+              {links.map((link) => (
+                <a
+                  key={link.id}
+                  href={link.url ?? "#"}
+                  className="pdfLinkAnchor"
+                  style={{
+                    left: `${link.rect.left}px`,
+                    top: `${link.rect.top}px`,
+                    width: `${link.rect.width}px`,
+                    height: `${link.rect.height}px`,
+                  }}
+                  title={link.url ?? `Go to page ${link.target?.pageNumber ?? ""}`}
+                  target={link.url ? "_blank" : undefined}
+                  rel={link.url ? "noreferrer" : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (link.url) {
+                      handleExternalLink(link);
+                    } else {
+                      handleInternalLink(link);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+
             {rendering && (
               <div className="absolute inset-0 flex items-center justify-center bg-bg/60 dark:bg-bg-dark/60 z-10">
                 <div className="w-8 h-8 border-2 border-border dark:border-border-dark border-t-accent dark:border-t-accent-dark rounded-full animate-spin" />
@@ -347,6 +483,17 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
           </div>
         </div>
       </div>
+
+      {/* Link-jump back button (mirrors the EPUB link-navigation back) */}
+      {linkBackStack.length > 0 && (
+        <button
+          onClick={handleLinkBack}
+          title="Go back"
+          className="absolute bottom-16 left-4 z-40 w-9 h-9 rounded-full bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-md flex items-center justify-center text-text dark:text-text-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={16} />
+        </button>
+      )}
 
       {/* Floating zoom controls */}
       <div className="absolute bottom-16 right-4 z-40 flex flex-col gap-1">

@@ -80,7 +80,10 @@ const chapters: EpubChapterInfo[] = [
 
 const fakeDoc = {
   numPages: 2,
-  getPage: async () => ({ getViewport: () => ({ width: 600, height: 800 }) }),
+  getPage: async () => ({
+    getViewport: () => ({ width: 600, height: 800 }),
+    getAnnotations: async () => [],
+  }),
 } as unknown as PDFDocumentProxy;
 
 /** Render PdfViewer; returns the scroll container via onScrollEl. */

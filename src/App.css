@@ -326,4 +326,32 @@ body,
   text-decoration-color: #60a5fa; /* accent (dark theme) */
 }
 
+/* ------------------------------------------------------------------ */
+/* PDF viewer: link layer (/Link annotations)                          */
+/* ------------------------------------------------------------------ */
+
+/* The layer itself ignores pointer events so text-selection drags pass
+   through empty areas; only the anchor boxes are interactive. */
+.pdfLinkLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.pdfLinkLayer .pdfLinkAnchor {
+  position: absolute;
+  pointer-events: auto;
+  cursor: pointer;
+  border-radius: 2px;
+  /* Boxes are invisible until hovered/focused (like the pdf.js viewer) */
+  background: transparent;
+}
+
+.pdfLinkLayer .pdfLinkAnchor:hover,
+.pdfLinkLayer .pdfLinkAnchor:focus-visible {
+  background: rgba(59, 130, 246, 0.25);
+  outline: none;
+}
+
 

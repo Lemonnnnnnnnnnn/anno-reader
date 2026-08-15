@@ -102,7 +102,11 @@ export function usePdfSelection({
         return;
       }
 
-      const onLayer = root.contains(e.target as Node | null);
+      // Gesture root = the whole page wrap (container): covers the text
+      // layer AND the link layer, so drags that start on a link anchor
+      // (e.g. selecting across a citation) still report on mouseup.
+      const gestureRoot = containerRef.current ?? root;
+      const onLayer = gestureRoot.contains(e.target as Node | null);
       mouseDownOnLayerRef.current = onLayer;
 
       // ANY press outside the floating toolbar dismisses the selection

@@ -26,6 +26,15 @@ export {
   type PdfTextLine,
 } from "./text";
 export { outlineToToc, type RawOutlineItem, type DestResolver } from "./outline";
+export {
+  isLinkAnnotation,
+  normalizeLinkRect,
+  parseDestPoint,
+  zoomTypeName,
+  type PdfLink,
+  type PdfLinkBox,
+  type PdfLinkTarget,
+} from "./links";
 export { renderPdfCover } from "./cover";
 export { loadPdfjs } from "./setup";
 export {
