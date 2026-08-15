@@ -314,8 +314,16 @@ body,
 
 .pdfTextLayer .anno-note {
   text-decoration: underline dotted;
+  /* The text layer is color: transparent (canvas shows the glyphs), and
+     text-decoration defaults to currentColor — which would draw the
+     underline transparent/invisible. Use the app accent tokens instead. */
+  text-decoration-color: #374151; /* accent (light theme) */
   text-underline-offset: 3px;
   cursor: pointer;
+}
+
+.dark .pdfTextLayer .anno-note {
+  text-decoration-color: #60a5fa; /* accent (dark theme) */
 }
 
 

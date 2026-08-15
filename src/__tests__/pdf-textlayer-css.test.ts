@@ -47,4 +47,11 @@ describe("pdf text layer CSS", () => {
     expect(appCss).toContain(".pdfTextLayer :is(span, br)");
     expect(appCss).toMatch(/user-select:\s*text/);
   });
+
+  it("gives note underlines an explicit visible color (text layer is transparent)", () => {
+    // text-decoration defaults to currentColor; the text layer is
+    // color: transparent, which would draw an invisible underline
+    expect(appCss).toMatch(/\.pdfTextLayer \.anno-note\s*\{[^}]*text-decoration-color:\s*#374151/s);
+    expect(appCss).toMatch(/\.dark \.pdfTextLayer \.anno-note\s*\{[^}]*text-decoration-color:\s*#60a5fa/s);
+  });
 });
