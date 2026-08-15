@@ -7,7 +7,8 @@ Domain-specific modules for EPUB processing. Each module has barrel export (`ind
 | Module | Files | Purpose |
 |--------|-------|---------|
 | `epub/` | 3 | EPUB parsing (wraps epubix) |
-| `import/` | 5 | File selection + validation + orchestration |
+| `pdf/` | 7 | PDF support: pdf.js loading → ParsedEpub mapping (pages as chapters), outline→TOC, cover, text helpers |
+| `import/` | 8 | File selection + validation + orchestration; `importBook()` dispatches EPUB/PDF by extension |
 | `annotations/` | 3 | Notes + highlights create/restore/persist |
 | `progress/` | 4 | Reading position tracking + auto-save |
 | `metadata/` | 4 | Title/author extraction + cover (4-level fallback) |
@@ -29,7 +30,10 @@ Domain-specific modules for EPUB processing. Each module has barrel export (`ind
 | Task | File | Notes |
 |------|------|-------|
 | Parse EPUB | `epub/parser.ts` | Main parsing logic |
-| Open file dialog | `import/dialog.ts` | Tauri dialog plugin |
+| Load PDF | `pdf/loader.ts` | `loadPdf()` → ParsedEpub shape (pages as chapters) |
+| PDF outline → TOC | `pdf/outline.ts` | Named/explicit dest → page href |
+| Import dispatch | `import/importBook.ts` | `importBook()` routes by extension |
+| Open file dialog | `import/dialog.ts` | Tauri dialog plugin (EPUB+PDF filter) |
 | Validate EPUB | `import/errors.ts` | Error codes + messages |
 | Create note | `annotations/index.ts` | `createNote()` |
 | Create highlight | `annotations/index.ts` | `createHighlight()` |
@@ -57,10 +61,13 @@ Domain-specific modules for EPUB processing. Each module has barrel export (`ind
 
 ```typescript
 // From stores/useBookStore.ts (shared across modules)
-BookMetadata { id, title, author, coverUrl, filePath, lastOpened }
+BookMetadata { id, title, author, coverUrl, filePath, lastOpened, format? }
 ReadingProgress { bookId, chapterHref, chapterIndex, percentage, scrollOffset }
 Note { id, bookId, chapterHref, cfiRange, text, content, createdAt }
 Highlight { id, bookId, chapterHref, cfiRange, text, color, createdAt }
+
+// From pdf/types.ts — PDF pages map onto chapter hrefs
+pageHref(n) = "page-{n}" | pageNumberFromHref(href)
 
 // From selection.ts
 SelectionMessage { type, text, rect, startOffset, endOffset }
@@ -73,9 +80,10 @@ EpubImportError — error class with userMessage
 ## CROSS-MODULE FLOWS
 
 ```
-Import: import/dialog → import/fileReader → epub/parser → stores
-Render: epub/parser → css/extract → images/resolve → fonts/extract → css/inject + images/resolve + fonts/inject → iframe srcdoc
-Annotate: selection.ts → annotations/index → stores → annotations/persistence
-Progress: progress/tracker → stores → progress/persistence
-Translate: selection.ts → ai/context → ai/prompts → ai/providers → ai/cache
+Import: import/dialog → import/importBook → (epub/parser | pdf/loader) → bookshelf + stores
+Render (EPUB): epub/parser → css/extract → images/resolve → fonts/extract → css/inject → iframe srcdoc
+Render (PDF): pdf/loader → PdfViewer (canvas + pdf.js TextLayer) → ReaderOverlays
+Annotate: selection (iframe script | PdfViewer selection hook) → annotations/index → stores → annotations/persistence
+Progress: progress/tracker → stores → progress/persistence (PDF pages = chapters)
+Translate: selection → ai/context → ai/prompts → ai/providers → ai/cache
 ```

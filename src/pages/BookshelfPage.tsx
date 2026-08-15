@@ -9,7 +9,7 @@ import { useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookshelfStore } from "@/stores/useBookshelfStore";
 import { useBookStore } from "@/stores/useBookStore";
-import { importEpub, EpubImportError } from "@/lib/import";
+import { importBook, EpubImportError } from "@/lib/import";
 import { BookCard } from "@/components/BookCard";
 import { Button, ErrorBanner } from "@/components/primitives";
 import { Settings, Book, Sun, Moon } from "lucide-react";
@@ -52,7 +52,7 @@ export function BookshelfPage() {
 
   const handleImport = useCallback(async () => {
     try {
-      const { book } = await importEpub();
+      const { book } = await importBook();
       await addBook(book);
       setBook(book);
       handleBookSelect({ ...book, progress: null });
@@ -106,7 +106,7 @@ export function BookshelfPage() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="primary" onClick={handleImport}>
-              Import EPUB
+              Import Book
             </Button>
             <Button variant="icon" onClick={handleToggleTheme} title="Toggle theme">
               {theme === "light" ? <Sun size={16} /> : <Moon size={16} />}
@@ -138,7 +138,7 @@ export function BookshelfPage() {
               Your bookshelf is empty
             </h2>
             <p className="text-sm text-text-secondary dark:text-text-secondary-dark max-w-[280px] m-0">
-              Import an EPUB file to start building your library
+              Import an EPUB or PDF file to start building your library
             </p>
             <Button variant="primary" size="lg" onClick={handleImport}>
               Import Your First Book

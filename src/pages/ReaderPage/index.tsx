@@ -17,6 +17,7 @@ import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 import { ChapterRenderer } from "@/components/ChapterRenderer";
+import { PdfViewer } from "@/components/PdfViewer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { TocDrawer } from "@/components/TocDrawer";
 import { AnnotationDrawer } from "@/components/AnnotationDrawer";
@@ -86,10 +87,10 @@ export function ReaderPage() {
   // Route guard: redirect to bookshelf if no book
   const guardedBook = useRouteGuard();
 
-  // EPUB loading and state management
-  const { parsedEpub, loading, error, setError, totalChapters, handleImport } = useEpubLoader();
+  // Book loading and state management (EPUB or PDF)
+  const { parsedEpub, pdfDocument, format, loading, error, setError, totalChapters, handleImport } = useEpubLoader();
 
-  // Keyboard navigation between chapters
+  // Keyboard navigation between chapters (pages for PDF)
   useKeyboardNav(parsedEpub);
 
   // Iframe ref for ChapterRenderer
@@ -294,14 +295,16 @@ export function ReaderPage() {
                   >
                     <MessageSquare size={16} />
                   </Button>
-                  <button
-                    ref={fontButtonRef}
-                    className="ml-2 bg-transparent rounded p-1.5 w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-surface dark:hover:bg-surface-dark transition-colors"
-                    onClick={() => setFontPopoverOpen(!fontPopoverOpen)}
-                    title="Font size"
-                  >
-                    <Type size={16} className="text-text dark:text-text-dark" />
-                  </button>
+                  {format !== "pdf" && (
+                    <button
+                      ref={fontButtonRef}
+                      className="ml-2 bg-transparent rounded p-1.5 w-7 h-7 flex items-center justify-center cursor-pointer hover:bg-surface dark:hover:bg-surface-dark transition-colors"
+                      onClick={() => setFontPopoverOpen(!fontPopoverOpen)}
+                      title="Font size"
+                    >
+                      <Type size={16} className="text-text dark:text-text-dark" />
+                    </button>
+                  )}
                   <Button
                     variant="icon"
                     className="ml-2"
@@ -325,7 +328,7 @@ export function ReaderPage() {
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="flex flex-col gap-0.5 min-w-0">
                 <h1 className="text-base font-semibold text-text dark:text-text-dark truncate">Anno Reader</h1>
-                <p className="text-xs text-text-secondary dark:text-text-secondary-dark truncate">Import an EPUB to begin</p>
+                <p className="text-xs text-text-secondary dark:text-text-secondary-dark truncate">Import a book to begin</p>
               </div>
             </div>
           )}
@@ -371,28 +374,36 @@ export function ReaderPage() {
             </div>
             <h2 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight reader-empty-title">No book open</h2>
             <p className="text-sm text-text-secondary dark:text-text-secondary-dark max-w-[280px] reader-empty-subtitle">
-              Import an EPUB file to start reading
+              Import an EPUB or PDF file to start reading
             </p>
             <Button variant="primary" onClick={handleImport}>
-              Import EPUB
+              Import Book
             </Button>
           </div>
         )}
 
         {!loading && parsedEpub && (
           <div className="h-full overflow-hidden">
-            <ChapterRenderer
-              chapters={parsedEpub.chapters}
-              resources={parsedEpub.resources}
-              opfFolder={parsedEpub.opfFolder}
-              manifestHrefs={parsedEpub.manifestHrefs}
-              showNav={false}
-              onIframeRef={setIframeEl}
-              onAskAI={handleAskAI}
-              onLinkClick={handleInlineLinkClick}
-              canGoBack={linkHistory.length > 0}
-              onLinkBack={handleLinkBack}
-            />
+            {format === "pdf" && pdfDocument ? (
+              <PdfViewer
+                document={pdfDocument}
+                chapters={parsedEpub.chapters}
+                onAskAI={handleAskAI}
+              />
+            ) : (
+              <ChapterRenderer
+                chapters={parsedEpub.chapters}
+                resources={parsedEpub.resources}
+                opfFolder={parsedEpub.opfFolder}
+                manifestHrefs={parsedEpub.manifestHrefs}
+                showNav={false}
+                onIframeRef={setIframeEl}
+                onAskAI={handleAskAI}
+                onLinkClick={handleInlineLinkClick}
+                canGoBack={linkHistory.length > 0}
+                onLinkBack={handleLinkBack}
+              />
+            )}
           </div>
         )}
         </main>

@@ -6,10 +6,14 @@
  * - Scroll position tracking via postMessage from iframe
  * - Progress updates to the Zustand store on scroll
  * - Scroll restoration when loading a chapter with saved progress
+ * - Streaming chapter summaries injected into the iframe
  *
  * Communication with the iframe uses postMessage: a script injected
  * into the srcdoc posts scroll events to the parent window, which
  * this component listens for and forwards to the store.
+ *
+ * Floating annotation/translation UI is provided by ReaderOverlays
+ * (shared with the PDF viewer).
  *
  * @example
  * ```tsx
@@ -21,10 +25,9 @@
  * ```
  */
 
-import { useRef, useMemo, useEffect, useState, useCallback } from "react";
+import { useRef, useMemo, useEffect, useCallback } from "react";
 import { ArrowLeft } from "lucide-react";
-import { injectSelectionScript, generateCfiRange } from "@/lib/selection";
-import { updateHighlight, deleteHighlight } from "@/lib/annotations";
+import { injectSelectionScript } from "@/lib/selection";
 import {
   createSummary,
   updateSummary,
@@ -33,10 +36,7 @@ import {
 import { injectSummaryButton } from "@/lib/summaries/injectSummaryButton";
 import { useBookStore } from "@/stores/useBookStore";
 import { injectCssIntoIframe } from "@/lib/css";
-import { TextSelectionToolbar } from "../TextSelectionToolbar";
-import { AnnotationDetailDrawer } from "../AnnotationDetailDrawer";
-import { HighlightPopover } from "../HighlightPopover";
-import { AITranslationPanel } from "../AITranslationPanel";
+import { ReaderOverlays } from "../ReaderOverlays";
 import { injectLinkNavigationScript, type LinkClickMessage } from "@/lib/linkNavigation";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
 import { injectScrollScript, injectKeyboardScript } from "./hooks/useScrollTracking";
@@ -84,22 +84,6 @@ export function VerticalScroller({
 }: VerticalScrollerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Annotation popover state
-  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
-
-  // Highlight popover state
-  const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
-  const [highlightPosition, setHighlightPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
-
-  // Dismiss highlight popover on chapter navigation
-  useEffect(() => {
-    setActiveHighlightId(null);
-    setHighlightPosition(null);
-  }, [chapterHref]);
-
   // Cancel any in-flight summary generation when the chapter changes or on unmount.
   useEffect(() => {
     return () => {
@@ -108,12 +92,6 @@ export function VerticalScroller({
     };
   }, [chapterHref]);
 
-  // Look up the full highlight object from the store
-  const activeHighlight = useBookStore((state) =>
-    activeHighlightId
-      ? state.highlights.find((h) => h.id === activeHighlightId) ?? null
-      : null,
-  );
   const currentBook = useBookStore((state) => state.currentBook);
 
   // Existing summary for the current chapter (drives injected button state).
@@ -144,16 +122,6 @@ export function VerticalScroller({
     existingSummaryRef.current = existingSummary;
     currentBookRef.current = currentBook;
   }, [chapterHref, chapterIndex, chapterTitle, chapterText, existingSummary, currentBook]);
-
-  // AI translation panel state
-  const [translationPanel, setTranslationPanel] = useState<{
-    selectedText: string;
-    chapterHref: string;
-    startOffset: number;
-    endOffset: number;
-    sentence?: string;
-    paragraph?: string;
-  } | null>(null);
 
   const onLinkClickRef = useRef(onLinkClick);
   useEffect(() => {
@@ -220,44 +188,14 @@ export function VerticalScroller({
   // Annotation state and synchronization
   const { annotationScript } = useAnnotationSync(chapterHref, iframeRef);
 
-  // Listen for note-click and highlight-click messages from iframe
+  // Listen for link-click and summary-click messages from iframe.
+  // (note-click / highlight-click / close-popovers / text-selection are
+  // handled by ReaderOverlays.)
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
-      if (event.data?.type === "note-click" && event.data.noteId) {
-        setActiveNoteId(event.data.noteId);
-        // Close highlight popover and translation panel (mutual exclusivity)
-        setActiveHighlightId(null);
-        setHighlightPosition(null);
-        setTranslationPanel(null);
-      }
-      if (event.data?.type === "highlight-click" && event.data.highlightId) {
-        setActiveHighlightId(event.data.highlightId);
-        // Position the popover near the highlight span
-        const rect = event.data.rect;
-        if (rect) {
-          setHighlightPosition({
-            top: rect.bottom + 8,
-            left: rect.left + rect.width / 2 - 130,
-          });
-        }
-        // Close note detail panel and translation panel (mutual exclusivity)
-        setActiveNoteId(null);
-        setTranslationPanel(null);
-      }
       if (event.data?.type === "link-click") {
         const msg = event.data as LinkClickMessage;
         onLinkClickRef.current?.(msg.href);
-        // Close other floating UI (mutual exclusivity for link navigation)
-        setActiveNoteId(null);
-        setActiveHighlightId(null);
-        setHighlightPosition(null);
-        setTranslationPanel(null);
-      }
-      if (event.data?.type === "close-popovers") {
-        // Close all popovers when clicking on empty area in iframe
-        setActiveNoteId(null);
-        setActiveHighlightId(null);
-        setHighlightPosition(null);
       }
       if (event.data?.type === "summary-click") {
         // Trigger (or re-trigger) streaming chapter summary generation.
@@ -266,46 +204,6 @@ export function VerticalScroller({
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, []);
-
-  const handleClosePopover = useCallback(() => {
-    setActiveNoteId(null);
-  }, []);
-
-  const handleCloseHighlightPopover = useCallback(() => {
-    setActiveHighlightId(null);
-    setHighlightPosition(null);
-  }, []);
-
-  const handleHighlightColorChange = useCallback((color: string) => {
-    if (!activeHighlightId || !currentBook) return;
-    updateHighlight(activeHighlightId, { color }, currentBook.id);
-  }, [activeHighlightId, currentBook]);
-
-  const handleHighlightDelete = useCallback(() => {
-    if (!activeHighlightId || !currentBook) return;
-    deleteHighlight(activeHighlightId, currentBook.id);
-    setActiveHighlightId(null);
-    setHighlightPosition(null);
-  }, [activeHighlightId, currentBook]);
-
-  const handleTranslate = useCallback((data: {
-    selectedText: string;
-    chapterHref: string;
-    startOffset: number;
-    endOffset: number;
-    sentence?: string;
-    paragraph?: string;
-  }) => {
-    setTranslationPanel(data);
-    // Close annotation detail panel and highlight popover (mutual exclusivity)
-    setActiveNoteId(null);
-    setActiveHighlightId(null);
-    setHighlightPosition(null);
-  }, []);
-
-  const handleCloseTranslationPanel = useCallback(() => {
-    setTranslationPanel(null);
   }, []);
 
   /**
@@ -412,44 +310,12 @@ export function VerticalScroller({
         sandbox="allow-same-origin allow-scripts"
         onLoad={handleIframeLoadWithFontSize}
       />
-      <TextSelectionToolbar
+      <ReaderOverlays
         containerRef={containerRef}
         chapterHref={chapterHref}
-        onTranslate={handleTranslate}
+        chapterText={chapterText}
         onAskAI={onAskAI}
       />
-      <AnnotationDetailDrawer
-        noteId={activeNoteId}
-        onClose={handleClosePopover}
-      />
-      {activeHighlight && highlightPosition && (
-        <HighlightPopover
-          highlight={activeHighlight}
-          position={highlightPosition}
-          onColorChange={handleHighlightColorChange}
-          onDelete={handleHighlightDelete}
-          onClose={handleCloseHighlightPopover}
-        />
-      )}
-      {translationPanel && <AITranslationPanel
-        selectedText={translationPanel?.selectedText ?? ""}
-        chapterText={chapterText}
-        chapterHref={translationPanel?.chapterHref ?? ""}
-        cfiRange={
-          translationPanel
-            ? generateCfiRange(
-              translationPanel.chapterHref,
-              translationPanel.startOffset,
-              translationPanel.endOffset,
-            )
-            : ""
-        }
-        startOffset={translationPanel?.startOffset ?? 0}
-        endOffset={translationPanel?.endOffset ?? 0}
-        sentence={translationPanel?.sentence}
-        isOpen={!!translationPanel}
-        onClose={handleCloseTranslationPanel}
-      />}
       {canGoBack && onLinkBack && (
         <button
           onClick={onLinkBack}

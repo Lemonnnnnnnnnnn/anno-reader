@@ -1,33 +1,122 @@
 /**
- * EPUB loading hook for ReaderPage.
- * Manages parsed EPUB state, loading state, and error state.
- * Handles EPUB import, auto-load on mount, and reset on book change.
+ * Book loading hook for ReaderPage.
+ * Manages parsed book state (EPUB or PDF-as-ParsedEpub), loading state,
+ * and error state. Handles book import, auto-load on mount, and reset on
+ * book change.
+ *
+ * PDF books additionally expose the live pdf.js document handle
+ * (`pdfDocument`) for canvas rendering in PdfViewer.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { useBookStore } from "@/stores/useBookStore";
-import { importEpub, EpubImportError, ImportErrorCode, readFileAsArrayBuffer } from "@/lib/import";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useBookStore, formatFromFilePath } from "@/stores/useBookStore";
+import {
+  importBook,
+  EpubImportError,
+  ImportErrorCode,
+  readFileAsArrayBuffer,
+} from "@/lib/import";
 import { restoreNotes, restoreHighlights } from "@/lib/annotations";
 import { restoreSummaries } from "@/lib/summaries";
 import { restoreProgress, trackProgress, flushProgress } from "@/lib/progress";
 import type { ParsedEpub } from "@/lib/epub";
 import { loadEpub } from "@/lib/epub";
+import { loadPdf, destroyPdfDocument } from "@/lib/pdf";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import { setParsedEpub as setRAGCache, clearParsedEpub as clearRAGCache } from "@/lib/rag";
+
+/** Loaded book content: ParsedEpub view + optional live PDF handle. */
+interface LoadedBook {
+  parsed: ParsedEpub;
+  pdfDocument: PDFDocumentProxy | null;
+}
+
+/** Resolve the effective format for a book (absent format → infer from path). */
+function effectiveFormat(filePath: string, format?: "epub" | "pdf"): "epub" | "pdf" {
+  return format ?? formatFromFilePath(filePath);
+}
+
+/** Read + parse a book file into the LoadedBook shape. */
+async function parseBookFile(filePath: string, format: "epub" | "pdf"): Promise<LoadedBook> {
+  const arrayBuffer = await readFileAsArrayBuffer(filePath);
+
+  if (format === "pdf") {
+    const pdfBook = await loadPdf(arrayBuffer, { extractContent: true, generateCover: false });
+    return { parsed: pdfBook.parsed, pdfDocument: pdfBook.document };
+  }
+
+  const parsed = await loadEpub(arrayBuffer, { extractContent: true });
+  return { parsed, pdfDocument: null };
+}
+
+/** Release a PDF document, swallowing errors (best-effort cleanup). */
+function releasePdfDocument(doc: PDFDocumentProxy | null): void {
+  if (doc) {
+    destroyPdfDocument(doc).catch(() => undefined);
+  }
+}
 
 export function useEpubLoader() {
   const currentBook = useBookStore((state) => state.currentBook);
   const setCurrentChapter = useBookStore((state) => state.setCurrentChapter);
 
   const [parsedEpub, setParsedEpub] = useState<ParsedEpub | null>(null);
+  const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Total chapters from parsed EPUB
+  // Live handle to the currently-loaded PDF document (for cleanup on unmount).
+  // A ref (not state) so effect cleanups don't destroy freshly loaded docs.
+  const pdfDocRef = useRef<PDFDocumentProxy | null>(null);
+
+  /** Install a new PDF document, releasing any previous one. */
+  const installPdfDocument = useCallback((doc: PDFDocumentProxy | null) => {
+    const prev = pdfDocRef.current;
+    if (prev && prev !== doc) {
+      releasePdfDocument(prev);
+    }
+    pdfDocRef.current = doc;
+    setPdfDocument(doc);
+  }, []);
+
+  // Total chapters from parsed book (PDF pages count as chapters)
   const totalChapters = parsedEpub?.chapters.length ?? 0;
 
+  // Effective format of the currently loaded book
+  const format = currentBook
+    ? effectiveFormat(currentBook.filePath, currentBook.format)
+    : "epub";
+
   /**
-   * Handle EPUB file import.
-   * Opens file dialog, parses the EPUB, and loads chapters.
+   * Shared post-load setup: seed state, RAG cache, restore annotations,
+   * and set the initial chapter.
+   */
+  const finalizeLoad = useCallback(
+    async (loaded: LoadedBook, bookId: string, filePath: string) => {
+      setParsedEpub(loaded.parsed);
+      installPdfDocument(loaded.pdfDocument);
+      setRAGCache(loaded.parsed);
+
+      // Restore saved notes, highlights, summaries, and progress for this book
+      try {
+        await restoreNotes(bookId);
+        await restoreHighlights(bookId);
+        await restoreSummaries(bookId);
+        await restoreProgress(bookId, filePath);
+      } catch (restoreErr) {
+        // Non-fatal: log but don't block import
+        console.warn("Failed to restore annotations:", restoreErr);
+      }
+
+      // Set first chapter as current (restoreProgress may have set a different one)
+      setCurrentChapter(loaded.parsed.chapters[0].href, 0);
+    },
+    [installPdfDocument, setCurrentChapter],
+  );
+
+  /**
+   * Handle book import.
+   * Opens file dialog, parses the book (EPUB or PDF), and loads chapters.
    * Provides user-friendly error messages for various failure scenarios.
    */
   const handleImport = useCallback(async () => {
@@ -35,13 +124,12 @@ export function useEpubLoader() {
     setError(null);
 
     try {
-      const { book, filePath } = await importEpub();
+      const { book, filePath } = await importBook();
 
-      // Re-read and fully parse the EPUB for chapter content
-      let parsed: ParsedEpub;
+      // Re-read and fully parse the book for chapter/page content
+      let loaded: LoadedBook;
       try {
-        const arrayBuffer = await readFileAsArrayBuffer(filePath);
-        parsed = await loadEpub(arrayBuffer, { extractContent: true });
+        loaded = await parseBookFile(filePath, effectiveFormat(book.filePath, book.format));
       } catch (parseErr) {
         // If we got this far, the file was valid for metadata but failed for content
         const errMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
@@ -53,29 +141,14 @@ export function useEpubLoader() {
       }
 
       // Check if we got any chapters
-      if (parsed.chapters.length === 0) {
+      if (loaded.parsed.chapters.length === 0) {
         throw new EpubImportError(
           ImportErrorCode.NoChapters,
-          "The EPUB file contains no readable chapters"
+          "The book file contains no readable chapters"
         );
       }
 
-      setParsedEpub(parsed);
-      setRAGCache(parsed);
-
-      // Restore saved notes, highlights, summaries, and progress for this book
-      try {
-        await restoreNotes(book.id);
-        await restoreHighlights(book.id);
-        await restoreSummaries(book.id);
-        await restoreProgress(book.id, filePath);
-      } catch (restoreErr) {
-        // Non-fatal: log but don't block import
-        console.warn("Failed to restore annotations:", restoreErr);
-      }
-
-      // Set first chapter as current (restoreProgress may have set a different one)
-      setCurrentChapter(parsed.chapters[0].href, 0);
+      await finalizeLoad(loaded, book.id, filePath);
     } catch (err) {
       // User cancelled the dialog — not an error
       if (err instanceof EpubImportError && err.isCancellation) {
@@ -87,14 +160,14 @@ export function useEpubLoader() {
       if (err instanceof EpubImportError) {
         setError(err.userMessage);
       } else {
-        setError(err instanceof Error ? err.message : "Failed to import EPUB");
+        setError(err instanceof Error ? err.message : "Failed to import book");
       }
     } finally {
       setLoading(false);
     }
-  }, [setCurrentChapter]);
+  }, [finalizeLoad]);
 
-  // Auto-load EPUB content when currentBook exists but parsedEpub is missing
+  // Auto-load book content when currentBook exists but parsedEpub is missing
   // (e.g., page refresh, navigation from bookshelf)
   useEffect(() => {
     if (!currentBook || parsedEpub) return;
@@ -107,18 +180,26 @@ export function useEpubLoader() {
       setError(null);
 
       try {
-        const arrayBuffer = await readFileAsArrayBuffer(currentBook!.filePath);
-        const parsed = await loadEpub(arrayBuffer, { extractContent: true });
+        const bookFormat = effectiveFormat(
+          currentBook!.filePath,
+          currentBook!.format,
+        );
+        const loaded = await parseBookFile(currentBook!.filePath, bookFormat);
 
-        if (cancelled) return;
-
-        if (parsed.chapters.length === 0) {
-          setError("The EPUB file contains no readable chapters");
+        if (cancelled) {
+          // Drop the PDF document if the component unmounted mid-load
+          releasePdfDocument(loaded.pdfDocument);
           return;
         }
 
-        setParsedEpub(parsed);
-        setRAGCache(parsed);
+        if (loaded.parsed.chapters.length === 0) {
+          setError("The book file contains no readable chapters");
+          return;
+        }
+
+        setParsedEpub(loaded.parsed);
+        installPdfDocument(loaded.pdfDocument);
+        setRAGCache(loaded.parsed);
 
         // Restore saved notes, highlights, summaries, and progress
         try {
@@ -151,16 +232,27 @@ export function useEpubLoader() {
         flushProgress();
         cleanupTracking();
       }
+      // NOTE: the PDF document is released via installPdfDocument/unmount,
+      // not here — this cleanup also runs when parsedEpub becomes non-null.
     };
-  }, [currentBook, parsedEpub]);
+  }, [currentBook, parsedEpub, installPdfDocument]);
 
-  // Reset parsed EPUB when book changes (e.g., re-import)
+  // Release the pdf.js document when the reader unmounts
+  useEffect(() => {
+    return () => {
+      releasePdfDocument(pdfDocRef.current);
+      pdfDocRef.current = null;
+    };
+  }, []);
+
+  // Reset parsed book when book changes (e.g., re-import)
   useEffect(() => {
     if (!currentBook) {
       setParsedEpub(null);
+      installPdfDocument(null);
       clearRAGCache();
     }
-  }, [currentBook]);
+  }, [currentBook, installPdfDocument]);
 
-  return { parsedEpub, loading, error, setError, totalChapters, handleImport };
+  return { parsedEpub, pdfDocument, format, loading, error, setError, totalChapters, handleImport };
 }

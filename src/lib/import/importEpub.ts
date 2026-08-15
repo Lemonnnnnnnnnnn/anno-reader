@@ -1,25 +1,23 @@
 /**
- * Main EPUB import orchestrator.
+ * EPUB import orchestrator (file-level).
  *
- * Combines file dialog, file reading, EPUB parsing, and store integration
- * into a single high-level import flow. Handles various error scenarios
- * gracefully with user-friendly messages.
+ * Combines file reading, EPUB parsing, and store integration for a
+ * single EPUB file path. Dialog-based entry point lives in importBook.ts
+ * which dispatches by file extension (EPUB / PDF).
  *
  * Books are copied into the data directory as entries/{id}/book.epub,
  * enabling portable data directories for cloud sync across devices.
  */
 
-import { openFileDialog } from "./dialog";
 import { readFileAsArrayBuffer } from "./fileReader";
 import { loadEpub } from "@/lib/epub";
 import { addEntry, type BookEntry } from "@/lib/bookshelf";
 import { useBookStore, type BookMetadata } from "@/stores/useBookStore";
-import { readConfig } from "@/lib/storage/config";
 import { EpubImportError, ImportErrorCode } from "./errors";
-import { copyFile, mkdir, exists } from "@tauri-apps/plugin-fs";
+import { copyBookToDataDir } from "./persist";
 
 /**
- * Result of a successful EPUB import.
+ * Result of a successful book import.
  */
 export interface ImportResult {
   /** Metadata for the imported book */
@@ -29,47 +27,15 @@ export interface ImportResult {
 }
 
 /** Maximum file size: 100MB */
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+export const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
-/** Filename for the persisted book copy */
+/** Filename for the persisted EPUB copy */
 const BOOK_FILENAME = "book.epub";
-
-/**
- * Copy the EPUB file into the data directory under entries/{id}/book.epub.
- *
- * @param bookId - The book's unique ID.
- * @param srcPath - Absolute path to the source EPUB file.
- * @returns The relative path (entries/{id}/book.epub) for storage in bookshelf.
- */
-async function copyBookToDataDir(
-  bookId: string,
-  srcPath: string
-): Promise<string> {
-  const config = await readConfig();
-  if (!config?.dataDir) {
-    throw new EpubImportError(
-      ImportErrorCode.FileReadError,
-      "Data directory not configured"
-    );
-  }
-
-  const entryDir = `${config.dataDir}/entries/${bookId}`;
-  const dirExists = await exists(entryDir);
-  if (!dirExists) {
-    await mkdir(entryDir, { recursive: true });
-  }
-
-  const destPath = `${entryDir}/${BOOK_FILENAME}`;
-  await copyFile(srcPath, destPath);
-
-  // Return relative path for portability
-  return `entries/${bookId}/${BOOK_FILENAME}`;
-}
 
 /**
  * Validate that the file has a valid EPUB extension.
  */
-function validateFileExtension(path: string): void {
+export function validateFileExtension(path: string): void {
   if (!path.toLowerCase().endsWith(".epub")) {
     throw new EpubImportError(
       ImportErrorCode.InvalidFileType,
@@ -90,26 +56,18 @@ function validateParsedEpub(parsed: { metadata: { title: string }; chapters: unk
 }
 
 /**
- * Open a file dialog, read the selected EPUB file, parse it,
- * and register it in the Zustand store.
+ * Import an EPUB from an absolute file path: read, parse, copy into the
+ * data directory, and register it in the Zustand store + bookshelf.
  *
- * @returns The imported book metadata and file path.
+ * @param filePath - Absolute path to the EPUB file.
+ * @returns The imported book metadata and original file path.
  * @throws {EpubImportError} On any failure in the import pipeline.
  */
-export async function importEpub(): Promise<ImportResult> {
-  // Step 1: Open file dialog
-  let filePath: string;
-  try {
-    filePath = await openFileDialog();
-  } catch (err) {
-    // Re-throw as-is (already EpubImportError with Cancelled code)
-    throw err;
-  }
-
-  // Step 2: Validate file extension
+export async function importEpubFromFile(filePath: string): Promise<ImportResult> {
+  // Step 1: Validate file extension
   validateFileExtension(filePath);
 
-  // Step 3: Read file as ArrayBuffer
+  // Step 2: Read file as ArrayBuffer
   let arrayBuffer: ArrayBuffer;
   try {
     arrayBuffer = await readFileAsArrayBuffer(filePath);
@@ -124,7 +82,7 @@ export async function importEpub(): Promise<ImportResult> {
     );
   }
 
-  // Step 4: Check file size
+  // Step 3: Check file size
   if (arrayBuffer.byteLength > MAX_FILE_SIZE) {
     throw new EpubImportError(
       ImportErrorCode.FileTooLarge,
@@ -132,7 +90,7 @@ export async function importEpub(): Promise<ImportResult> {
     );
   }
 
-  // Step 5: Check minimum file size (EPUBs are ZIP files, minimum ~100 bytes)
+  // Step 4: Check minimum file size (EPUBs are ZIP files, minimum ~100 bytes)
   if (arrayBuffer.byteLength < 100) {
     throw new EpubImportError(
       ImportErrorCode.InvalidFileType,
@@ -140,7 +98,7 @@ export async function importEpub(): Promise<ImportResult> {
     );
   }
 
-  // Step 6: Parse the EPUB
+  // Step 5: Parse the EPUB
   let parsed;
   try {
     parsed = await loadEpub(arrayBuffer, { extractContent: false });
@@ -171,21 +129,21 @@ export async function importEpub(): Promise<ImportResult> {
     );
   }
 
-  // Step 7: Validate parsed data
+  // Step 6: Validate parsed data
   validateParsedEpub(parsed);
 
-  // Step 8: Copy book to data directory for portability
+  // Step 7: Copy book to data directory for portability
   const bookId = crypto.randomUUID();
   let persistedPath: string;
   try {
-    persistedPath = await copyBookToDataDir(bookId, filePath);
+    persistedPath = await copyBookToDataDir(bookId, filePath, BOOK_FILENAME);
   } catch (copyErr) {
     // Non-fatal: fall back to original path if copy fails
     console.warn("Failed to copy book to data directory:", copyErr);
     persistedPath = filePath;
   }
 
-  // Step 9: Build BookMetadata and register in store
+  // Step 8: Build BookMetadata and register in store
   const book: BookMetadata = {
     id: bookId,
     title: parsed.metadata.title,
@@ -193,6 +151,7 @@ export async function importEpub(): Promise<ImportResult> {
     coverUrl: parsed.coverUrl,
     filePath: persistedPath,
     lastOpened: Date.now(),
+    format: "epub",
   };
 
   useBookStore.getState().setBook(book);
@@ -205,6 +164,7 @@ export async function importEpub(): Promise<ImportResult> {
     author: book.author,
     coverUrl: book.coverUrl,
     filePath: book.filePath,
+    format: book.format,
     addedAt: book.lastOpened,
     lastOpened: book.lastOpened,
   };

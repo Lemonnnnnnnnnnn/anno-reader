@@ -8,7 +8,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import type { BookshelfItem } from "@/lib/bookshelf";
-import { Book } from "lucide-react";
+import { Book, FileText } from "lucide-react";
 
 interface BookCardProps {
   book: BookshelfItem;
@@ -17,6 +17,7 @@ interface BookCardProps {
 }
 
 export function BookCard({ book, onClick, onRemove }: BookCardProps) {
+  const isPdf = book.format === "pdf";
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -66,7 +67,7 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
         }}
       >
         {/* Cover image */}
-        <div className="w-full h-60 overflow-hidden bg-bg dark:bg-bg-dark">
+        <div className="relative w-full h-60 overflow-hidden bg-bg dark:bg-bg-dark">
           {book.coverUrl ? (
             <img
               src={book.coverUrl}
@@ -76,8 +77,13 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full text-text-muted dark:text-text-muted-dark">
-              <Book size={48} />
+              {isPdf ? <FileText size={48} /> : <Book size={48} />}
             </div>
+          )}
+          {isPdf && (
+            <span className="absolute top-2 right-2 px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide rounded bg-accent/90 text-white shadow-sm">
+              PDF
+            </span>
           )}
         </div>
 

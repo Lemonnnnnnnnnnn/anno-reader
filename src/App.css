@@ -227,3 +227,55 @@ body,
   border-color: #404040;
 }
 
+/* ------------------------------------------------------------------ */
+/* PDF viewer: text layer (pdf.js) + annotation overlays               */
+/* ------------------------------------------------------------------ */
+
+/* Container stacking: canvas below, transparent selectable text above */
+.pdfPageWrap {
+  position: relative;
+}
+
+/* Minimal pdf.js text layer styles (subset of web/pdf_viewer.css) */
+.pdfTextLayer {
+  position: absolute;
+  text-align: initial;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  caret-color: CanvasText;
+  z-index: 2;
+}
+
+.pdfTextLayer span,
+.pdfTextLayer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+
+.pdfTextLayer ::selection {
+  background: rgba(59, 130, 246, 0.35);
+}
+
+/* Annotation overlays inside the text layer.
+   Inner spans are inline boxes within the absolutely-positioned pdf.js
+   spans, so backgrounds land exactly behind the glyphs. */
+.pdfTextLayer .anno-highlight {
+  background-color: transparent; /* set inline from highlight color */
+  border-radius: 2px;
+}
+
+.pdfTextLayer .anno-note {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+

@@ -23,6 +23,7 @@
     "ai": "^6.0.194",
     "epubix": "^0.2.7",
     "lucide-react": "^1.17.0",
+    "pdfjs-dist": "^6.2.108",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",

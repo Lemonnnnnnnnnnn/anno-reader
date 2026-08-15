@@ -36,7 +36,10 @@ anno-reader/
 | Shared primitives | `src/components/primitives/` | Button, TextArea, Icon, ErrorBanner |
 | Tailwind config | `tailwind.config.ts` | Design tokens, colors, fonts |
 | EPUB parsing | `src/lib/epub/` | Wraps epubix library |
-| File import | `src/lib/import/` | Tauri dialog + fs plugins |
+| PDF support | `src/lib/pdf/` | pdf.js → ParsedEpub mapping (pages as chapters) |
+| PDF rendering | `src/components/PdfViewer/` | Canvas + text layer + annotation overlays |
+| Shared reader UI | `src/components/ReaderOverlays/` | Selection toolbar/popovers via postMessage (EPUB+PDF) |
+| File import | `src/lib/import/` | Tauri dialog + fs plugins; `importBook()` dispatches by extension |
 | Annotations | `src/lib/annotations/` | Notes + highlights persistence |
 | Reading progress | `src/lib/progress/` | Auto-save on scroll/navigation |
 | CSS injection | `src/lib/css/` | EPUB style isolation |
