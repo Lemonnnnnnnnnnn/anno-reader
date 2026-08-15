@@ -18,6 +18,22 @@ export interface MessageRect {
   height: number;
 }
 
+/**
+ * Whether an event target lies inside floating reader UI (selection
+ * toolbar / highlight popover). Mouse events originating there must not
+ * be treated as page interactions: clicking a toolbar button must not
+ * re-report the (still-active) browser selection — the delayed mouseup
+ * handler would re-post "text-selection" right after the click handler
+ * closed the toolbar, making it appear to never close.
+ */
+export function isInsideFloatingUi(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.closest("[data-selection-toolbar]") !== null ||
+    target.closest("[data-highlight-popover]") !== null
+  );
+}
+
 /** Convert a DOMRect to a rect relative to the given container element. */
 export function toContainerRect(rect: DOMRect, container: HTMLElement): MessageRect {
   const containerRect = container.getBoundingClientRect();

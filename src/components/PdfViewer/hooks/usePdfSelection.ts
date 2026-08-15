@@ -20,6 +20,7 @@ import {
   toContainerRect,
   findSentenceContext,
   findParagraphContext,
+  isInsideFloatingUi,
 } from "../textLayerDom";
 
 interface UsePdfSelectionParams {
@@ -79,15 +80,18 @@ export function usePdfSelection({
       );
     };
 
-    // document-level: releasing the drag outside the page still counts
-    const handleMouseUp = () => {
+    // document-level: releasing the drag outside the page still counts.
+    // Mouseups on floating UI (toolbar buttons etc.) must NOT re-post the
+    // still-active browser selection: the delayed post would re-open the
+    // toolbar right after the click handler closed it (e.g. AI translate).
+    const handleMouseUp = (e: MouseEvent) => {
+      if (isInsideFloatingUi(e.target)) return;
       window.setTimeout(postSelection, 10);
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
       // Clicks on the floating toolbar must not dismiss it
-      if (target?.closest("[data-selection-toolbar]")) return;
+      if (isInsideFloatingUi(e.target)) return;
       window.postMessage({ type: "text-selection-cleared" }, "*");
     };
 

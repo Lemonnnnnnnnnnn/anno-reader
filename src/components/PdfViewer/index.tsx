@@ -32,22 +32,41 @@ interface PdfViewerProps {
   chapters: EpubChapterInfo[];
   /** Callback when user clicks "Ask AI" in selection toolbar. */
   onAskAI?: (selectedText: string) => void;
+  /** Callback to expose the scroll container to parent (vim j/k scrolling). */
+  onScrollEl?: (el: HTMLDivElement | null) => void;
 }
 
-export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProps) {
+export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Expose the scroll container to the parent (mirrors the iframe ref
+  // callback pattern used by ChapterRenderer)
+  useEffect(() => {
+    onScrollEl?.(scrollRef.current);
+    return () => {
+      onScrollEl?.(null);
+    };
+  }, [onScrollEl]);
 
   const currentChapterIndex = useBookStore((state) => state.ui.currentChapterIndex);
   const theme = useBookStore((state) => state.ui.theme);
   const setPendingScrollCfi = useBookStore((state) => state.setPendingScrollCfi);
   const pendingScrollCfi = useBookStore((state) => state.ui.pendingScrollCfi);
+  const pendingScrollY = useBookStore((state) => state.ui.pendingScrollY);
+  const setPendingScrollY = useBookStore((state) => state.setPendingScrollY);
+  const setScrollPosition = useBookStore((state) => state.setScrollPosition);
 
   const currentChapter = chapters[currentChapterIndex] ?? null;
   const pageNumber = currentChapterIndex + 1;
 
-  // --- Zoom: fit-width base scale × user zoom multiplier ---
-  const [zoom, setZoom] = useState(1);
+  // --- Zoom: fit-width base scale × user zoom multiplier (persisted) ---
+  // Stored in ui.pdfZoom so the progress tracker persists it per book;
+  // `?? 1` guards against stores seeded from partial state in tests, and
+  // the clamp guards against corrupted saved values.
+  const rawZoom = useBookStore((state) => state.ui.pdfZoom) ?? 1;
+  const pdfZoom = Math.min(4, Math.max(0.3, rawZoom));
+  const setPdfZoom = useBookStore((state) => state.setPdfZoom);
   const [fitScale, setFitScale] = useState(1);
   // Natural page width at scale 1 (null until measured)
   const pageWidthRef = useRef<number | null>(null);
@@ -92,11 +111,12 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
   }, [pdfDoc, recomputeFit]);
 
   const scale = useMemo(
-    () => Math.max(0.1, fitScale * zoom),
-    [fitScale, zoom],
+    () => Math.max(0.1, fitScale * pdfZoom),
+    [fitScale, pdfZoom],
   );
 
   // --- Page render (canvas + text layer) ---
+  // theme drives dark-mode rendering (pageColors swap) and re-renders on toggle
   const {
     canvasRef,
     textLayerRef,
@@ -105,9 +125,89 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
     rendering,
     renderEpoch,
     error: renderError,
-  } = usePdfPage(pdfDoc, pageNumber, scale);
+  } = usePdfPage(pdfDoc, pageNumber, scale, theme);
 
   const chapterHref = currentChapter?.href ?? "";
+
+  // --- Scroll persistence: report container scroll to the store ---
+  // Mirrors the EPUB iframe scroll tracker: the progress tracker saves
+  // ui.scrollPosition (debounced), so the PDF scroll container must keep
+  // it in sync while the user scrolls.
+  const reportScrollRef = useRef(false);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let ticking = false;
+    const postScroll = () => {
+      ticking = false;
+      // Skip store updates while programmatically applying a position
+      // (page flip reset / restore) — same guard as the EPUB tracker
+      if (reportScrollRef.current) return;
+      setScrollPosition(el.scrollTop);
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(postScroll);
+      }
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, [setScrollPosition]);
+
+  // --- Scroll application: page flip reset + saved-position restore ---
+  // Mirrors the EPUB useScrollTracking.handleIframeLoad semantics:
+  // - Page flip: navigation already set ui.scrollPosition to 0 → apply it
+  //   (the container itself would otherwise keep its scrollTop).
+  // - Book open with saved progress: restoreProgress set ui.scrollPosition
+  //   to the saved offset → apply after the page has rendered.
+  //
+  // The target is captured ONCE during the first render of the new page
+  // (before any layout clamp scroll-events can pollute ui.scrollPosition),
+  // then applied after the render completes (renderEpoch > 0).
+  const lastAppliedPageRef = useRef<number | null>(null);
+  const scrollTargetRef = useRef<number | null>(null);
+  if (lastAppliedPageRef.current !== currentChapterIndex && scrollTargetRef.current === null) {
+    scrollTargetRef.current = useBookStore.getState().ui.scrollPosition ?? 0;
+  }
+
+  useEffect(() => {
+    if (renderEpoch === 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    // pendingScrollY is a one-shot absolute position (link-back nav)
+    if (pendingScrollY !== null && pendingScrollY !== undefined) {
+      reportScrollRef.current = true;
+      el.scrollTop = pendingScrollY;
+      setScrollPosition(pendingScrollY);
+      setPendingScrollY(null);
+      requestAnimationFrame(() => {
+        reportScrollRef.current = false;
+      });
+      lastAppliedPageRef.current = currentChapterIndex;
+      scrollTargetRef.current = null;
+      return;
+    }
+
+    if (lastAppliedPageRef.current === currentChapterIndex) return;
+
+    const target = scrollTargetRef.current ?? 0;
+    reportScrollRef.current = true;
+    el.scrollTop = target;
+    // Keep the store in sync with the applied position
+    setScrollPosition(target);
+    requestAnimationFrame(() => {
+      reportScrollRef.current = false;
+    });
+    lastAppliedPageRef.current = currentChapterIndex;
+    scrollTargetRef.current = null;
+  }, [renderEpoch, currentChapterIndex, pendingScrollY, setPendingScrollY, setScrollPosition]);
 
   // --- Selection + annotation bridges ---
   usePdfSelection({ textLayerRef, containerRef, renderEpoch, pageLines });
@@ -116,7 +216,6 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
     containerRef,
     renderEpoch,
     chapterHref,
-    theme,
   });
 
   // --- Summary ---
@@ -131,11 +230,12 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
     chapterText,
   });
 
-  // --- Consume pendingScrollCfi: flash the target annotation on this page ---
+  // --- Consume pendingScrollCfi: scroll to + flash the target annotation ---
   useEffect(() => {
     if (!pendingScrollCfi || renderEpoch === 0) return;
     const root = textLayerRef.current;
-    if (!root) return;
+    const scrollEl = scrollRef.current;
+    if (!root || !scrollEl) return;
 
     const offsets = parseCfiOffsets(pendingScrollCfi);
     if (!offsets) return;
@@ -148,6 +248,24 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
       "background-color: rgba(59, 130, 246, 0.45);",
       { "flash-target": "true" },
     );
+
+    // Scroll the annotation into view (mirrors EPUB scrollToCharOffset):
+    // the flash target's position within the scroll container determines
+    // the scrollTop that centers it around one third from the top.
+    const flashEl = root.querySelector('.anno-highlight[data-flash-target="true"]');
+    if (flashEl) {
+      const scrollRect = scrollEl.getBoundingClientRect();
+      const rect = flashEl.getBoundingClientRect();
+      const targetScrollTop =
+        scrollEl.scrollTop + (rect.top - scrollRect.top) - scrollRect.height / 3;
+      reportScrollRef.current = true;
+      scrollEl.scrollTop = Math.max(0, targetScrollTop);
+      setScrollPosition(scrollEl.scrollTop);
+      requestAnimationFrame(() => {
+        reportScrollRef.current = false;
+      });
+    }
+
     // Remove the flash after a moment (next annotations pass also clears it)
     window.setTimeout(() => {
       root.querySelectorAll('.anno-highlight[data-flash-target="true"]').forEach((el) => {
@@ -157,11 +275,17 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
     }, 1600);
 
     setPendingScrollCfi(null);
-  }, [pendingScrollCfi, renderEpoch, textLayerRef, setPendingScrollCfi]);
+  }, [pendingScrollCfi, renderEpoch, textLayerRef, setPendingScrollCfi, setScrollPosition]);
 
-  const handleZoomIn = useCallback(() => setZoom((z) => Math.min(4, +(z + 0.2).toFixed(2))), []);
-  const handleZoomOut = useCallback(() => setZoom((z) => Math.max(0.3, +(z - 0.2).toFixed(2))), []);
-  const handleZoomReset = useCallback(() => setZoom(1), []);
+  const handleZoomIn = useCallback(
+    () => setPdfZoom(Math.min(4, +(pdfZoom + 0.2).toFixed(2))),
+    [pdfZoom, setPdfZoom],
+  );
+  const handleZoomOut = useCallback(
+    () => setPdfZoom(Math.max(0.3, +(pdfZoom - 0.2).toFixed(2))),
+    [pdfZoom, setPdfZoom],
+  );
+  const handleZoomReset = useCallback(() => setPdfZoom(1), [setPdfZoom]);
 
   return (
     <div className="relative flex flex-col h-full overflow-hidden">
@@ -197,7 +321,7 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
           <div ref={containerRef} className="pdfPageWrap relative shadow-md rounded-sm">
             <canvas
               ref={canvasRef}
-              className="block bg-white dark:bg-white rounded-sm"
+              className="block bg-white dark:bg-surface-dark rounded-sm"
             />
             <div ref={textLayerRef} className="pdfTextLayer" />
             {rendering && (
@@ -205,6 +329,21 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
                 <div className="w-8 h-8 border-2 border-border dark:border-border-dark border-t-accent dark:border-t-accent-dark rounded-full animate-spin" />
               </div>
             )}
+
+            {/* Shared selection / annotation / translation overlays.
+                MUST render inside the container (pdfPageWrap): the selection
+                rects are computed relative to this element (toContainerRect),
+                and the absolutely-positioned toolbar/popovers resolve against
+                their nearest positioned ancestor — which is this element only
+                when rendered here. Placing them at the viewer root made the
+                toolbar drift by the page's offset (scroll/zoom/summary card),
+                i.e. a different wrong position on every selection. */}
+            <ReaderOverlays
+              containerRef={containerRef}
+              chapterHref={chapterHref}
+              chapterText={chapterText}
+              onAskAI={onAskAI}
+            />
           </div>
         </div>
       </div>
@@ -233,14 +372,6 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI }: PdfViewerProp
           <ZoomOut size={16} />
         </button>
       </div>
-
-      {/* Shared selection / annotation / translation overlays */}
-      <ReaderOverlays
-        containerRef={containerRef}
-        chapterHref={chapterHref}
-        chapterText={chapterText}
-        onAskAI={onAskAI}
-      />
     </div>
   );
 }

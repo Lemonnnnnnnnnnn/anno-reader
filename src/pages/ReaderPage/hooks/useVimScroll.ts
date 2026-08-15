@@ -116,18 +116,29 @@ function isTypingInInput(): boolean {
 }
 
 /**
- * Build a ScrollTarget that reads/writes the scroll position
- * inside an iframe's content window.
+ * Build a ScrollTarget for an iframe (EPUB) or a scrollable element (PDF).
+ *
+ * - HTMLIFrameElement: reads/writes the scroll position of the iframe's
+ *   content window.
+ * - Any other HTMLElement (e.g. the PdfViewer scroll container): reads/
+ *   writes the element's own scrollTop.
  */
-function getIframeScrollTarget(
-  iframe: HTMLIFrameElement,
-): ScrollTarget | null {
-  const win = iframe.contentWindow;
-  if (!win) return null;
+function getScrollTarget(el: HTMLElement): ScrollTarget | null {
+  if (el instanceof HTMLIFrameElement) {
+    const win = el.contentWindow;
+    if (!win) return null;
+
+    return {
+      getScrollTop: () => win.scrollY || win.document.documentElement.scrollTop || 0,
+      setScrollTop: (top: number) => win.scrollTo({ top, behavior: "auto" }),
+    };
+  }
 
   return {
-    getScrollTop: () => win.scrollY || win.document.documentElement.scrollTop || 0,
-    setScrollTop: (top: number) => win.scrollTo({ top, behavior: "auto" }),
+    getScrollTop: () => el.scrollTop,
+    setScrollTop: (top: number) => {
+      el.scrollTop = top;
+    },
   };
 }
 
@@ -135,17 +146,24 @@ function getIframeScrollTarget(
 // Hook
 // ---------------------------------------------------------------------------
 
+/**
+ * Vim-like smooth scrolling for ReaderPage.
+ *
+ * @param scrollElRef - Ref to the active scroll container: the chapter
+ *        iframe (EPUB) or the PDF page scroll div (PDF). Whoever mounts
+ *        last sets the ref (they are never mounted simultaneously).
+ */
 export function useVimScroll(
-  iframeRef: React.RefObject<HTMLIFrameElement | null>,
+  scrollElRef: React.RefObject<HTMLElement | null>,
 ) {
   const scrollerRef = useRef<SmoothScroller | null>(null);
 
-  // Lazily create / update the scroller when iframe becomes available
+  // Lazily create / update the scroller when the scroll element is available
   const getScroller = useCallback((): SmoothScroller | null => {
-    const iframe = iframeRef.current;
-    if (!iframe) return null;
+    const el = scrollElRef.current;
+    if (!el) return null;
 
-    const target = getIframeScrollTarget(iframe);
+    const target = getScrollTarget(el);
     if (!target) return null;
 
     if (!scrollerRef.current) {
@@ -155,7 +173,7 @@ export function useVimScroll(
     }
 
     return scrollerRef.current;
-  }, [iframeRef]);
+  }, [scrollElRef]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

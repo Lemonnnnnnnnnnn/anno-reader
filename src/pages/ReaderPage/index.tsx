@@ -93,14 +93,23 @@ export function ReaderPage() {
   // Keyboard navigation between chapters (pages for PDF)
   useKeyboardNav(parsedEpub);
 
-  // Iframe ref for ChapterRenderer
+  // Shared scroll element for vim j/k scrolling: the EPUB chapter iframe
+  // or the PDF page scroll container (never mounted simultaneously)
+  const vimScrollElRef = useRef<HTMLElement | null>(null);
+
+  // Iframe ref for ChapterRenderer (EPUB link navigation / annotation scroll)
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const setIframeEl = (el: HTMLIFrameElement | null) => {
     iframeRef.current = el;
+    vimScrollElRef.current = el;
   };
 
+  const setPdfScrollEl = useCallback((el: HTMLDivElement | null) => {
+    vimScrollElRef.current = el;
+  }, []);
+
   // Vim-like smooth scrolling (j/k keys)
-  useVimScroll(iframeRef);
+  useVimScroll(vimScrollElRef);
 
   // Drawer state
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
@@ -389,6 +398,7 @@ export function ReaderPage() {
                 document={pdfDocument}
                 chapters={parsedEpub.chapters}
                 onAskAI={handleAskAI}
+                onScrollEl={setPdfScrollEl}
               />
             ) : (
               <ChapterRenderer

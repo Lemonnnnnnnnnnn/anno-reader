@@ -13,6 +13,7 @@ import {
   toContainerRect,
   findSentenceContext,
   findParagraphContext,
+  isInsideFloatingUi,
 } from "../textLayerDom";
 
 /** Build a text layer-like element with the given line texts. */
@@ -155,6 +156,39 @@ function viSpyGetBoundingClientRect(
       toJSON: () => ({}),
     }) as DOMRect;
 }
+
+describe("isInsideFloatingUi", () => {
+  it("matches the selection toolbar", () => {
+    const toolbar = document.createElement("div");
+    toolbar.setAttribute("data-selection-toolbar", "");
+    const button = document.createElement("button");
+    toolbar.appendChild(button);
+    document.body.appendChild(toolbar);
+
+    expect(isInsideFloatingUi(button)).toBe(true);
+    expect(isInsideFloatingUi(toolbar)).toBe(true);
+    document.body.removeChild(toolbar);
+  });
+
+  it("matches the highlight popover", () => {
+    const popover = document.createElement("div");
+    popover.setAttribute("data-highlight-popover", "");
+    const swatch = document.createElement("button");
+    popover.appendChild(swatch);
+    document.body.appendChild(popover);
+
+    expect(isInsideFloatingUi(swatch)).toBe(true);
+    document.body.removeChild(popover);
+  });
+
+  it("returns false for page content and null targets", () => {
+    expect(isInsideFloatingUi(null)).toBe(false);
+    const page = document.createElement("div");
+    document.body.appendChild(page);
+    expect(isInsideFloatingUi(page)).toBe(false);
+    document.body.removeChild(page);
+  });
+});
 
 describe("findSentenceContext", () => {
   const lines = ["The quick brown", "fox jumps over", "the lazy dog"];

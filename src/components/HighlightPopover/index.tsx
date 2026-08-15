@@ -62,6 +62,7 @@ export function HighlightPopover({
   return (
     <div
       ref={popoverRef}
+      data-highlight-popover
       className="absolute z-50"
       style={{
         position: "absolute",

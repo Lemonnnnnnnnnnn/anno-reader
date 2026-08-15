@@ -69,6 +69,11 @@ export async function restoreProgress(
     store.setFontSize(saved.fontSize);
   }
 
+  // Restore per-book PDF zoom
+  if (typeof saved.zoom === "number" && saved.zoom > 0) {
+    store.setPdfZoom(saved.zoom);
+  }
+
   return saved;
 }
 

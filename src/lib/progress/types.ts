@@ -23,6 +23,8 @@ export interface ProgressData {
   percentage: number;
   /** Font size in pixels (per-book setting) */
   fontSize?: number;
+  /** PDF zoom multiplier, 1 = fit width (per-book setting) */
+  zoom?: number;
   /** ISO timestamp of last progress update */
   lastUpdated: string;
 }

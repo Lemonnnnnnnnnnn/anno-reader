@@ -69,6 +69,8 @@ export interface UIState {
   pendingScrollY: number | null;
   theme: "light" | "dark";
   fontSize: number;
+  /** PDF zoom multiplier (1 = fit width). Persisted with reading progress. */
+  pdfZoom: number;
 }
 
 // --- Store ---
@@ -113,6 +115,7 @@ export interface BookStore {
   setPendingScrollY: (scrollY: number | null) => void;
   setTheme: (theme: "light" | "dark") => void;
   setFontSize: (size: number) => void;
+  setPdfZoom: (zoom: number) => void;
 }
 
 const DEFAULT_UI_STATE: UIState = {
@@ -124,6 +127,7 @@ const DEFAULT_UI_STATE: UIState = {
   pendingScrollY: null,
   theme: "light",
   fontSize: 18,
+  pdfZoom: 1,
 };
 
 export const useBookStore = create<BookStore>((set) => ({
@@ -227,4 +231,7 @@ export const useBookStore = create<BookStore>((set) => ({
 
   setFontSize: (fontSize) =>
     set((state) => ({ ui: { ...state.ui, fontSize } })),
+
+  setPdfZoom: (pdfZoom) =>
+    set((state) => ({ ui: { ...state.ui, pdfZoom } })),
 }));

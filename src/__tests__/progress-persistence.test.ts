@@ -93,6 +93,27 @@ describe("Progress Persistence", () => {
       expect(store.readingProgress).toBeNull();
       expect(store.ui.scrollPosition).toBe(0);
     });
+
+    it("should restore the per-book PDF zoom from saved progress", async () => {
+      const savedProgress: ProgressData = {
+        bookId: "test-book-789",
+        filePath: "/path/to/book.pdf",
+        chapterHref: "page-4",
+        chapterIndex: 3,
+        scrollOffset: 250,
+        percentage: 12,
+        zoom: 1.6,
+        lastUpdated: "2026-06-03T10:00:00Z",
+      };
+
+      vi.mocked(exists).mockResolvedValue(true);
+      vi.mocked(readTextFile).mockResolvedValue(JSON.stringify(savedProgress));
+
+      const { restoreProgress } = await import("@/lib/progress");
+      await restoreProgress("test-book-789", "/path/to/book.pdf");
+
+      expect(useBookStore.getState().ui.pdfZoom).toBe(1.6);
+    });
   });
 
   describe("trackProgress", () => {
@@ -169,6 +190,40 @@ describe("Progress Persistence", () => {
       expect(savedData.chapterIndex).toBe(1);
 
       // Cleanup
+      cleanup();
+    });
+
+    it("should persist the PDF zoom multiplier with saved progress", async () => {
+      const writeMock = vi.mocked(writeTextFile);
+      writeMock.mockResolvedValue(undefined);
+      vi.mocked(exists).mockResolvedValue(true);
+
+      useBookStore.setState({
+        readingProgress: {
+          bookId: "test-book-321",
+          chapterHref: "page-2",
+          chapterIndex: 1,
+          percentage: 20,
+          scrollOffset: 0,
+        },
+      });
+
+      const { trackProgress } = await import("@/lib/progress");
+      const cleanup = trackProgress("test-book-321", "/path/to/book.pdf", {
+        scrollDebounceMs: 0,
+      });
+
+      // Zoom in, then trigger a save via scroll change
+      useBookStore.getState().setPdfZoom(1.5);
+      useBookStore.getState().setScrollPosition(120);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(writeMock).toHaveBeenCalled();
+      const savedData = JSON.parse(writeMock.mock.calls[0][1] as string);
+      expect(savedData.zoom).toBe(1.5);
+      expect(savedData.scrollOffset).toBe(120);
+
       cleanup();
     });
   });

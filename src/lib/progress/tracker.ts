@@ -40,7 +40,7 @@ function toProgressData(
   filePath: string,
   progress: ReadingProgress
 ): ProgressData {
-  const { fontSize } = useBookStore.getState().ui;
+  const { fontSize, pdfZoom } = useBookStore.getState().ui;
   return {
     bookId,
     filePath,
@@ -49,6 +49,7 @@ function toProgressData(
     scrollOffset: progress.scrollOffset,
     percentage: progress.percentage,
     fontSize,
+    ...(pdfZoom !== undefined && pdfZoom !== 1 ? { zoom: pdfZoom } : {}),
     lastUpdated: new Date().toISOString(),
   };
 }

@@ -21,7 +21,6 @@ interface UsePdfAnnotationsParams {
   renderEpoch: number;
   /** Current chapter (page) href. */
   chapterHref: string;
-  theme: "light" | "dark";
 }
 
 export function usePdfAnnotations({
@@ -29,7 +28,6 @@ export function usePdfAnnotations({
   containerRef,
   renderEpoch,
   chapterHref,
-  theme,
 }: UsePdfAnnotationsParams) {
   // Annotations for the current chapter — useShallow prevents re-render loops
   const highlights = useBookStore(
@@ -53,13 +51,15 @@ export function usePdfAnnotations({
     for (const hl of highlights) {
       const offsets = parseCfiOffsets(hl.cfiRange);
       if (!offsets) continue;
-      const textColor = theme === "dark" ? "#1a1a1a" : "inherit";
+      // The pdf.js span text is transparent (canvas glyphs show through);
+      // keep that for the wrapped highlight text in both themes so the
+      // canvas-rendered glyph (inverted in dark mode) stays visible.
       wrapRange(
         root,
         offsets.start,
         offsets.end,
         "anno-highlight",
-        `background-color: ${hl.color}; color: ${textColor};`,
+        `background-color: ${hl.color}; color: inherit;`,
         { "highlight-id": hl.id },
       );
     }
@@ -76,7 +76,7 @@ export function usePdfAnnotations({
         { "note-id": note.id },
       );
     }
-  }, [textLayerRef, renderEpoch, highlights, notes, theme]);
+  }, [textLayerRef, renderEpoch, highlights, notes]);
 
   // Delegated click bridge (listener survives text layer rebuilds)
   useEffect(() => {
