@@ -6,7 +6,12 @@
  * "text-selection-cleared"), with container-relative rects and
  * line-based sentence/paragraph context for AI features.
  *
- * Mirrors the injected iframe script in lib/selection.ts.
+ * Mirrors the injected iframe script in lib/selection.ts, adapted for the
+ * main document:
+ * - mouseup listens at document level, so finishing a drag outside the
+ *   page (e.g. in the margin) still reports the selection
+ * - mousedown anywhere (except the floating toolbar) clears the toolbar,
+ *   matching the iframe behavior where every in-iframe mousedown clears
  */
 
 import { useEffect } from "react";
@@ -46,9 +51,11 @@ export function usePdfSelection({
       const text = sel.toString().trim();
       if (!text) return;
 
-      // Selection must intersect the text layer to be a PDF selection
+      // Selection must lie within the text layer to be a PDF selection
       const range = sel.getRangeAt(0);
-      if (!root.contains(range.commonAncestorContainer)) return;
+      if (!root.contains(range.startContainer) || !root.contains(range.endContainer)) {
+        return;
+      }
 
       const rect = range.getBoundingClientRect();
       const startOffset = getTextOffset(
@@ -72,25 +79,30 @@ export function usePdfSelection({
       );
     };
 
-    const postClear = () => {
-      window.setTimeout(() => {
-        const sel = window.getSelection();
-        if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-          window.postMessage({ type: "text-selection-cleared" }, "*");
-        }
-      }, 200);
-    };
-
+    // document-level: releasing the drag outside the page still counts
     const handleMouseUp = () => {
-      // Small delay lets the browser finalize the selection
       window.setTimeout(postSelection, 10);
     };
 
-    root.addEventListener("mouseup", handleMouseUp);
-    root.addEventListener("mousedown", postClear);
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      // Clicks on the floating toolbar must not dismiss it
+      if (target?.closest("[data-selection-toolbar]")) return;
+      window.postMessage({ type: "text-selection-cleared" }, "*");
+    };
+
+    document.addEventListener("mouseup", handleMouseUp);
+    document.addEventListener("mousedown", handleMouseDown);
     return () => {
-      root.removeEventListener("mouseup", handleMouseUp);
-      root.removeEventListener("mousedown", postClear);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.removeEventListener("mousedown", handleMouseDown);
     };
   }, [textLayerRef, containerRef, renderEpoch, pageLines]);
+
+  // A rebuilt text layer (page change / zoom) invalidates any current
+  // selection — dismiss a lingering toolbar.
+  useEffect(() => {
+    if (renderEpoch === 0) return;
+    window.postMessage({ type: "text-selection-cleared" }, "*");
+  }, [renderEpoch]);
 }

@@ -229,6 +229,10 @@ body,
 
 /* ------------------------------------------------------------------ */
 /* PDF viewer: text layer (pdf.js) + annotation overlays               */
+/* Adapted from pdfjs-dist web/pdf_viewer.css .textLayer rules (v6).   */
+/* The font-size chain REQUIRES --total-scale-factor (set in           */
+/* usePdfPage); without it spans render at inherited size and no       */
+/* longer align with the canvas glyphs — selection breaks.             */
 /* ------------------------------------------------------------------ */
 
 /* Container stacking: canvas below, transparent selectable text above */
@@ -236,39 +240,75 @@ body,
   position: relative;
 }
 
-/* Minimal pdf.js text layer styles (subset of web/pdf_viewer.css) */
 .pdfTextLayer {
+  color-scheme: only light;
+
   position: absolute;
   text-align: initial;
   inset: 0;
   overflow: clip;
   opacity: 1;
   line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
   text-size-adjust: none;
   forced-color-adjust: none;
   transform-origin: 0 0;
   caret-color: CanvasText;
   z-index: 2;
+
+  /* Font-size chain (pdf.js sets --min-font-size inline; fallback = 1) */
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor, 1) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
 }
 
-.pdfTextLayer span,
-.pdfTextLayer br {
+.pdfTextLayer :is(span, br) {
   color: transparent;
   position: absolute;
   white-space: pre;
   cursor: text;
   transform-origin: 0% 0%;
+  user-select: text;
+}
+
+/* pdf.js text spans: font-size and horizontal fitting are driven by
+   per-span inline CSS variables (--font-height, --scale-x, --rotate). */
+.pdfTextLayer > :not(.markedContent),
+.pdfTextLayer .markedContent span:not(.markedContent) {
+  z-index: 1;
+
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x))
+    scale(var(--min-font-size-inv));
+}
+
+.pdfTextLayer .markedContent {
+  display: contents;
+}
+
+.pdfTextLayer span[role="img"] {
+  user-select: none;
+  cursor: default;
 }
 
 .pdfTextLayer ::selection {
   background: rgba(59, 130, 246, 0.35);
+  color: transparent;
+}
+
+.pdfTextLayer br::selection {
+  background: transparent;
 }
 
 /* Annotation overlays inside the text layer.
-   Inner spans are inline boxes within the absolutely-positioned pdf.js
-   spans, so backgrounds land exactly behind the glyphs. */
+   These spans are nested INSIDE pdf.js spans (not direct children), so
+   they inherit the correctly-scaled font-size and transform. */
 .pdfTextLayer .anno-highlight {
-  background-color: transparent; /* set inline from highlight color */
   border-radius: 2px;
 }
 

@@ -107,11 +107,22 @@ export function usePdfPage(
         // Clear previous spans (also drops annotation overlays — they are
         // re-applied by the annotation effect after renderEpoch changes)
         textLayerEl.replaceChildren();
+        // pdf.js v6 computes span font-size via
+        //   calc(var(--total-scale-factor) * ... * var(--font-height))
+        // and the official viewer sets --total-scale-factor on the page
+        // container. Without it, spans render at inherited font-size and
+        // misalign with the canvas glyphs (selection breaks).
+        textLayerEl.style.setProperty("--total-scale-factor", String(scale));
         const layer = new TextLayer({
           textContentSource: textContent,
           container: textLayerEl,
           viewport,
         });
+        // The constructor emits calc()/round() width/height strings that
+        // depend on caller-provided round-step variables; set explicit
+        // pixel dimensions instead (the CSS inset:0 also covers this).
+        textLayerEl.style.width = `${Math.floor(viewport.width)}px`;
+        textLayerEl.style.height = `${Math.floor(viewport.height)}px`;
         textLayer = layer;
 
         await Promise.all([task.promise, layer.render()]);

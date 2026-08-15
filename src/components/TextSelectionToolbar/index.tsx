@@ -92,7 +92,11 @@ export function TextSelectionToolbar({
   if (!selection) return null;
 
   return (
-    <div ref={toolbarRef} style={getToolbarPosition()}>
+    <div
+      ref={toolbarRef}
+      data-selection-toolbar
+      style={getToolbarPosition()}
+    >
       <div className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-lg shadow-lg overflow-hidden min-w-[200px]">
         {mode === "default" && (
           <div className="flex items-center p-1">
