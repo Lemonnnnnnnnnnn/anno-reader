@@ -181,6 +181,26 @@ describe("isInsideFloatingUi", () => {
     document.body.removeChild(popover);
   });
 
+  it("matches SVG icon targets inside the toolbar (not just HTMLElement)", () => {
+    const toolbar = document.createElement("div");
+    toolbar.setAttribute("data-selection-toolbar", "");
+    document.body.appendChild(toolbar);
+
+    // Toolbar buttons contain lucide SVG icons: e.target is an SVGElement,
+    // which is NOT an instance of HTMLElement — regression guard for the
+    // "toolbar reopens after AI translate" bug.
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    svg.appendChild(path);
+    toolbar.appendChild(svg);
+
+    expect(path instanceof HTMLElement).toBe(false); // premise of the bug
+    expect(isInsideFloatingUi(path)).toBe(true);
+    expect(isInsideFloatingUi(svg)).toBe(true);
+
+    document.body.removeChild(toolbar);
+  });
+
   it("returns false for page content and null targets", () => {
     expect(isInsideFloatingUi(null)).toBe(false);
     const page = document.createElement("div");

@@ -50,7 +50,6 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
   }, [onScrollEl]);
 
   const currentChapterIndex = useBookStore((state) => state.ui.currentChapterIndex);
-  const theme = useBookStore((state) => state.ui.theme);
   const setPendingScrollCfi = useBookStore((state) => state.setPendingScrollCfi);
   const pendingScrollCfi = useBookStore((state) => state.ui.pendingScrollCfi);
   const pendingScrollY = useBookStore((state) => state.ui.pendingScrollY);
@@ -116,7 +115,8 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
   );
 
   // --- Page render (canvas + text layer) ---
-  // theme drives dark-mode rendering (pageColors swap) and re-renders on toggle
+  // Dark mode is applied as a CSS filter on the canvas (see usePdfPage
+  // docs for why pageColors is not used); no re-render on theme toggle.
   const {
     canvasRef,
     textLayerRef,
@@ -125,7 +125,7 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
     rendering,
     renderEpoch,
     error: renderError,
-  } = usePdfPage(pdfDoc, pageNumber, scale, theme);
+  } = usePdfPage(pdfDoc, pageNumber, scale);
 
   const chapterHref = currentChapter?.href ?? "";
 
@@ -321,7 +321,7 @@ export function PdfViewer({ document: pdfDoc, chapters, onAskAI, onScrollEl }: P
           <div ref={containerRef} className="pdfPageWrap relative shadow-md rounded-sm">
             <canvas
               ref={canvasRef}
-              className="block bg-white dark:bg-surface-dark rounded-sm"
+              className="block bg-white rounded-sm dark:invert-[.9] dark:hue-rotate-180"
             />
             <div ref={textLayerRef} className="pdfTextLayer" />
             {rendering && (

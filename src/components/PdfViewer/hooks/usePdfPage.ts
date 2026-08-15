@@ -29,40 +29,24 @@ export interface UsePdfPageResult {
   error: string | null;
 }
 
-/** Page colors used by pdf.js `pageColors` render option. */
-export interface PdfPageColors {
-  background: string;
-  foreground: string;
-}
-
-/**
- * Decide the pdf.js pageColors for a theme.
- * Dark mode swaps the page's background/foreground at render time (the
- * official pdf.js dark-mode mechanism — Firefox's viewer uses it), so
- * text renders light-on-dark while images keep their natural colors.
- * Light mode returns null → page renders with its original colors.
- */
-export function getPdfPageColors(theme: "light" | "dark"): PdfPageColors | null {
-  if (theme === "dark") {
-    // Matches the app's dark tokens: bg-dark #1a1a1a, text-dark #e5e5e5
-    return { background: "#1a1a1a", foreground: "#e5e5e5" };
-  }
-  return null;
-}
-
 /**
  * Render a single PDF page at the given scale.
+ *
+ * NOTE on dark mode: pages are always rendered with their original
+ * colors; the PdfViewer applies a CSS filter on the canvas in dark mode
+ * (`invert(.9) hue-rotate(180deg)`). pdf.js' `pageColors` render option
+ * is NOT used: it is implemented via an SVG filter referenced from
+ * CanvasRenderingContext2D.filter, which Chromium/WebKit (the Tauri
+ * WebViews) do not support — it silently renders the original colors.
  *
  * @param doc - Live pdf.js document handle.
  * @param pageNumber - 1-based page number.
  * @param scale - CSS-pixel scale factor (1 = 72dpi natural size).
- * @param theme - App theme; dark mode re-renders pages with swapped colors.
  */
 export function usePdfPage(
   doc: PDFDocumentProxy | null,
   pageNumber: number,
   scale: number,
-  theme: "light" | "dark" = "light",
 ): UsePdfPageResult {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const textLayerRef = useRef<HTMLDivElement | null>(null);
@@ -112,20 +96,15 @@ export function usePdfPage(
 
         const ctx = canvas.getContext("2d");
         if (!ctx) throw new Error("Canvas 2D context unavailable");
-        // Background so transparent PDFs don't render dark (dark mode uses
-        // the theme's dark background; pageColors handles the rest)
-        ctx.fillStyle = theme === "dark" ? "#1a1a1a" : "#ffffff";
+        // White background so transparent PDFs don't render dark; the
+        // dark-mode CSS filter inverts this to the app's dark background.
+        ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Dark mode: swap page background/foreground at render time
-        // (pdf.js `pageColors` — the official dark-mode mechanism)
-        const pageColors = getPdfPageColors(theme);
 
         const task = page.render({
           canvas,
           viewport,
           transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : undefined,
-          ...(pageColors ? { pageColors } : {}),
         });
         renderTask = task;
 
@@ -180,7 +159,7 @@ export function usePdfPage(
       renderTask?.cancel();
       textLayer?.cancel();
     };
-  }, [doc, pageNumber, scale, theme]);
+  }, [doc, pageNumber, scale]);
 
   return { canvasRef, textLayerRef, pageLines, hasText, rendering, renderEpoch, error };
 }

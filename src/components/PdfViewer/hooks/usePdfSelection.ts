@@ -80,19 +80,36 @@ export function usePdfSelection({
       );
     };
 
-    // document-level: releasing the drag outside the page still counts.
-    // Mouseups on floating UI (toolbar buttons etc.) must NOT re-post the
-    // still-active browser selection: the delayed post would re-open the
-    // toolbar right after the click handler closed it (e.g. AI translate).
-    const handleMouseUp = (e: MouseEvent) => {
-      if (isInsideFloatingUi(e.target)) return;
+    // Gesture-source tracking (Chrome-like semantics): the selection is
+    // only reported when the interaction STARTED on the text layer.
+    // Clicks on UI (toolbar, drawers, zoom buttons) never re-report the
+    // still-active browser selection — without this, the delayed mouseup
+    // post would re-open the toolbar right after the click handler closed
+    // it (e.g. AI translate: closes, then reopens a moment later).
+    const mouseDownOnLayerRef = { current: false };
+
+    const handleMouseUp = () => {
+      if (!mouseDownOnLayerRef.current) return;
+      // Small delay lets the browser finalize the selection
       window.setTimeout(postSelection, 10);
     };
 
     const handleMouseDown = (e: MouseEvent) => {
-      // Clicks on the floating toolbar must not dismiss it
-      if (isInsideFloatingUi(e.target)) return;
-      window.postMessage({ type: "text-selection-cleared" }, "*");
+      // Clicks on the floating toolbar must not dismiss it (and are
+      // never treated as page gestures)
+      if (isInsideFloatingUi(e.target)) {
+        mouseDownOnLayerRef.current = false;
+        return;
+      }
+
+      const onLayer = root.contains(e.target as Node | null);
+      mouseDownOnLayerRef.current = onLayer;
+
+      // Clicking anywhere else (margin, drawers, zoom controls) dismisses
+      // a stale selection toolbar; a new page gesture replaces it on mouseup
+      if (!onLayer) {
+        window.postMessage({ type: "text-selection-cleared" }, "*");
+      }
     };
 
     document.addEventListener("mouseup", handleMouseUp);

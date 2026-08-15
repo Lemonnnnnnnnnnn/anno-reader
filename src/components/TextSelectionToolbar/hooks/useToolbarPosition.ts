@@ -42,12 +42,15 @@ export function useToolbarPosition({
     const padding = 8;
     left = Math.max(padding, Math.min(left, containerRect.width - toolbarWidth - padding));
 
-    // Position above the selection
-    let top = selRect.top +24;
-
-    // If toolbar would go above the container, position below selection instead
+    // Position the toolbar above the selection: its bottom edge sits
+    // 8px above the selection top (top is the toolbar's TOP edge, so
+    // subtract the toolbar height).
     const toolbarHeight = mode === "note" ? 160 : 60;
-    if (top - toolbarHeight < 0) {
+    let top = selRect.top - toolbarHeight - 8;
+
+    // If the toolbar would go above the container, position below the
+    // selection instead
+    if (top < 0) {
       top = selRect.bottom + 8;
     }
 

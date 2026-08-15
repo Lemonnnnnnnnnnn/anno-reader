@@ -163,9 +163,10 @@ describe("PdfViewer overlay positioning", () => {
     expect(pageWrap).not.toBeNull();
     expect(pageWrap!.querySelector("canvas")).not.toBeNull(); // it is the page wrap
 
-    // Position derives deterministically from the rect: top = rect.top + 24
+    // Position derives deterministically from the rect: toolbar sits ABOVE
+    // the selection (top = rect.top - toolbarHeight(60) - 8)
     expect(toolbar!.style.position).toBe("absolute");
-    expect(toolbar!.style.top).toBe("124px");
+    expect(toolbar!.style.top).toBe("32px");
   });
 
   it("updates the toolbar position deterministically on a new selection", async () => {
@@ -184,14 +185,50 @@ describe("PdfViewer overlay positioning", () => {
       await new Promise((r) => setTimeout(r, 0));
     });
     const toolbar = document.querySelector("[data-selection-toolbar]")!;
-    expect(toolbar.style.top).toBe("124px");
+    expect(toolbar.style.top).toBe("32px");
 
     // Second selection at a different spot — same math, no drift term
     await act(async () => {
       postSelection(300);
       await new Promise((r) => setTimeout(r, 0));
     });
-    expect(toolbar.style.top).toBe("324px");
+    expect(toolbar.style.top).toBe("232px");
     expect(toolbar.closest(".pdfPageWrap")).not.toBeNull();
+  });
+
+  it("flips the toolbar below the selection when there is no room above", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    await act(async () => {
+      createRoot(container).render(
+        <PdfViewer document={fakeDoc} chapters={chapters} />,
+      );
+    });
+
+    // Selection near the top of the page: top - 68 < 0 → place below
+    await act(async () => {
+      postSelection(40);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    const toolbar = document.querySelector("[data-selection-toolbar]")!;
+    // below: rect.bottom(60) + 8
+    expect(toolbar.style.top).toBe("68px");
+  });
+
+  it("renders the canvas with dark-mode invert classes", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    await act(async () => {
+      createRoot(container).render(
+        <PdfViewer document={fakeDoc} chapters={chapters} />,
+      );
+    });
+
+    const canvas = document.querySelector("canvas")!;
+    expect(canvas.className).toContain("dark:invert-[.9]");
+    expect(canvas.className).toContain("dark:hue-rotate-180");
   });
 });

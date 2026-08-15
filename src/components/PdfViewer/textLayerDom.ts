@@ -25,9 +25,13 @@ export interface MessageRect {
  * re-report the (still-active) browser selection — the delayed mouseup
  * handler would re-post "text-selection" right after the click handler
  * closed the toolbar, making it appear to never close.
+ *
+ * NOTE: checks `Element`, not `HTMLElement` — toolbar buttons contain
+ * SVG icons, and SVGElement is NOT an HTMLElement. Using HTMLElement
+ * here silently failed for clicks landing on the icon.
  */
 export function isInsideFloatingUi(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
+  if (!(target instanceof Element)) return false;
   return (
     target.closest("[data-selection-toolbar]") !== null ||
     target.closest("[data-highlight-popover]") !== null
