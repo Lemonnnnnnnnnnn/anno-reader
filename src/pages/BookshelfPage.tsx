@@ -2,18 +2,22 @@
  * BookshelfPage component.
  *
  * Main bookshelf page displaying all imported books in a grid layout.
- * Handles book import, book selection, book removal, and navigation to reader.
+ * Handles book import, book selection, metadata editing, book removal
+ * (with confirmation), and navigation to reader.
  */
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookshelfStore } from "@/stores/useBookshelfStore";
 import { useBookStore } from "@/stores/useBookStore";
+import { useChatStore } from "@/stores/useChatStore";
 import { importBook, EpubImportError } from "@/lib/import";
 import { BookCard } from "@/components/BookCard";
-import { Button, ErrorBanner } from "@/components/primitives";
+import { EditBookMetadataDialog } from "@/components/EditBookMetadataDialog";
+import { Button, ErrorBanner, Modal } from "@/components/primitives";
 import { Settings, Book, Sun, Moon } from "lucide-react";
 import type { BookshelfItem } from "@/lib/bookshelf";
+import type { BookMetadata } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 
 export function BookshelfPage() {
@@ -25,11 +29,20 @@ export function BookshelfPage() {
   const error = useBookshelfStore((state) => state.error);
   const addBook = useBookshelfStore((state) => state.addBook);
   const removeBook = useBookshelfStore((state) => state.removeBook);
+  const updateBook = useBookshelfStore((state) => state.updateBook);
   const clearError = useBookshelfStore((state) => state.clearError);
 
   const setBook = useBookStore((state) => state.setBook);
+  const currentBook = useBookStore((state) => state.currentBook);
+  const updateBookMetadata = useBookStore((state) => state.updateBookMetadata);
+  const deleteConversationsByBook = useChatStore(
+    (state) => state.deleteConversationsByBook
+  );
   const theme = useBookStore((state) => state.ui.theme);
   const setTheme = useBookStore((state) => state.setTheme);
+
+  const [editingBook, setEditingBook] = useState<BookshelfItem | null>(null);
+  const [deletingBook, setDeletingBook] = useState<BookshelfItem | null>(null);
 
   useTheme();
 
@@ -74,10 +87,36 @@ export function BookshelfPage() {
   );
 
   const handleRemove = useCallback(
-    async (bookId: string) => {
-      await removeBook(bookId);
+    (bookId: string) => {
+      const book = books.find((b) => b.id === bookId);
+      if (book) {
+        setDeletingBook({ ...book, progress: null });
+      }
     },
-    [removeBook]
+    [books]
+  );
+
+  const handleConfirmRemove = useCallback(async () => {
+    if (!deletingBook) return;
+    await removeBook(deletingBook.id);
+    // Purge the book's chat conversations and clear it if currently open
+    deleteConversationsByBook(deletingBook.id);
+    if (currentBook?.id === deletingBook.id) {
+      setBook(null);
+    }
+    setDeletingBook(null);
+  }, [deletingBook, removeBook, deleteConversationsByBook, currentBook, setBook]);
+
+  const handleEditSave = useCallback(
+    async (updates: Partial<BookMetadata>) => {
+      if (!editingBook) return;
+      await updateBook(editingBook.id, updates);
+      // Keep the open reader view in sync with the new metadata
+      if (currentBook?.id === editingBook.id) {
+        updateBookMetadata(updates);
+      }
+    },
+    [editingBook, updateBook, currentBook, updateBookMetadata]
   );
 
   if (loading) {
@@ -151,12 +190,49 @@ export function BookshelfPage() {
                 key={book.id}
                 book={{ ...book, progress: null }}
                 onClick={handleBookClick}
+                onEdit={setEditingBook}
                 onRemove={handleRemove}
               />
             ))}
           </div>
         )}
       </main>
+
+      {/* Edit metadata dialog */}
+      <EditBookMetadataDialog
+        book={editingBook}
+        onClose={() => setEditingBook(null)}
+        onSave={handleEditSave}
+      />
+
+      {/* Delete confirmation dialog */}
+      <Modal
+        open={deletingBook !== null}
+        onClose={() => setDeletingBook(null)}
+        title="Remove Book"
+      >
+        <p className="m-0 text-sm font-sans text-text dark:text-text-dark">
+          Remove <span className="font-semibold">{deletingBook?.title}</span>{" "}
+          from your bookshelf?
+        </p>
+        <p className="mt-2 mb-0 text-xs font-sans text-text-secondary dark:text-text-secondary-dark">
+          This permanently deletes the book's copy, annotations, reading
+          progress and chat history. The original file on your disk is not
+          affected.
+        </p>
+        <div className="flex justify-end gap-2 mt-5">
+          <Button variant="secondary" onClick={() => setDeletingBook(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleConfirmRemove}
+            className="!bg-error hover:!bg-error/90 dark:!bg-error-dark dark:hover:!bg-error-dark/90"
+          >
+            Delete
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

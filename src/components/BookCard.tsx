@@ -13,10 +13,11 @@ import { Book, FileText } from "lucide-react";
 interface BookCardProps {
   book: BookshelfItem;
   onClick: (book: BookshelfItem) => void;
+  onEdit?: (book: BookshelfItem) => void;
   onRemove: (bookId: string) => void;
 }
 
-export function BookCard({ book, onClick, onRemove }: BookCardProps) {
+export function BookCard({ book, onClick, onEdit, onRemove }: BookCardProps) {
   const isPdf = book.format === "pdf";
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -36,6 +37,11 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
     setContextMenu(null);
     onRemove(book.id);
   }, [book.id, onRemove]);
+
+  const handleEdit = useCallback(() => {
+    setContextMenu(null);
+    onEdit?.(book);
+  }, [book, onEdit]);
 
   const handleCloseMenu = useCallback(() => {
     setContextMenu(null);
@@ -128,6 +134,11 @@ export function BookCard({ book, onClick, onRemove }: BookCardProps) {
             className="fixed bg-surface dark:bg-surface-dark rounded-md shadow-lg border border-border dark:border-border-dark p-1 z-[1000] min-w-[180px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
           >
+            {onEdit && (
+              <button className="block w-full px-3 py-2 text-[0.8rem] text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer text-left font-inherit hover:bg-bg dark:hover:bg-bg-dark" onClick={handleEdit}>
+                Edit Metadata
+              </button>
+            )}
             <button className="block w-full px-3 py-2 text-[0.8rem] text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer text-left font-inherit hover:bg-error-bg dark:hover:bg-error-bg-dark text-error" onClick={handleRemove}>
               Remove from Bookshelf
             </button>

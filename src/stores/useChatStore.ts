@@ -23,6 +23,8 @@ export interface ChatStore {
   addMessage: (message: ChatMessage) => void;
   createConversation: (id: string, bookId?: string) => void;
   deleteConversation: (id: string) => void;
+  /** Remove every conversation belonging to a book (used when deleting a book) */
+  deleteConversationsByBook: (bookId: string) => void;
   renameConversation: (id: string, title: string) => void;
   setCurrentConversation: (id: string | null) => void;
 
@@ -104,6 +106,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       let nextId = state.currentConversationId;
       let nextMessages = state.messages;
       if (state.currentConversationId === id) {
+        const next = filtered[0] ?? null;
+        nextId = next?.id ?? null;
+        nextMessages = next?.messages ?? [];
+      }
+
+      return {
+        conversations: filtered,
+        currentConversationId: nextId,
+        messages: nextMessages,
+      };
+    });
+    persistAfterSet(get);
+  },
+
+  deleteConversationsByBook: (bookId) => {
+    if (!get().conversations.some((c) => c.bookId === bookId)) return;
+
+    set((state) => {
+      const filtered = state.conversations.filter((c) => c.bookId !== bookId);
+
+      // If the active conversation was removed, select the first remaining or none
+      let nextId = state.currentConversationId;
+      let nextMessages = state.messages;
+      if (state.currentConversationId && !filtered.some((c) => c.id === state.currentConversationId)) {
         const next = filtered[0] ?? null;
         nextId = next?.id ?? null;
         nextMessages = next?.messages ?? [];
