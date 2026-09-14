@@ -12,6 +12,7 @@
 
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type * as PdfjsLib from "pdfjs-dist";
+import { ensureReadableStreamAsyncIterator } from "./stream-compat";
 
 let libPromise: Promise<typeof PdfjsLib> | null = null;
 
@@ -22,6 +23,9 @@ let libPromise: Promise<typeof PdfjsLib> | null = null;
  */
 export async function loadPdfjs(): Promise<typeof PdfjsLib> {
   if (!libPromise) {
+    // Patch the platform before pdf.js is evaluated: pdf.js 6.x iterates
+    // ReadableStreams with for-await, which some WKWebView builds lack.
+    ensureReadableStreamAsyncIterator();
     libPromise = import("pdfjs-dist").then((lib) => {
       lib.GlobalWorkerOptions.workerSrc = workerUrl;
       return lib;
