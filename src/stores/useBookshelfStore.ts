@@ -15,6 +15,16 @@ import {
 
 // --- Store ---
 
+/**
+ * Tauri plugin commands reject with plain strings rather than Error objects,
+ * so extract the raw message to avoid losing the real cause.
+ */
+function toErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return fallback;
+}
+
 export interface BookshelfState {
   books: BookMetadata[];
   loading: boolean;
@@ -45,8 +55,7 @@ export const useBookshelfStore = create<BookshelfStore>((set) => ({
         .map(entryToBookMetadata);
       set({ books, loading: false });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load bookshelf";
-      set({ error: message, loading: false });
+      set({ error: toErrorMessage(err, "Failed to load bookshelf"), loading: false });
     }
   },
 
@@ -70,8 +79,7 @@ export const useBookshelfStore = create<BookshelfStore>((set) => ({
         books: [...state.books.filter((b) => b.id !== book.id), book],
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add book";
-      set({ error: message });
+      set({ error: toErrorMessage(err, "Failed to add book") });
     }
   },
 
@@ -83,8 +91,7 @@ export const useBookshelfStore = create<BookshelfStore>((set) => ({
         books: state.books.filter((b) => b.id !== bookId),
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to remove book";
-      set({ error: message });
+      set({ error: toErrorMessage(err, "Failed to remove book") });
     }
   },
 
@@ -98,8 +105,7 @@ export const useBookshelfStore = create<BookshelfStore>((set) => ({
         ),
       }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update book";
-      set({ error: message });
+      set({ error: toErrorMessage(err, "Failed to update book") });
     }
   },
 
