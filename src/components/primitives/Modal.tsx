@@ -2,7 +2,9 @@
  * Reusable Modal component.
  *
  * Centered dialog with backdrop overlay and Escape key handling.
- * Pure container — no domain-specific content.
+ * Rendered in a portal on `document.body` so it stays centered in the
+ * viewport even when mounted inside a transformed/overflow-hidden ancestor
+ * (e.g. a Drawer panel). Pure container — no domain-specific content.
  *
  * @example
  * ```tsx
@@ -13,6 +15,7 @@
  */
 
 import { type ReactNode, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/primitives";
 
@@ -23,11 +26,27 @@ export interface ModalProps {
   onClose: () => void;
   /** Optional title displayed in the header bar */
   title?: string;
+  /** Whether clicking the backdrop closes the modal (default: true) */
+  closeOnOutsideClick?: boolean;
+  /** Panel width preset (default: "md") */
+  size?: "md" | "wide";
   /** Modal content */
   children: ReactNode;
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+const sizeClasses = {
+  md: "max-w-md",
+  wide: "max-w-2xl",
+};
+
+export function Modal({
+  open,
+  onClose,
+  title,
+  closeOnOutsideClick = true,
+  size = "md",
+  children,
+}: ModalProps) {
   // Escape key handler
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
@@ -42,18 +61,25 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
     return () => document.removeEventListener("keydown", handleEscape);
   }, [open, handleEscape]);
 
+  // Backdrop click handler
+  const handleBackdropClick = useCallback(() => {
+    if (closeOnOutsideClick) onClose();
+  }, [closeOnOutsideClick, onClose]);
+
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 transition-opacity duration-200"
-        onClick={onClose}
+        onClick={handleBackdropClick}
       />
 
       {/* Panel */}
-      <div className="relative w-full max-w-md bg-surface dark:bg-surface-dark rounded-lg shadow-xl border border-border dark:border-border-dark flex flex-col">
+      <div
+        className={`relative w-full ${sizeClasses[size]} bg-surface dark:bg-surface-dark rounded-lg shadow-xl border border-border dark:border-border-dark flex flex-col`}
+      >
         {/* Header */}
         {title && (
           <div className="flex items-center justify-between px-5 py-3 border-b border-border dark:border-border-dark shrink-0">
@@ -69,6 +95,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
         {/* Content */}
         <div className="p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

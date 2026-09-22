@@ -2,9 +2,10 @@
  * NotePreview component.
  *
  * Quick full-content preview of a single note, opened from a card in the
- * Annotations drawer. Reuses the Drawer primitive as an overlay. Supports
- * edit, delete (with confirmation), and a "Go to note" action that jumps to
- * the note's location in the book.
+ * Annotations drawer. Renders a centered Modal overlay (portaled, so it is
+ * not constrained by the parent drawer panel). Supports edit, delete (with
+ * confirmation), and a "Go to note" action that jumps to the note's location
+ * in the book.
  *
  * @example
  * ```tsx
@@ -22,7 +23,7 @@ import { useState, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useBookStore } from "@/stores/useBookStore";
-import { Drawer, Button, TextArea } from "@/components/primitives";
+import { Modal, Button, TextArea } from "@/components/primitives";
 import { Pencil, Trash2, CornerDownRight } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
 import { formatTimestamp, findChapterIndex } from "./utils";
@@ -104,15 +105,16 @@ export function NotePreview({
   if (!note) return null;
 
   return (
-    <Drawer
+    <Modal
       open={!!previewNoteId}
       onClose={onClose}
       title="Note Preview"
       closeOnOutsideClick={!isEditing}
+      size="wide"
     >
-      <div className="flex-1 flex flex-col gap-4 font-serif min-h-0 h-full">
+      <div className="flex flex-col gap-4 font-serif max-h-[60vh]">
         {/* Quoted original text (full) */}
-        <div className="border-l-2 border-accent dark:border-accent-dark pl-3">
+        <div className="shrink-0 border-l-2 border-accent dark:border-accent-dark pl-3 max-h-32 overflow-y-auto">
           <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug break-words">
             &ldquo;{note.text}&rdquo;
           </p>
@@ -120,7 +122,7 @@ export function NotePreview({
 
         {/* Note content (full, Markdown rendered) */}
         {isEditing ? (
-          <div className="flex-1 flex flex-col gap-3 min-h-0">
+          <div className="flex-1 min-h-0 flex flex-col gap-3">
             <TextArea
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
@@ -144,7 +146,7 @@ export function NotePreview({
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note">
+          <div className="flex-1 min-h-0 overflow-y-auto text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {note.content}
             </ReactMarkdown>
@@ -153,7 +155,7 @@ export function NotePreview({
 
         {/* Actions */}
         {!isEditing && (
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-border dark:border-border-dark shrink-0">
+          <div className="flex items-center justify-between gap-2 pt-3 border-t border-border dark:border-border-dark shrink-0">
             <div className="flex items-center gap-1">
               {confirmDelete ? (
                 <>
@@ -199,6 +201,6 @@ export function NotePreview({
           </div>
         )}
       </div>
-    </Drawer>
+    </Modal>
   );
 }
