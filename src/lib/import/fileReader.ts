@@ -13,7 +13,7 @@ import { EpubImportError, ImportErrorCode } from "./errors";
 /**
  * Check if a path is absolute (Windows drive letter or Unix root).
  */
-function isAbsolutePath(path: string): boolean {
+export function isAbsolutePath(path: string): boolean {
   return /^[A-Za-z]:\\/.test(path) || path.startsWith("/");
 }
 

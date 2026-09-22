@@ -14,23 +14,22 @@ import { loadEpub } from "@/lib/epub";
 import { addEntry, type BookEntry } from "@/lib/bookshelf";
 import { useBookStore, type BookMetadata } from "@/stores/useBookStore";
 import { EpubImportError, ImportErrorCode } from "./errors";
-import { copyBookToDataDir } from "./persist";
+import { bookFileName, persistBookCopy } from "./persist";
 
 /**
  * Result of a successful book import.
  */
 export interface ImportResult {
-  /** Metadata for the imported book */
+  /**
+   * Metadata for the imported book. Read the file from `book.filePath` —
+   * the original source path is deliberately not exposed, because a book read
+   * from its original path breaks once that file moves or is unreadable.
+   */
   book: BookMetadata;
-  /** Path to the imported file */
-  filePath: string;
 }
 
 /** Maximum file size: 100MB */
 export const MAX_FILE_SIZE = 100 * 1024 * 1024;
-
-/** Filename for the persisted EPUB copy */
-const BOOK_FILENAME = "book.epub";
 
 /**
  * Validate that the file has a valid EPUB extension.
@@ -60,7 +59,7 @@ function validateParsedEpub(parsed: { metadata: { title: string }; chapters: unk
  * data directory, and register it in the Zustand store + bookshelf.
  *
  * @param filePath - Absolute path to the EPUB file.
- * @returns The imported book metadata and original file path.
+ * @returns The imported book metadata (read it from `book.filePath`).
  * @throws {EpubImportError} On any failure in the import pipeline.
  */
 export async function importEpubFromFile(filePath: string): Promise<ImportResult> {
@@ -134,14 +133,11 @@ export async function importEpubFromFile(filePath: string): Promise<ImportResult
 
   // Step 7: Copy book to data directory for portability
   const bookId = crypto.randomUUID();
-  let persistedPath: string;
-  try {
-    persistedPath = await copyBookToDataDir(bookId, filePath, BOOK_FILENAME);
-  } catch (copyErr) {
-    // Non-fatal: fall back to original path if copy fails
-    console.warn("Failed to copy book to data directory:", copyErr);
-    persistedPath = filePath;
-  }
+  const { filePath: persistedPath } = await persistBookCopy(
+    bookId,
+    filePath,
+    bookFileName("epub")
+  );
 
   // Step 8: Build BookMetadata and register in store
   const book: BookMetadata = {
@@ -170,5 +166,5 @@ export async function importEpubFromFile(filePath: string): Promise<ImportResult
   };
   await addEntry(entry);
 
-  return { book, filePath };
+  return { book };
 }

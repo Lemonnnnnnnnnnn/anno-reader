@@ -12,7 +12,7 @@
  * import { importBook, EpubImportError } from "@/lib/import";
  *
  * try {
- *   const { book, filePath } = await importBook();
+ *   const { book } = await importBook();
  *   console.log(`Imported: ${book.title}`);
  * } catch (err) {
  *   if (err instanceof EpubImportError) {
@@ -29,5 +29,6 @@ export { importBook } from "./importBook";
 export { importEpubFromFile, MAX_FILE_SIZE } from "./importEpub";
 export { importPdfFromFile, validatePdfExtension } from "./importPdf";
 export { copyBookToDataDir } from "./persist";
+export { ensurePersistedCopy } from "./repair";
 export type { ImportResult } from "./importEpub";
 export { EpubImportError, ImportErrorCode, ERROR_MESSAGES } from "./errors";

@@ -11,12 +11,9 @@ import { loadPdf, titleFromFilePath, destroyPdfDocument } from "@/lib/pdf";
 import { addEntry, type BookEntry } from "@/lib/bookshelf";
 import { useBookStore, type BookMetadata } from "@/stores/useBookStore";
 import { EpubImportError, ImportErrorCode } from "./errors";
-import { copyBookToDataDir } from "./persist";
+import { bookFileName, persistBookCopy } from "./persist";
 import type { ImportResult } from "./importEpub";
 import { MAX_FILE_SIZE } from "./importEpub";
-
-/** Filename for the persisted PDF copy */
-const BOOK_FILENAME = "book.pdf";
 
 /** Minimum plausible PDF size: 5 bytes for the %PDF- header */
 const MIN_PDF_SIZE = 5;
@@ -42,7 +39,7 @@ export function validatePdfExtension(path: string): void {
  * extracts it lazily when the book is opened.
  *
  * @param filePath - Absolute path to the PDF file.
- * @returns The imported book metadata and original file path.
+ * @returns The imported book metadata (read it from `book.filePath`).
  * @throws {EpubImportError} On any failure in the import pipeline.
  */
 export async function importPdfFromFile(filePath: string): Promise<ImportResult> {
@@ -103,14 +100,11 @@ export async function importPdfFromFile(filePath: string): Promise<ImportResult>
 
   // Step 6: Copy book to data directory for portability
   const bookId = crypto.randomUUID();
-  let persistedPath: string;
-  try {
-    persistedPath = await copyBookToDataDir(bookId, filePath, BOOK_FILENAME);
-  } catch (copyErr) {
-    // Non-fatal: fall back to original path if copy fails
-    console.warn("Failed to copy book to data directory:", copyErr);
-    persistedPath = filePath;
-  }
+  const { filePath: persistedPath } = await persistBookCopy(
+    bookId,
+    filePath,
+    bookFileName("pdf")
+  );
 
   // Step 7: Build BookMetadata and register in store
   // (prefer PDF-embedded title; fall back to filename)
@@ -145,5 +139,5 @@ export async function importPdfFromFile(filePath: string): Promise<ImportResult>
   };
   await addEntry(entry);
 
-  return { book, filePath };
+  return { book };
 }

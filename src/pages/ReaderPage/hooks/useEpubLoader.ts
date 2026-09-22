@@ -14,6 +14,7 @@ import {
   importBook,
   EpubImportError,
   ImportErrorCode,
+  ensurePersistedCopy,
   readFileAsArrayBuffer,
 } from "@/lib/import";
 import { restoreNotes, restoreHighlights } from "@/lib/annotations";
@@ -124,12 +125,17 @@ export function useEpubLoader() {
     setError(null);
 
     try {
-      const { book, filePath } = await importBook();
+      const { book } = await importBook();
+
+      // Read from the data directory copy — the original file is only a
+      // fallback (ensurePersistedCopy retries the copy when it is missing).
+      const format = effectiveFormat(book.filePath, book.format);
+      const readPath = await ensurePersistedCopy(book);
 
       // Re-read and fully parse the book for chapter/page content
       let loaded: LoadedBook;
       try {
-        loaded = await parseBookFile(filePath, effectiveFormat(book.filePath, book.format));
+        loaded = await parseBookFile(readPath, format);
       } catch (parseErr) {
         // If we got this far, the file was valid for metadata but failed for content
         const errMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
@@ -148,7 +154,7 @@ export function useEpubLoader() {
         );
       }
 
-      await finalizeLoad(loaded, book.id, filePath);
+      await finalizeLoad(loaded, book.id, readPath);
     } catch (err) {
       // User cancelled the dialog — not an error
       if (err instanceof EpubImportError && err.isCancellation) {
@@ -176,15 +182,19 @@ export function useEpubLoader() {
     let cleanupTracking: (() => void) | null = null;
 
     async function loadBook() {
+      // Entries imported before the data-directory copy existed (or whose copy
+      // failed) still point at their original file — repair those first so the
+      // book is read from the data directory. A successful repair updates the
+      // store, which restarts this effect; that run does the actual loading.
+      const readPath = await ensurePersistedCopy(currentBook!);
+      if (cancelled) return;
+
       setLoading(true);
       setError(null);
 
       try {
-        const bookFormat = effectiveFormat(
-          currentBook!.filePath,
-          currentBook!.format,
-        );
-        const loaded = await parseBookFile(currentBook!.filePath, bookFormat);
+        const bookFormat = effectiveFormat(readPath, currentBook!.format);
+        const loaded = await parseBookFile(readPath, bookFormat);
 
         if (cancelled) {
           // Drop the PDF document if the component unmounted mid-load
@@ -206,13 +216,13 @@ export function useEpubLoader() {
           await restoreNotes(currentBook!.id);
           await restoreHighlights(currentBook!.id);
           await restoreSummaries(currentBook!.id);
-          await restoreProgress(currentBook!.id, currentBook!.filePath);
+          await restoreProgress(currentBook!.id, readPath);
         } catch (restoreErr) {
           console.warn("Failed to restore annotations:", restoreErr);
         }
 
         // Start tracking progress (auto-save on scroll/chapter change)
-        cleanupTracking = trackProgress(currentBook!.id, currentBook!.filePath);
+        cleanupTracking = trackProgress(currentBook!.id, readPath);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load book");
