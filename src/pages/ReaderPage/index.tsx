@@ -58,8 +58,9 @@ export function ReaderPage() {
   const theme = useBookStore((s) => s.ui.theme);
   const setTheme = useBookStore((s) => s.setTheme);
 
-  // Immersive mode (distraction-free reading)
-  const [immersive, setImmersive] = useState(false);
+  // Immersive mode (distraction-free reading) — entering the reader starts
+  // here; Esc or the floating button brings the chrome back.
+  const [immersive, setImmersive] = useState(true);
 
   // Font size popover state
   const [fontPopoverOpen, setFontPopoverOpen] = useState(false);

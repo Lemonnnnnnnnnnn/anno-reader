@@ -1,17 +1,18 @@
 /**
- * Tests for ChatDrawer integration in ReaderPage.
+ * Tests for the ReaderPage chrome.
  *
  * Verifies:
- * - MessageSquare button exists in navigation bar
- * - ChatDrawer renders with correct props
- * - Mutual exclusion: opening chat closes other drawers
- * - Mutual exclusion: opening other drawers closes chat
+ * - The reader opens in immersive mode (chrome hidden, exit affordance shown)
+ * - Leaving immersive mode — via Esc or the floating button — restores the
+ *   header navigation
+ * - ChatDrawer integration: MessageSquare button, drawer props, initial state
  *
- * @vitest-environment node
+ * @vitest-environment happy-dom
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderToString } from "react-dom/server";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createRoot, type Root } from "react-dom/client";
+import { act } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { ReaderPage } from "..";
 
@@ -25,19 +26,39 @@ vi.mock("react-router-dom", async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-const mockSetTheme = vi.fn();
-vi.mock("@/stores/useBookStore", () => ({
-  useBookStore: vi.fn((selector) => {
-    const state = {
+const { mockSetTheme, bookStoreState } = vi.hoisted(() => {
+  const setTheme = vi.fn();
+  // One stable state object: selectors run on every render, so returning a
+  // fresh object would make zustand re-render forever.
+  return {
+    mockSetTheme: setTheme,
+    bookStoreState: {
       currentBook: { title: "Test Book", author: "Author", coverUrl: "" },
-      ui: { currentChapter: "ch1", theme: "light" },
-      setTheme: mockSetTheme,
+      ui: {
+        currentChapter: "ch1",
+        currentChapterIndex: 0,
+        theme: "light",
+        scrollPosition: 0,
+        pendingScrollCfi: null,
+        pendingScrollAnchor: null,
+        pendingScrollY: null,
+        fontSize: 18,
+        pdfZoom: 1,
+        pdfNavigation: null,
+      },
+      setTheme,
       setCurrentChapter: vi.fn(),
       setScrollPosition: vi.fn(),
       setPendingScrollCfi: vi.fn(),
-    };
-    return selector(state);
-  }),
+      setPendingScrollAnchor: vi.fn(),
+      setPendingScrollY: vi.fn(),
+    },
+  };
+});
+
+vi.mock("@/stores/useBookStore", () => ({
+  useBookStore: (selector: (s: typeof bookStoreState) => unknown) =>
+    selector(bookStoreState),
 }));
 
 vi.mock("@/hooks/useTheme", () => ({ default: vi.fn() }));
@@ -72,6 +93,7 @@ vi.mock("@/components/ChapterNavigation", () => ({
 
 vi.mock("@/components/VerticalScroller/hooks/useScrollTracking", () => ({
   parseCfiOffsets: vi.fn(),
+  scrollToAnchor: vi.fn(),
   scrollToCharOffset: vi.fn(),
 }));
 
@@ -135,36 +157,91 @@ vi.mock("@/components/DataDirSetup", () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function renderReaderPage() {
-  return renderToString(
-    <MemoryRouter>
-      <ReaderPage />
-    </MemoryRouter>,
-  );
+const EXIT_IMMERSIVE = 'button[title="Exit immersive mode (Esc)"]';
+
+let container: HTMLDivElement;
+let root: Root;
+
+function renderReaderPage(): HTMLDivElement {
+  act(() => {
+    root.render(
+      <MemoryRouter>
+        <ReaderPage />
+      </MemoryRouter>,
+    );
+  });
+  return container;
 }
+
+function leaveImmersiveMode(): void {
+  act(() => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+  });
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  chatDrawerIsOpen = false;
+  chatDrawerOnClose = null;
+  tocDrawerOpen = false;
+  tocDrawerOnClose = null;
+  annotationDrawerOpen = false;
+  annotationDrawerOnClose = null;
+  dictionaryDrawerOpen = false;
+  dictionaryDrawerOnClose = null;
+
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("ChatDrawer integration in ReaderPage", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    chatDrawerIsOpen = false;
-    chatDrawerOnClose = null;
-    tocDrawerOpen = false;
-    tocDrawerOnClose = null;
-    annotationDrawerOpen = false;
-    annotationDrawerOnClose = null;
-    dictionaryDrawerOpen = false;
-    dictionaryDrawerOnClose = null;
+describe("ReaderPage immersive mode", () => {
+  it("opens in immersive mode, hiding the reader chrome", () => {
+    renderReaderPage();
+
+    expect(container.querySelector(EXIT_IMMERSIVE)).not.toBeNull();
+    expect(container.querySelector('button[title="Back to bookshelf"]')).toBeNull();
+    expect(container.querySelector("header")).toBeNull();
+    expect(container.querySelector("footer")).toBeNull();
   });
 
-  it("renders MessageSquare button in navigation bar", () => {
-    const html = renderReaderPage();
+  it("restores the chrome on Escape", () => {
+    renderReaderPage();
+    leaveImmersiveMode();
 
-    // Button with title "AI Chat" should exist
-    expect(html).toContain('title="AI Chat"');
+    expect(container.querySelector(EXIT_IMMERSIVE)).toBeNull();
+    expect(container.querySelector('button[title="Back to bookshelf"]')).not.toBeNull();
+    expect(container.querySelector("header")).not.toBeNull();
+  });
+
+  it("restores the chrome from the floating exit button", () => {
+    renderReaderPage();
+
+    const exitButton = container.querySelector(EXIT_IMMERSIVE);
+    act(() => {
+      exitButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(container.querySelector(EXIT_IMMERSIVE)).toBeNull();
+    expect(container.querySelector('button[title="Immersive mode"]')).not.toBeNull();
+  });
+});
+
+describe("ChatDrawer integration in ReaderPage", () => {
+  it("renders MessageSquare button in navigation bar", () => {
+    renderReaderPage();
+    leaveImmersiveMode();
+
+    expect(container.querySelector('button[title="AI Chat"]')).not.toBeNull();
   });
 
   it("initial state: ChatDrawer is closed", () => {
@@ -182,13 +259,18 @@ describe("ChatDrawer integration in ReaderPage", () => {
   });
 
   it("all navigation buttons are present", () => {
-    const html = renderReaderPage();
+    renderReaderPage();
+    leaveImmersiveMode();
 
-    expect(html).toContain('title="Table of Contents"');
-    expect(html).toContain('title="Annotations"');
-    expect(html).toContain('title="Dictionary"');
-    expect(html).toContain('title="Settings"');
-    expect(html).toContain('title="AI Chat"');
+    for (const title of [
+      "Table of Contents",
+      "Annotations",
+      "Dictionary",
+      "Settings",
+      "AI Chat",
+    ]) {
+      expect(container.querySelector(`button[title="${title}"]`)).not.toBeNull();
+    }
   });
 
   it("ChatDrawer receives correct props", () => {
