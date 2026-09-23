@@ -21,6 +21,16 @@ export interface SelectionState {
   paragraph?: string;
 }
 
+/** Selection payload handed to the AI actions (translate, quick translate, ask AI). */
+export interface SelectionActionData {
+  selectedText: string;
+  chapterHref: string;
+  startOffset: number;
+  endOffset: number;
+  sentence?: string;
+  paragraph?: string;
+}
+
 /** Available highlight colors */
 export const HIGHLIGHT_COLORS = [
   { name: "Yellow", value: "#fde68a" },

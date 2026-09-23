@@ -19,12 +19,15 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useBookStore } from "@/stores/useBookStore";
+import { useAIConfigStore } from "@/stores/useAIConfigStore";
 import { updateHighlight, deleteHighlight } from "@/lib/annotations";
+import { quickTranslateSelectionToNote } from "@/lib/ai/quick-translate";
 import { generateCfiRange } from "@/lib/selection";
-import { TextSelectionToolbar } from "../TextSelectionToolbar";
+import { TextSelectionToolbar, type SelectionActionData } from "../TextSelectionToolbar";
 import { AnnotationDetailDrawer } from "../AnnotationDetailDrawer";
 import { HighlightPopover } from "../HighlightPopover";
 import { AITranslationPanel } from "../AITranslationPanel";
+import { QuickTranslateChip } from "../QuickTranslateChip";
 
 interface ReaderOverlaysProps {
   /** Container the overlays are positioned against (the content surface). */
@@ -67,16 +70,10 @@ export function ReaderOverlays({
       : null,
   );
   const currentBook = useBookStore((state) => state.currentBook);
+  const aiConfig = useAIConfigStore((state) => state.config);
 
   // AI translation panel state
-  const [translationPanel, setTranslationPanel] = useState<{
-    selectedText: string;
-    chapterHref: string;
-    startOffset: number;
-    endOffset: number;
-    sentence?: string;
-    paragraph?: string;
-  } | null>(null);
+  const [translationPanel, setTranslationPanel] = useState<SelectionActionData | null>(null);
 
   // Listen for note-click / highlight-click / close-popovers messages
   // from the content surface (iframe script or PDF text layer).
@@ -138,22 +135,30 @@ export function ReaderOverlays({
     setHighlightPosition(null);
   }, [activeHighlightId, currentBook]);
 
-  const handleTranslate = useCallback(
-    (data: {
-      selectedText: string;
-      chapterHref: string;
-      startOffset: number;
-      endOffset: number;
-      sentence?: string;
-      paragraph?: string;
-    }) => {
-      setTranslationPanel(data);
-      // Close annotation detail panel and highlight popover (mutual exclusivity)
-      setActiveNoteId(null);
-      setActiveHighlightId(null);
-      setHighlightPosition(null);
+  const handleTranslate = useCallback((data: SelectionActionData) => {
+    setTranslationPanel(data);
+    // Close annotation detail panel and highlight popover (mutual exclusivity)
+    setActiveNoteId(null);
+    setActiveHighlightId(null);
+    setHighlightPosition(null);
+  }, []);
+
+  // Background translate + auto-note: no panel, the chip reports progress.
+  const handleQuickTranslate = useCallback(
+    (data: SelectionActionData) => {
+      if (!currentBook) return;
+      void quickTranslateSelectionToNote({
+        bookId: currentBook.id,
+        chapterHref: data.chapterHref,
+        selectedText: data.selectedText,
+        startOffset: data.startOffset,
+        endOffset: data.endOffset,
+        sentence: data.sentence,
+        chapterText,
+        config: aiConfig,
+      });
     },
-    [],
+    [currentBook, chapterText, aiConfig],
   );
 
   const handleCloseTranslationPanel = useCallback(() => {
@@ -166,8 +171,10 @@ export function ReaderOverlays({
         containerRef={containerRef}
         chapterHref={chapterHref}
         onTranslate={handleTranslate}
+        onQuickTranslate={handleQuickTranslate}
         onAskAI={onAskAI}
       />
+      <QuickTranslateChip />
       <AnnotationDetailDrawer
         noteId={activeNoteId}
         onClose={handleClosePopover}

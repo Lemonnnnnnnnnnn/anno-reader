@@ -35,7 +35,7 @@ export function useToolbarPosition({
     const selRect = selection.rect;
 
     // Center toolbar horizontally on the selection
-    const toolbarWidth = mode === "note" ? 320 : mode === "highlight" ? 260 : 220;
+    const toolbarWidth = mode === "note" ? 320 : 260;
     let left = selRect.left + selRect.width / 2 - toolbarWidth / 2;
 
     // Clamp to container bounds

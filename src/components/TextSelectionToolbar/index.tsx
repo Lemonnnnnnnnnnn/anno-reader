@@ -19,14 +19,16 @@
 
 import { useRef } from "react";
 import { Button, TextArea } from "@/components/primitives";
-import { Pencil, Highlighter, Languages, Bot, Volume2 } from "lucide-react";
+import { Pencil, Highlighter, Languages, Bot, Volume2, Zap } from "lucide-react";
 import { useTTS } from "@/hooks/useTTS";
-import { HIGHLIGHT_COLORS } from "./constants";
+import { HIGHLIGHT_COLORS, type SelectionActionData } from "./constants";
 import {
   useSelectionListener,
   useToolbarActions,
   useToolbarPosition,
 } from "./hooks";
+
+export type { SelectionActionData } from "./constants";
 
 interface TextSelectionToolbarProps {
   /** Ref to the iframe container element (for coordinate calculation) */
@@ -34,16 +36,9 @@ interface TextSelectionToolbarProps {
   /** Current chapter href (for annotation association) */
   chapterHref: string;
   /** Callback when user confirms translation — receives selection data for AITranslationPanel */
-  onTranslate?: (
-    data: {
-      selectedText: string;
-      chapterHref: string;
-      startOffset: number;
-      endOffset: number;
-      sentence?: string;
-      paragraph?: string;
-    },
-  ) => void;
+  onTranslate?: (data: SelectionActionData) => void;
+  /** Callback when user asks for a background translation — translates and records a note without opening a panel */
+  onQuickTranslate?: (data: SelectionActionData) => void;
   /** Callback when user clicks "Ask AI" — receives selected text for ChatDrawer */
   onAskAI?: (selectedText: string) => void;
 }
@@ -52,6 +47,7 @@ export function TextSelectionToolbar({
   containerRef,
   chapterHref,
   onTranslate,
+  onQuickTranslate,
   onAskAI,
 }: TextSelectionToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -137,6 +133,28 @@ export function TextSelectionToolbar({
             >
               <Languages size={14} className="shrink-0 opacity-70" />
             </button>
+            {onQuickTranslate && (
+              <button
+                className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg dark:hover:bg-bg-dark transition-colors"
+                onClick={() => {
+                  if (onQuickTranslate && selection) {
+                    onQuickTranslate({
+                      selectedText: selection.text,
+                      chapterHref,
+                      startOffset: selection.startOffset,
+                      endOffset: selection.endOffset,
+                      sentence: selection.sentence,
+                      paragraph: selection.paragraph,
+                    });
+                    resetSelection();
+                  }
+                }}
+                title="Translate and save as note"
+                aria-label="Translate and save as note"
+              >
+                <Zap size={14} className="shrink-0 opacity-70" />
+              </button>
+            )}
             <div className="w-px h-5 bg-border dark:bg-border-dark mx-0.5" />
             <button
               className="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer whitespace-nowrap font-sans hover:bg-bg dark:hover:bg-bg-dark transition-colors"

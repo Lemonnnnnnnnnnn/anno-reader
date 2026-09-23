@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { translationService } from "@/lib/ai/translation";
+import { runTranslationStream } from "@/lib/ai/translation-runner";
 import { AIErrorHandler } from "@/lib/ai/error-handler";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
 
@@ -45,49 +46,29 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
     abortControllerRef.current = abortController;
 
     try {
-      // Use withRetry for automatic retry on retryable errors (network, timeout, rate limit)
-      // IMPORTANT: Must wrap the entire translation flow including stream consumption,
-      // because streamText() is lazy - the actual HTTP request happens during iteration.
-      await errorHandler.withRetry(
-        async () => {
-          const result = await translationService.translateStream(
-            selectedText,
-            "Chinese",
-            config,
-            { abortSignal: abortController.signal, onError: (err) => setError(err.message) },
-            chapterText ?? undefined,
-            offset,
-            selectionSentence,
-          );
-
-          setStatus("streaming");
-          let accumulated = "";
-
-          for await (const chunk of result.textStream) {
-            if (abortController.signal.aborted) break;
-            accumulated += chunk;
-            setStreamingText(accumulated);
-          }
-
-          setTranslationText(accumulated);
-          setStatus("success");
-          setError(null);
-
-          // Cache the streaming result for future non-streaming calls
-          translationService.cacheTranslation(
-            selectedText,
-            "Chinese",
-            accumulated,
-            result.provider,
-          );
-        },
-        3, // max retries
-        (attempt, retryError) => {
+      // Retries (including stream-consumption failures) live in the shared
+      // runner so the background quick-translate path behaves identically.
+      const { translation } = await runTranslationStream({
+        text: selectedText,
+        targetLanguage: "Chinese",
+        config,
+        chapterText,
+        offset,
+        selectionSentence,
+        abortSignal: abortController.signal,
+        onStreamStart: () => setStatus("streaming"),
+        onChunk: setStreamingText,
+        onStreamError: (err) => setError(err.message),
+        onRetry: (attempt, retryError) => {
           // Show retry progress to user
           setStatus("loading");
           setError(`重试中... (${attempt}/3) - ${errorHandler.getUserMessage(retryError)}`);
         },
-      );
+      });
+
+      setTranslationText(translation);
+      setStatus("success");
+      setError(null);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         setStatus("success");
