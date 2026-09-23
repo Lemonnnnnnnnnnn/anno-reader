@@ -2,9 +2,8 @@
  * Tests for the ReaderPage chrome.
  *
  * Verifies:
- * - The reader opens in immersive mode (chrome hidden, exit affordance shown)
- * - Leaving immersive mode — via Esc or the floating button — restores the
- *   header navigation
+ * - The chrome starts hidden (inert, translated away) and slides in when the
+ *   auto-hide hook reports the pointer at a window edge
  * - ChatDrawer integration: MessageSquare button, drawer props, initial state
  *
  * @vitest-environment happy-dom
@@ -19,6 +18,8 @@ import { ReaderPage } from "..";
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
+
+const chrome = vi.hoisted(() => ({ visible: false }));
 
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -64,6 +65,9 @@ vi.mock("@/stores/useBookStore", () => ({
 vi.mock("@/hooks/useTheme", () => ({ default: vi.fn() }));
 
 vi.mock("@/pages/ReaderPage/hooks", () => ({
+  // The chrome hook is exercised in useAutoHideChrome.test.tsx; here the flag
+  // is toggled by the tests to drive the two visible/hidden states.
+  useAutoHideChrome: () => ({ headerVisible: chrome.visible, footerVisible: chrome.visible }),
   useRouteGuard: () => "book",
   useEpubLoader: () => ({
     parsedEpub: {
@@ -157,7 +161,7 @@ vi.mock("@/components/DataDirSetup", () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
-const EXIT_IMMERSIVE = 'button[title="Exit immersive mode (Esc)"]';
+const HEADER_SELECTOR = "header";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -173,10 +177,12 @@ function renderReaderPage(): HTMLDivElement {
   return container;
 }
 
-function leaveImmersiveMode(): void {
-  act(() => {
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
-  });
+function header(): HTMLElement {
+  return container.querySelector(HEADER_SELECTOR) as HTMLElement;
+}
+
+function footer(): HTMLElement {
+  return container.querySelector("footer") as HTMLElement;
 }
 
 beforeEach(() => {
@@ -189,6 +195,7 @@ beforeEach(() => {
   annotationDrawerOnClose = null;
   dictionaryDrawerOpen = false;
   dictionaryDrawerOnClose = null;
+  chrome.visible = false;
 
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -204,42 +211,45 @@ afterEach(() => {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("ReaderPage immersive mode", () => {
-  it("opens in immersive mode, hiding the reader chrome", () => {
+describe("ReaderPage auto-hiding chrome", () => {
+  it("keeps the chrome out of the way until the pointer reaches an edge", () => {
     renderReaderPage();
 
-    expect(container.querySelector(EXIT_IMMERSIVE)).not.toBeNull();
-    expect(container.querySelector('button[title="Back to bookshelf"]')).toBeNull();
-    expect(container.querySelector("header")).toBeNull();
-    expect(container.querySelector("footer")).toBeNull();
+    // Both bars are mounted (they slide in), but inert and hidden from AT so
+    // they cannot intercept a click on the text underneath.
+    expect(header().hasAttribute("inert")).toBe(true);
+    expect(header().getAttribute("aria-hidden")).toBe("true");
+    expect(footer().hasAttribute("inert")).toBe(true);
+    expect(header().className).toContain("opacity-0");
+    expect(footer().className).toContain("opacity-0");
   });
 
-  it("restores the chrome on Escape", () => {
+  it("shows the chrome once the hook reports the pointer at an edge", () => {
+    chrome.visible = true;
     renderReaderPage();
-    leaveImmersiveMode();
 
-    expect(container.querySelector(EXIT_IMMERSIVE)).toBeNull();
-    expect(container.querySelector('button[title="Back to bookshelf"]')).not.toBeNull();
-    expect(container.querySelector("header")).not.toBeNull();
+    expect(header().hasAttribute("inert")).toBe(false);
+    expect(header().getAttribute("aria-hidden")).toBe("false");
+    expect(footer().hasAttribute("inert")).toBe(false);
+    expect(header().className).toContain("opacity-100");
   });
 
-  it("restores the chrome from the floating exit button", () => {
+  it("no longer offers an immersive-mode toggle", () => {
     renderReaderPage();
+    expect(container.querySelector('button[title="Immersive mode"]')).toBeNull();
+    expect(container.querySelector('button[title="Exit immersive mode (Esc)"]')).toBeNull();
 
-    const exitButton = container.querySelector(EXIT_IMMERSIVE);
-    act(() => {
-      exitButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(container.querySelector(EXIT_IMMERSIVE)).toBeNull();
-    expect(container.querySelector('button[title="Immersive mode"]')).not.toBeNull();
+    chrome.visible = true;
+    renderReaderPage();
+    expect(container.querySelector('button[title="Immersive mode"]')).toBeNull();
+    expect(container.querySelector('button[title="Exit immersive mode (Esc)"]')).toBeNull();
   });
 });
 
 describe("ChatDrawer integration in ReaderPage", () => {
   it("renders MessageSquare button in navigation bar", () => {
+    chrome.visible = true;
     renderReaderPage();
-    leaveImmersiveMode();
 
     expect(container.querySelector('button[title="AI Chat"]')).not.toBeNull();
   });
@@ -259,8 +269,8 @@ describe("ChatDrawer integration in ReaderPage", () => {
   });
 
   it("all navigation buttons are present", () => {
+    chrome.visible = true;
     renderReaderPage();
-    leaveImmersiveMode();
 
     for (const title of [
       "Table of Contents",

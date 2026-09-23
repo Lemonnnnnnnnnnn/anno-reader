@@ -6,3 +6,4 @@ export { useRouteGuard } from "./useRouteGuard";
 export { useEpubLoader } from "./useEpubLoader";
 export { useKeyboardNav } from "./useKeyboardNav";
 export { useVimScroll } from "./useVimScroll";
+export { useAutoHideChrome } from "./useAutoHideChrome";
