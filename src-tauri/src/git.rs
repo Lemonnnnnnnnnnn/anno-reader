@@ -215,25 +215,42 @@ fn get_ahead_behind(data_dir: &str) -> (usize, usize) {
     }
 }
 
-/// Sync git repository: pull (fast-fail) -> add . -> commit -> push.
+/// Sync git repository: commit local changes -> pull (auto-merge JSON) -> push.
 /// Uses the provided message template with {datetime}, {date}, {time} placeholders.
+///
+/// Local changes are committed BEFORE pulling. Git refuses to start a merge
+/// when the working tree has uncommitted edits to files the merge needs to
+/// update ("Your local changes ... would be overwritten by merge"), and since
+/// the reader auto-saves progress while reading, the worktree is dirty at
+/// sync time in practice. With the old pull-first order that failure also
+/// prevented the commit from ever happening, so every subsequent sync failed
+/// the same way. A second commit pass after the pull captures anything the
+/// app wrote while the merge was running.
 #[tauri::command]
 pub async fn git_sync(
     data_dir: String,
     message_template: Option<String>,
 ) -> Result<SyncResult, String> {
     let template = message_template.unwrap_or_else(|| "Sync at {datetime}".to_string());
+    run_sync(&data_dir, &template)
+}
+
+fn run_sync(data_dir: &str, template: &str) -> Result<SyncResult, String> {
+    let message = render_message(template);
     eprintln!("[sync] === start === dir={}", data_dir);
 
-    // Step 1: Pull with auto-merge for JSON files
-    eprintln!("[sync] step 1/4: pull");
-    match git_pull(&data_dir) {
+    // Step 1: Commit local changes so the merge below sees a clean worktree.
+    commit_local_changes(data_dir, &message, "1/4")?;
+
+    // Step 2: Pull with auto-merge for JSON files
+    eprintln!("[sync] step 2/4: pull");
+    match git_pull(data_dir) {
         Ok(_) => {
-            eprintln!("[sync] step 1/4: pull OK");
+            eprintln!("[sync] step 2/4: pull OK");
         }
         Err(conflicts) => {
             eprintln!(
-                "[sync] step 1/4: pull FAILED with {} conflict(s): {:?}",
+                "[sync] step 2/4: pull FAILED with {} conflict(s): {:?}",
                 conflicts.len(),
                 conflicts
             );
@@ -245,44 +262,12 @@ pub async fn git_sync(
         }
     }
 
-    // Step 2: Add all changes
-    eprintln!("[sync] step 2/4: add .");
-    run_git(&data_dir, &["add", "."]).map_err(|e| {
-        eprintln!("[sync] step 2/4: add FAILED: {}", e);
-        format!("Failed to add files: {}", e)
-    })?;
-
-    // Step 3: Commit
-    let message = render_message(&template);
-    eprintln!("[sync] step 3/4: commit message={:?}", message);
-
-    // Skip commit when there is nothing staged. Relying on the working tree
-    // state is more reliable than parsing git's stdout/stderr text, which
-    // differs across git versions and locales.
-    let has_staged = run_git(&data_dir, &["diff", "--cached", "--quiet"])
-        .is_err(); // exit 1 = staged changes present
-    eprintln!("[sync] step 3/4: staged changes present={}", has_staged);
-
-    if has_staged {
-        match run_git(&data_dir, &["commit", "-m", &message]) {
-            Ok(out) => {
-                eprintln!(
-                    "[sync] step 3/4: commit OK: {}",
-                    truncate_for_log(&out, 200)
-                );
-            }
-            Err(e) => {
-                eprintln!("[sync] step 3/4: commit FAILED: {}", e);
-                return Err(format!("Failed to commit: {}", e));
-            }
-        }
-    } else {
-        eprintln!("[sync] step 3/4: nothing to commit, skipping");
-    }
+    // Step 3: Capture anything written while the merge was running.
+    commit_local_changes(data_dir, &message, "3/4")?;
 
     // Step 4: Push
     eprintln!("[sync] step 4/4: push");
-    run_git(&data_dir, &["push"]).map_err(|e| {
+    run_git(data_dir, &["push"]).map_err(|e| {
         eprintln!("[sync] step 4/4: push FAILED: {}", e);
         format!("Failed to push: {}", e)
     })?;
@@ -293,6 +278,42 @@ pub async fn git_sync(
         message: format!("Synced successfully: {}", message),
         conflicts: vec![],
     })
+}
+
+/// Stage and commit all current changes. Skips the commit when there is
+/// nothing staged. Relying on the working tree state is more reliable than
+/// parsing git's stdout/stderr text, which differs across git versions and
+/// locales.
+fn commit_local_changes(data_dir: &str, message: &str, step: &str) -> Result<(), String> {
+    eprintln!("[sync] step {}: add .", step);
+    run_git(data_dir, &["add", "."]).map_err(|e| {
+        eprintln!("[sync] step {}: add FAILED: {}", step, e);
+        format!("Failed to add files: {}", e)
+    })?;
+
+    let has_staged = run_git(data_dir, &["diff", "--cached", "--quiet"])
+        .is_err(); // exit 1 = staged changes present
+    eprintln!("[sync] step {}: staged changes present={}", step, has_staged);
+
+    if !has_staged {
+        eprintln!("[sync] step {}: nothing to commit, skipping", step);
+        return Ok(());
+    }
+
+    match run_git(data_dir, &["commit", "-m", message]) {
+        Ok(out) => {
+            eprintln!(
+                "[sync] step {}: commit OK: {}",
+                step,
+                truncate_for_log(&out, 200)
+            );
+            Ok(())
+        }
+        Err(e) => {
+            eprintln!("[sync] step {}: commit FAILED: {}", step, e);
+            Err(format!("Failed to commit: {}", e))
+        }
+    }
 }
 
 /// Detect the current branch name. Returns None on detached HEAD or failure.
@@ -664,4 +685,120 @@ fn render_message(template: &str) -> String {
         .replace("{datetime}", &now.format("%Y-%m-%d %H:%M:%S").to_string())
         .replace("{date}", &now.format("%Y-%m-%d").to_string())
         .replace("{time}", &now.format("%H:%M:%S").to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "anno-reader-git-test-{}-{}",
+            name,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn configure_identity(dir: &Path) {
+        let dir = dir.to_str().unwrap();
+        run_git(dir, &["config", "user.name", "Test"]).unwrap();
+        run_git(dir, &["config", "user.email", "test@example.com"]).unwrap();
+    }
+
+    /// Set up a bare remote + a working clone with one committed progress file.
+    /// Returns (base, work clone path).
+    fn fixture(name: &str) -> (PathBuf, PathBuf) {
+        let base = temp_dir(name);
+        let remote = base.join("remote.git");
+        let work = base.join("work");
+
+        run_git(
+            base.to_str().unwrap(),
+            &["init", "--bare", "-b", "master", remote.to_str().unwrap()],
+        )
+        .unwrap();
+        run_git(
+            base.to_str().unwrap(),
+            &["clone", remote.to_str().unwrap(), work.to_str().unwrap()],
+        )
+        .unwrap();
+        configure_identity(&work);
+
+        let progress = work.join("entries").join("book1").join("progress.json");
+        fs::create_dir_all(progress.parent().unwrap()).unwrap();
+        fs::write(&progress, r#"{ "lastUpdated": "2026-01-01T00:00:00Z" }"#).unwrap();
+        run_git(work.to_str().unwrap(), &["add", "."]).unwrap();
+        run_git(work.to_str().unwrap(), &["commit", "-m", "init"]).unwrap();
+        run_git(work.to_str().unwrap(), &["push", "-u", "origin", "master"]).unwrap();
+
+        (base, work)
+    }
+
+    /// Regression test for the pull-first sync order: with uncommitted local
+    /// edits to progress.json AND a remote commit touching the same file, the
+    /// merge used to be refused ("Your local changes ... would be overwritten
+    /// by merge") before the local commit could happen, deadlocking sync.
+    #[test]
+    fn sync_commits_local_changes_before_merge() {
+        let (base, work) = fixture("sync-dirty");
+        let work_str = work.to_str().unwrap();
+        let progress = work.join("entries").join("book1").join("progress.json");
+
+        // Simulate another device landing a newer progress file on the remote.
+        fs::write(&progress, r#"{ "lastUpdated": "2026-01-02T00:00:00Z" }"#).unwrap();
+        run_git(work_str, &["commit", "-am", "remote-device"]).unwrap();
+        run_git(work_str, &["push"]).unwrap();
+
+        // Roll the local branch back behind the remote, then dirty the same
+        // file — the state the reader is in when sync is pressed mid-read.
+        run_git(work_str, &["reset", "--hard", "HEAD~1"]).unwrap();
+        fs::write(&progress, r#"{ "lastUpdated": "2026-01-01T12:00:00Z" }"#).unwrap();
+
+        let result = run_sync(work_str, "test {datetime}").unwrap();
+        assert!(result.success, "sync should succeed: {}", result.message);
+
+        // The remote version is newer, so the auto-merge must have kept it.
+        let merged = fs::read_to_string(&progress).unwrap();
+        assert!(
+            merged.contains("2026-01-02T00:00:00Z"),
+            "merged file should keep the newer remote progress: {}",
+            merged
+        );
+
+        // Everything committed and pushed.
+        let status = run_git(work_str, &["status", "--porcelain"]).unwrap();
+        assert!(status.is_empty(), "worktree should be clean: {}", status);
+        let unpushed = run_git(work_str, &["rev-list", "--count", "origin/master..master"]).unwrap();
+        assert_eq!(unpushed, "0");
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    /// Plain path: dirty worktree with no upstream activity must still
+    /// commit and push cleanly.
+    #[test]
+    fn sync_pushes_local_changes_without_upstream_activity() {
+        let (base, work) = fixture("sync-clean");
+        let work_str = work.to_str().unwrap();
+        let progress = work.join("entries").join("book1").join("progress.json");
+
+        fs::write(&progress, r#"{ "lastUpdated": "2026-01-03T00:00:00Z" }"#).unwrap();
+
+        let result = run_sync(work_str, "test {datetime}").unwrap();
+        assert!(result.success, "sync should succeed: {}", result.message);
+
+        let status = run_git(work_str, &["status", "--porcelain"]).unwrap();
+        assert!(status.is_empty(), "worktree should be clean: {}", status);
+        let unpushed = run_git(work_str, &["rev-list", "--count", "origin/master..master"]).unwrap();
+        assert_eq!(unpushed, "0");
+
+        let _ = fs::remove_dir_all(&base);
+    }
 }
