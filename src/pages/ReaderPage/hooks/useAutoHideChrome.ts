@@ -6,6 +6,11 @@
  * a toggle button. Each bar is independent and fades out once the pointer
  * leaves its zone.
  *
+ * EPUB chapters render in a full-viewport iframe whose pointermove events are
+ * dispatched inside the iframe and never reach this window, so an injected
+ * forwarder script (see VerticalScroller / injectPointerScript) relays them
+ * as "pointer-move" messages. Both paths feed the same edge-zone logic.
+ *
  * @example
  * ```tsx
  * const { headerVisible, footerVisible } = useAutoHideChrome();
@@ -62,17 +67,32 @@ export function useAutoHideChrome(): ChromeVisibility {
       }, HIDE_DELAY_MS);
     };
 
-    const handlePointerMove = (event: PointerEvent) => {
-      if (event.clientY <= EDGE_ZONE) reveal("header");
+    const applyPointerPosition = (clientY: number) => {
+      if (clientY <= EDGE_ZONE) reveal("header");
       else scheduleHide("header");
 
-      if (event.clientY >= window.innerHeight - EDGE_ZONE) reveal("footer");
+      if (clientY >= window.innerHeight - EDGE_ZONE) reveal("footer");
       else scheduleHide("footer");
     };
 
+    const handlePointerMove = (event: PointerEvent) => {
+      applyPointerPosition(event.clientY);
+    };
+
+    // Forwarded moves from the chapter iframe. The iframe fills the viewport
+    // (header/footer are absolutely positioned and take no layout space), so
+    // its clientY maps 1:1 onto this window's coordinates.
+    const handleIframePointerMove = (event: MessageEvent) => {
+      const data = event.data as { type?: string; clientY?: unknown } | null;
+      if (data?.type !== "pointer-move" || typeof data.clientY !== "number") return;
+      applyPointerPosition(data.clientY);
+    };
+
     window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("message", handleIframePointerMove);
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("message", handleIframePointerMove);
       if (timers.header) clearTimeout(timers.header);
       if (timers.footer) clearTimeout(timers.footer);
       timers.header = null;

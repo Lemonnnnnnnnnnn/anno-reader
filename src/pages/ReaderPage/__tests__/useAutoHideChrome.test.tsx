@@ -36,6 +36,13 @@ function movePointer(clientY: number) {
   });
 }
 
+/** Dispatch a message as the EPUB iframe forwarder script would. */
+function postFromIframe(data: unknown) {
+  act(() => {
+    window.dispatchEvent(new MessageEvent("message", { data }));
+  });
+}
+
 function advance(ms: number) {
   act(() => {
     vi.advanceTimersByTime(ms);
@@ -100,6 +107,35 @@ describe("useAutoHideChrome", () => {
     advance(HIDE_DELAY_MS);
 
     expect(visible().header).toBe(true);
+  });
+
+  it("reveals bars from pointer-move messages forwarded by the epub iframe", () => {
+    postFromIframe({ type: "pointer-move", clientY: EDGE_ZONE - 1 });
+    expect(visible()).toEqual({ header: true, footer: false });
+
+    postFromIframe({
+      type: "pointer-move",
+      clientY: window.innerHeight - EDGE_ZONE + 1,
+    });
+    expect(visible().footer).toBe(true);
+  });
+
+  it("hides a bar again after a forwarded move leaves its zone", () => {
+    postFromIframe({ type: "pointer-move", clientY: 0 });
+    expect(visible().header).toBe(true);
+
+    postFromIframe({ type: "pointer-move", clientY: window.innerHeight / 2 });
+    advance(HIDE_DELAY_MS);
+    expect(visible().header).toBe(false);
+  });
+
+  it("ignores unrelated or malformed messages", () => {
+    postFromIframe({ type: "scroll-position", scrollY: 0, maxScroll: 100 });
+    postFromIframe({ type: "pointer-move" });
+    postFromIframe({ type: "pointer-move", clientY: "10" });
+    postFromIframe(null);
+
+    expect(visible()).toEqual({ header: false, footer: false });
   });
 
   it("stops reacting after unmount", () => {

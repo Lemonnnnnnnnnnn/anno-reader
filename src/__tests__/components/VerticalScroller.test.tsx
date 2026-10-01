@@ -62,6 +62,7 @@ vi.mock("@/components/VerticalScroller/hooks", () => ({
 vi.mock("@/components/VerticalScroller/hooks/useScrollTracking", () => ({
   injectScrollScript: vi.fn((srcdoc: string) => srcdoc),
   injectKeyboardScript: vi.fn((srcdoc: string) => srcdoc),
+  injectPointerScript: vi.fn((srcdoc: string) => srcdoc),
 }));
 
 vi.mock("@/lib/annotations", () => ({

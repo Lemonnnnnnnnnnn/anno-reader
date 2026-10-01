@@ -39,7 +39,11 @@ import { injectCssIntoIframe } from "@/lib/css";
 import { ReaderOverlays } from "../ReaderOverlays";
 import { injectLinkNavigationScript, type LinkClickMessage } from "@/lib/linkNavigation";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
-import { injectScrollScript, injectKeyboardScript } from "./hooks/useScrollTracking";
+import {
+  injectScrollScript,
+  injectKeyboardScript,
+  injectPointerScript,
+} from "./hooks/useScrollTracking";
 
 interface VerticalScrollerProps {
   /** Complete HTML string for the iframe srcdoc */
@@ -289,7 +293,8 @@ export function VerticalScroller({
   const srcdocWithTracking = useMemo(() => {
     const withScroll = injectScrollScript(srcdoc);
     const withKeyboard = injectKeyboardScript(withScroll);
-    const withSelection = injectSelectionScript(withKeyboard);
+    const withPointer = injectPointerScript(withKeyboard);
+    const withSelection = injectSelectionScript(withPointer);
     const withLinks = injectLinkNavigationScript(withSelection);
     // Inject summary trigger/card before closing body
     const withSummary = injectSummaryButton(withLinks);

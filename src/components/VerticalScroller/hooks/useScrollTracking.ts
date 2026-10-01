@@ -142,6 +142,59 @@ export function injectKeyboardScript(srcdoc: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Pointer forwarder script
+// ---------------------------------------------------------------------------
+
+/** Message shape posted from the iframe pointer forwarder script */
+export interface PointerMoveMessage {
+  type: "pointer-move";
+  clientY: number;
+}
+
+/**
+ * Script injected into the iframe srcdoc to forward pointer positions.
+ *
+ * The chapter iframe covers the whole window, so pointermove events over the
+ * book content are dispatched inside the iframe and never reach the parent
+ * window — where useAutoHideChrome listens to reveal the floating header and
+ * footer. This relays each move (throttled to one postMessage per animation
+ * frame) so the parent can apply the same edge-zone logic.
+ */
+export const POINTER_FORWARDER_SCRIPT = `
+<script>
+(function() {
+  var pendingY = null;
+  var rafId = 0;
+
+  window.addEventListener('pointermove', function(e) {
+    pendingY = e.clientY;
+    if (rafId) return;
+    rafId = window.requestAnimationFrame(function() {
+      rafId = 0;
+      window.parent.postMessage({
+        type: 'pointer-move',
+        clientY: pendingY
+      }, '*');
+    });
+  }, { passive: true });
+})();
+</script>`;
+
+/**
+ * Inject the pointer forwarder script into an srcdoc HTML string.
+ * Appends the script just before the closing </body> tag.
+ */
+export function injectPointerScript(srcdoc: string): string {
+  const closingBody = "</body>";
+  const idx = srcdoc.lastIndexOf(closingBody);
+  if (idx === -1) {
+    // No closing body tag — append at end
+    return srcdoc + POINTER_FORWARDER_SCRIPT;
+  }
+  return srcdoc.slice(0, idx) + POINTER_FORWARDER_SCRIPT + srcdoc.slice(idx);
+}
+
+// ---------------------------------------------------------------------------
 // CFI parsing and scroll helpers
 // ---------------------------------------------------------------------------
 
