@@ -7,8 +7,7 @@
  */
 
 import { Sparkles, X, RefreshCw } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownView } from "@/components/MarkdownView";
 
 interface PageSummaryCardProps {
   status: "idle" | "streaming" | "error";
@@ -83,9 +82,10 @@ export function PageSummaryCard({
           <span className="inline-block w-1.5 h-4 ml-0.5 align-text-bottom bg-accent dark:bg-accent-dark animate-pulse" />
         </p>
       ) : (
-        <div className="text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-        </div>
+        <MarkdownView
+          className="text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note"
+          content={content}
+        />
       )}
     </div>
   );

@@ -20,10 +20,9 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { useBookStore } from "@/stores/useBookStore";
 import { Modal, Button, TextArea } from "@/components/primitives";
+import { MarkdownView } from "@/components/MarkdownView";
 import { Pencil, Trash2, CornerDownRight } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
 import { formatTimestamp, findChapterIndex } from "./utils";
@@ -146,11 +145,10 @@ export function NotePreview({
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-y-auto text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {note.content}
-            </ReactMarkdown>
-          </div>
+          <MarkdownView
+            className="flex-1 min-h-0 overflow-y-auto text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note"
+            content={note.content}
+          />
         )}
 
         {/* Actions */}

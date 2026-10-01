@@ -227,6 +227,36 @@ body,
   border-color: #404040;
 }
 
+/* Markdown editor (Tiptap): content inherits .markdown-note typography,
+   these rules only cover editor chrome the utility classes can't reach */
+.markdown-editor .ProseMirror {
+  outline: none;
+  white-space: pre-wrap;
+}
+.markdown-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: #9ca3af;
+}
+.markdown-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25em;
+}
+.markdown-editor ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375em;
+}
+.markdown-editor ul[data-type="taskList"] li > label {
+  margin-top: 0.3em;
+  flex-shrink: 0;
+}
+.dark .markdown-editor p.is-editor-empty:first-child::before {
+  color: #6b7280;
+}
+
 /* ------------------------------------------------------------------ */
 /* PDF viewer: text layer (pdf.js) + annotation overlays               */
 /* Adapted from pdfjs-dist web/pdf_viewer.css .textLayer rules (v6).   */

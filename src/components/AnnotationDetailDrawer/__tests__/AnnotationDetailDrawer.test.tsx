@@ -65,7 +65,6 @@ describe("AnnotationDetailDrawer", () => {
 
     expect(html).toContain("Note Detail");
     expect(html).toContain("Selected text in the book");
-    expect(html).toContain("This is my annotation note content.");
   });
 
   it("renders the quoted original text", () => {
@@ -84,12 +83,15 @@ describe("AnnotationDetailDrawer", () => {
     expect(html).toContain('aria-label="Close drawer"');
   });
 
-  it("renders edit button", () => {
+  it("renders the live markdown editor (no read-only view, no manual save)", () => {
     const html = renderToString(
       <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
     );
 
-    expect(html).toContain("Edit note");
+    // Editor container is present; the old edit toggle is gone entirely.
+    expect(html).toContain("markdown-editor");
+    expect(html).not.toContain("Edit note");
+    expect(html).not.toContain("Save");
   });
 
   it("renders delete button", () => {
@@ -100,23 +102,13 @@ describe("AnnotationDetailDrawer", () => {
     expect(html).toContain("Delete note");
   });
 
-  it("renders different note content when noteId changes", () => {
+  it("renders different quoted text when noteId changes", () => {
     const html = renderToString(
       <AnnotationDetailDrawer noteId="note-2" onClose={vi.fn()} />,
     );
 
+    // The editor content itself is client-rendered; SSR shows the quote.
     expect(html).toContain("Another selection");
-    expect(html).toContain("bold");
-  });
-
-  it("does not show edit/delete in editing mode (SSR default shows non-editing)", () => {
-    const html = renderToString(
-      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
-    );
-
-    // In non-editing state, edit/delete buttons are shown
-    expect(html).toContain("Edit note");
-    expect(html).toContain("Delete note");
   });
 
   it("renders listen-to-section button", () => {
@@ -134,14 +126,5 @@ describe("AnnotationDetailDrawer", () => {
 
     // Timestamp should be rendered as a date string
     expect(html).toMatch(/\d{1,2}:\d{2}/);
-  });
-
-  it("renders markdown note content", () => {
-    const html = renderToString(
-      <AnnotationDetailDrawer noteId="note-2" onClose={vi.fn()} />,
-    );
-
-    // Markdown **bold** should be rendered as <strong>
-    expect(html).toContain("<strong>");
   });
 });

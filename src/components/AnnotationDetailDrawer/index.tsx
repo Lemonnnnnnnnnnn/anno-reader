@@ -5,8 +5,13 @@
  * actions. Uses the Drawer component as a container for consistent
  * right-side panel behavior.
  *
+ * The note is always live-editable: a Tiptap markdown editor seeded from the
+ * stored note, with changes autosaved on a short debounce (no manual save).
+ * Pending edits are flushed when the note changes, the drawer closes, or AI
+ * chat mode opens.
+ *
  * Features:
- * - View and edit note content (Markdown)
+ * - View and edit note content (Markdown, autosaved)
  * - Delete notes with confirmation
  * - AI chat mode for discussing note content
  *
@@ -19,17 +24,21 @@
  * ```
  */
 
-import { useState, useEffect, useCallback } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useBookStore } from "@/stores/useBookStore";
-import { Drawer, Button, TextArea } from "@/components/primitives";
+import { Drawer, Button } from "@/components/primitives";
+import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { ChatPanel } from "@/components/chat";
-import { Pencil, Trash2, MessageSquare, Volume2 } from "lucide-react";
+import { Trash2, MessageSquare, Volume2 } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
 import { useTTS } from "@/hooks/useTTS";
 import { useChatStreaming } from "@/lib/chat/streaming";
 import type { ChatMessage } from "@/lib/chat/types";
+
+/** Idle time after the last keystroke before changes are persisted. */
+const AUTOSAVE_DELAY_MS = 600;
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 interface AnnotationDetailDrawerProps {
   /** ID of the note to display, or null if closed */
@@ -39,10 +48,9 @@ interface AnnotationDetailDrawerProps {
 }
 
 export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDrawerProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [chatMode, setChatMode] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   // Get note data from store
   const note = useBookStore((state) =>
@@ -65,43 +73,106 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
   // Read the quoted book passage aloud. speak() toggles playback.
   const { speak, stop, isSpeaking } = useTTS(note?.text ?? "");
 
-  // The listen control lives in the pinned footer, which is not rendered
-  // while the drawer is closed, while another note is open, or while
-  // editing — stop playback in those states so audio can't run uncontrolled.
+  // Stop playback whenever the drawer closes or switches notes — the footer
+  // control is not rendered in those states, so audio can't run uncontrolled.
   useEffect(() => {
     stop();
   }, [noteId, stop]);
 
-  // Reset state when note changes
+  // Autoplay the quoted section when a note opens. Runs after the stop
+  // effect above, so switching notes stops the previous audio before this
+  // starts the new one.
   useEffect(() => {
-    setIsEditing(false);
-    setEditText("");
+    if (note) {
+      void speak();
+    }
+    // Only trigger on open / note switch, not on every speak re-creation.
+  }, [note?.id]);
+
+  // --- Live editing with debounced autosave --------------------------------
+  // Edits update these refs immediately and hit disk after AUTOSAVE_DELAY_MS
+  // of idle time. Saves are serialized through saveChainRef so an older,
+  // slower write can never overwrite a newer one, and identical content is
+  // never written twice.
+  const noteIdRef = useRef<string | null>(noteId);
+  const bookIdRef = useRef<string | null>(currentBook?.id ?? null);
+  const latestContentRef = useRef<string | undefined>(undefined);
+  const savedContentRef = useRef<string | undefined>(undefined);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deletedRef = useRef(false);
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+
+  const flushSave = useCallback((): Promise<void> => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const id = noteIdRef.current;
+    const bookId = bookIdRef.current;
+    const content = latestContentRef.current;
+    if (!id || !bookId || content === undefined || deletedRef.current) {
+      return saveChainRef.current;
+    }
+    if (content === savedContentRef.current) {
+      return saveChainRef.current;
+    }
+    setSaveStatus("saving");
+    saveChainRef.current = saveChainRef.current.then(async () => {
+      try {
+        await updateNote(id, content, bookId);
+        savedContentRef.current = content;
+        setSaveStatus("saved");
+      } catch (err) {
+        console.error("[AnnotationDetailDrawer] autosave failed:", err);
+        setSaveStatus("error");
+      }
+    });
+    return saveChainRef.current;
+  }, []);
+
+  const scheduleSave = useCallback(
+    (markdown: string) => {
+      latestContentRef.current = markdown;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
+        void flushSave();
+      }, AUTOSAVE_DELAY_MS);
+    },
+    [flushSave],
+  );
+
+  // Reset per-note state and the save baseline whenever the open note
+  // changes.
+  useEffect(() => {
+    noteIdRef.current = noteId;
+    bookIdRef.current = currentBook?.id ?? null;
+    latestContentRef.current = undefined;
+    savedContentRef.current = undefined;
+    deletedRef.current = false;
     setConfirmDelete(false);
     setChatMode(false);
     chatReset([]);
-  }, [noteId, chatReset]);
+    setSaveStatus("idle");
+  }, [noteId, currentBook, chatReset]);
 
-  const handleStartEdit = useCallback(() => {
-    if (!note) return;
-    stop();
-    setEditText(note.content);
-    setIsEditing(true);
-  }, [note, stop]);
-
-  const handleSaveEdit = useCallback(async () => {
-    if (!noteId || !currentBook || !editText.trim()) return;
-    await updateNote(noteId, editText.trim(), currentBook.id);
-    setIsEditing(false);
-    setEditText("");
-  }, [noteId, currentBook, editText]);
-
-  const handleCancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setEditText("");
-  }, []);
+  // Persist pending edits when the note changes, the drawer closes, or the
+  // editor unmounts (AI chat opens). Cleanup runs before the reset effect
+  // above updates the refs, so this flushes with the previous note's values.
+  useEffect(() => {
+    return () => {
+      void flushSave();
+    };
+  }, [noteId, chatMode, flushSave]);
 
   const handleDelete = useCallback(async () => {
     if (!noteId || !currentBook) return;
+    // Drop pending autosaves — the note is about to be removed.
+    deletedRef.current = true;
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
     await deleteNote(noteId, currentBook.id);
     onClose();
   }, [noteId, currentBook, onClose]);
@@ -192,7 +263,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
 
   if (!note) return null;
 
-  const noteFooter = !chatMode && !isEditing && (
+  const noteFooter = !chatMode && (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1">
         {confirmDelete ? (
@@ -219,9 +290,6 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
                 className={isSpeaking ? "text-accent dark:text-accent-dark" : ""}
               />
             </Button>
-            <Button variant="icon" onClick={handleStartEdit} title="Edit note">
-              <Pencil size={16} />
-            </Button>
             <Button variant="icon" onClick={handleDeleteClick} title="Delete note">
               <Trash2 size={16} />
             </Button>
@@ -236,15 +304,31 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
         )}
       </div>
 
-      {/* Timestamp */}
-      <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
-        {new Date(note.createdAt).toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </span>
+      <div className="flex items-center gap-2">
+        {saveStatus === "saving" && (
+          <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
+            Saving…
+          </span>
+        )}
+        {saveStatus === "saved" && (
+          <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
+            Saved
+          </span>
+        )}
+        {saveStatus === "error" && (
+          <span className="text-[0.72rem] text-error dark:text-error">
+            Save failed
+          </span>
+        )}
+        <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
+          {new Date(note.createdAt).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </span>
+      </div>
     </div>
   );
 
@@ -293,36 +377,17 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
             </p>
           </div>
 
-          {/* Note content */}
-          {isEditing ? (
-            <div className="flex flex-col gap-3">
-              <TextArea
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                onSubmit={handleSaveEdit}
-                onCancel={handleCancelEdit}
-                className="min-h-48"
-                placeholder="Write your note..."
-              />
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" size="sm" onClick={handleCancelEdit}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleSaveEdit}
-                  disabled={!editText.trim()}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
-            </div>
-          )}
+          {/* Note content: always live-editable, autosaved on idle */}
+          <MarkdownEditor
+            key={note.id}
+            initialContent={note.content}
+            onChange={scheduleSave}
+            onSubmit={() => {
+              void flushSave();
+              onClose();
+            }}
+            placeholder="Write your note..."
+          />
         </div>
       )}
     </Drawer>

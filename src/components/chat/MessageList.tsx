@@ -13,9 +13,8 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { Copy, Check } from "lucide-react";
+import { MarkdownView } from "@/components/MarkdownView";
 import type { ChatMessage } from "@/lib/chat/types";
 
 // ---------------------------------------------------------------------------
@@ -83,11 +82,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         {isUser ? (
           <span className="whitespace-pre-wrap">{message.content}</span>
         ) : (
-          <div className="font-serif markdown-note">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.content}
-            </ReactMarkdown>
-          </div>
+          <MarkdownView className="font-serif markdown-note" content={message.content} />
         )}
       </div>
 
