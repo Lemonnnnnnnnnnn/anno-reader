@@ -18,6 +18,9 @@ vi.mock("@/lib/annotations", () => ({
 }));
 
 import { TextSelectionToolbar } from "..";
+import { useBookStore } from "@/stores/useBookStore";
+import { createHighlight } from "@/lib/annotations";
+import { HIGHLIGHT_COLORS } from "../constants";
 
 const QUICK_TITLE = "Translate and save as note";
 
@@ -121,5 +124,81 @@ describe("TextSelectionToolbar quick translate", () => {
 
     expect(container.querySelector(`button[title="${QUICK_TITLE}"]`)).toBeNull();
     expect(container.querySelector('button[title="Translate selection"]')).not.toBeNull();
+  });
+});
+
+describe("TextSelectionToolbar highlight", () => {
+  const DEFAULT_COLOR = HIGHLIGHT_COLORS[0].value;
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.mocked(createHighlight).mockClear();
+    useBookStore.setState({
+      currentBook: {
+        id: "book-1",
+        title: "Test Book",
+        author: "Author",
+        coverUrl: null,
+        filePath: "/books/test.epub",
+        lastOpened: 0,
+      },
+    });
+  });
+
+  afterEach(() => {
+    useBookStore.setState({ currentBook: null });
+  });
+
+  async function createViaToolbar() {
+    renderToolbar({});
+    await postSelection();
+    click("Highlight selection");
+    // createHighlight is async — let it resolve and the toolbar close.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  it("creates a highlight in one click with the default color", async () => {
+    await createViaToolbar();
+
+    expect(createHighlight).toHaveBeenCalledWith(
+      "book-1",
+      "chapter1.xhtml",
+      expect.anything(),
+      "heterogeneous",
+      DEFAULT_COLOR,
+    );
+    expect(localStorage.getItem("last-highlight-color")).toBe(DEFAULT_COLOR);
+    // Toolbar closes after creation
+    expect(container.querySelector('button[title="Highlight selection"]')).toBeNull();
+  });
+
+  it("reuses the previously used color", async () => {
+    localStorage.setItem("last-highlight-color", "#bfdbfe");
+
+    await createViaToolbar();
+
+    expect(createHighlight).toHaveBeenCalledWith(
+      "book-1",
+      "chapter1.xhtml",
+      expect.anything(),
+      "heterogeneous",
+      "#bfdbfe",
+    );
+  });
+
+  it("falls back to the default color when the stored value is stale", async () => {
+    localStorage.setItem("last-highlight-color", "#not-a-palette-color");
+
+    await createViaToolbar();
+
+    expect(createHighlight).toHaveBeenCalledWith(
+      "book-1",
+      "chapter1.xhtml",
+      expect.anything(),
+      "heterogeneous",
+      DEFAULT_COLOR,
+    );
   });
 });

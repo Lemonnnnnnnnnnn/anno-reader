@@ -21,7 +21,7 @@ import { useRef } from "react";
 import { Button, TextArea } from "@/components/primitives";
 import { Pencil, Highlighter, Languages, Bot, Volume2, Zap } from "lucide-react";
 import { useTTS } from "@/hooks/useTTS";
-import { HIGHLIGHT_COLORS, type SelectionActionData } from "./constants";
+import { type SelectionActionData } from "./constants";
 import {
   useSelectionListener,
   useToolbarActions,
@@ -65,7 +65,6 @@ export function TextSelectionToolbar({
     isCreating,
     handleAddNote,
     handleHighlight,
-    handleCreateHighlight,
     handleSubmitNote,
     handleCancel,
   } = useToolbarActions({
@@ -206,21 +205,6 @@ export function TextSelectionToolbar({
                 Save
               </Button>
             </div>
-          </div>
-        )}
-
-        {mode === "highlight" && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5">
-            {HIGHLIGHT_COLORS.map((color) => (
-              <button
-                key={color.value}
-                className="w-6 h-6 rounded-full border-2 border-border dark:border-border-dark cursor-pointer p-0 hover:scale-110 transition-transform"
-                style={{ backgroundColor: color.value }}
-                onClick={() => handleCreateHighlight(color.value)}
-                title={color.name}
-                disabled={isCreating}
-              />
-            ))}
           </div>
         )}
 

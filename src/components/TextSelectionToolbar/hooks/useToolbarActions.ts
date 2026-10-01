@@ -10,6 +10,7 @@ import { useCallback, useState } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 import { createNote, createHighlight } from "@/lib/annotations";
 import { generateCfiRange } from "@/lib/selection";
+import { getLastHighlightColor, setLastHighlightColor } from "../lastHighlightColor";
 import type { SelectionState, ToolbarMode } from "../constants";
 
 interface UseToolbarActionsParams {
@@ -41,14 +42,7 @@ export function useToolbarActions({
   }, [setMode, setNoteText]);
 
   /**
-   * Handle "Highlight" action — show color picker.
-   */
-  const handleHighlight = useCallback(() => {
-    setMode("highlight");
-  }, [setMode]);
-
-  /**
-   * Create a highlight with the selected color.
+   * Create a highlight with the selected color and remember it for next time.
    */
   const handleCreateHighlight = useCallback(
     async (color: string) => {
@@ -68,6 +62,7 @@ export function useToolbarActions({
           selection.text,
           color,
         );
+        setLastHighlightColor(color);
         resetSelection();
       } catch (err) {
         console.error("Failed to create highlight:", err);
@@ -77,6 +72,15 @@ export function useToolbarActions({
     },
     [selection, currentBook, chapterHref, resetSelection],
   );
+
+  /**
+   * Handle "Highlight" action — create immediately with the last-used color
+   * (no palette step). Colors can still be changed afterwards via the
+   * highlight popover.
+   */
+  const handleHighlight = useCallback(() => {
+    void handleCreateHighlight(getLastHighlightColor());
+  }, [handleCreateHighlight]);
 
   /**
    * Submit the note with user's content.

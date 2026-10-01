@@ -20,6 +20,7 @@
 import { useEffect, useRef } from "react";
 import { Trash2 } from "lucide-react";
 import { HIGHLIGHT_COLORS } from "@/components/TextSelectionToolbar/constants";
+import { setLastHighlightColor } from "@/components/TextSelectionToolbar/lastHighlightColor";
 import type { Highlight } from "@/stores/useBookStore";
 
 interface HighlightPopoverProps {
@@ -85,7 +86,10 @@ export function HighlightPopover({
                     : "border-border dark:border-border-dark"
                 }`}
                 style={{ backgroundColor: color.value }}
-                onClick={() => onColorChange(color.value)}
+                onClick={() => {
+                  setLastHighlightColor(color.value);
+                  onColorChange(color.value);
+                }}
                 title={color.name}
               />
             );
