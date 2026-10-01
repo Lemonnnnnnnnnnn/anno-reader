@@ -25,8 +25,9 @@ import remarkGfm from "remark-gfm";
 import { useBookStore } from "@/stores/useBookStore";
 import { Drawer, Button, TextArea } from "@/components/primitives";
 import { ChatPanel } from "@/components/chat";
-import { Pencil, Trash2, MessageSquare } from "lucide-react";
+import { Pencil, Trash2, MessageSquare, Volume2 } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
+import { useTTS } from "@/hooks/useTTS";
 import { useChatStreaming } from "@/lib/chat/streaming";
 import type { ChatMessage } from "@/lib/chat/types";
 
@@ -61,6 +62,16 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
 
   const isChatStreaming = chatStatus === "loading" || chatStatus === "streaming";
 
+  // Read the quoted book passage aloud. speak() toggles playback.
+  const { speak, stop, isSpeaking } = useTTS(note?.text ?? "");
+
+  // The listen control lives in the pinned footer, which is not rendered
+  // while the drawer is closed, while another note is open, or while
+  // editing — stop playback in those states so audio can't run uncontrolled.
+  useEffect(() => {
+    stop();
+  }, [noteId, stop]);
+
   // Reset state when note changes
   useEffect(() => {
     setIsEditing(false);
@@ -72,9 +83,10 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
 
   const handleStartEdit = useCallback(() => {
     if (!note) return;
+    stop();
     setEditText(note.content);
     setIsEditing(true);
-  }, [note]);
+  }, [note, stop]);
 
   const handleSaveEdit = useCallback(async () => {
     if (!noteId || !currentBook || !editText.trim()) return;
@@ -136,6 +148,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
   const handleEnterChat = useCallback(() => {
     if (!note) return;
 
+    stop();
     const systemMsg = buildChatSystemMessage();
 
     // Seed with the note context as initial exchange
@@ -157,7 +170,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
     chatReset(seedMessages);
     setChatSystemMessage(systemMsg);
     setChatMode(true);
-  }, [note, buildChatSystemMessage, chatReset]);
+  }, [note, buildChatSystemMessage, chatReset, stop]);
 
   // Store system message for chat sends
   const [chatSystemMessage, setChatSystemMessage] = useState("");
@@ -179,8 +192,69 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
 
   if (!note) return null;
 
+  const noteFooter = !chatMode && !isEditing && (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-1">
+        {confirmDelete ? (
+          <>
+            <span className="text-xs text-text-secondary dark:text-text-secondary-dark mr-2">
+              Delete this note?
+            </span>
+            <Button variant="secondary" size="sm" onClick={handleCancelDelete}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleDeleteClick}>
+              Delete
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="icon"
+              onClick={speak}
+              title={isSpeaking ? "Stop speaking" : "Listen to section"}
+            >
+              <Volume2
+                size={16}
+                className={isSpeaking ? "text-accent dark:text-accent-dark" : ""}
+              />
+            </Button>
+            <Button variant="icon" onClick={handleStartEdit} title="Edit note">
+              <Pencil size={16} />
+            </Button>
+            <Button variant="icon" onClick={handleDeleteClick} title="Delete note">
+              <Trash2 size={16} />
+            </Button>
+            <Button
+              variant="icon"
+              onClick={handleEnterChat}
+              title="Chat with AI about this note"
+            >
+              <MessageSquare size={16} />
+            </Button>
+          </>
+        )}
+      </div>
+
+      {/* Timestamp */}
+      <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
+        {new Date(note.createdAt).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })}
+      </span>
+    </div>
+  );
+
   return (
-    <Drawer open={!!noteId} onClose={onClose} title={chatMode ? "AI Chat" : "Note Detail"}>
+    <Drawer
+      open={!!noteId}
+      onClose={onClose}
+      title={chatMode ? "AI Chat" : "Note Detail"}
+      footer={noteFooter}
+    >
       {chatMode ? (
         <ChatPanel
           messages={chatMessages}
@@ -211,7 +285,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
           }
         />
       ) : (
-        <div className="flex-1 flex flex-col gap-4 font-serif min-h-0 h-full">
+        <div className="flex flex-col gap-3 font-serif">
           {/* Quoted original text */}
           <div className="border-l-2 border-accent dark:border-accent-dark pl-3">
             <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug overflow-hidden text-ellipsis line-clamp-3">
@@ -221,16 +295,16 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
 
           {/* Note content */}
           {isEditing ? (
-            <div className="flex-1 flex flex-col gap-3 min-h-0">
+            <div className="flex flex-col gap-3">
               <TextArea
                 value={editText}
                 onChange={(e) => setEditText(e.target.value)}
                 onSubmit={handleSaveEdit}
                 onCancel={handleCancelEdit}
-                className="flex-1 min-h-0"
+                className="min-h-48"
                 placeholder="Write your note..."
               />
-              <div className="flex justify-end gap-2 shrink-0">
+              <div className="flex justify-end gap-2">
                 <Button variant="secondary" size="sm" onClick={handleCancelEdit}>
                   Cancel
                 </Button>
@@ -247,59 +321,6 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
           ) : (
             <div className="text-sm text-text dark:text-text-dark leading-relaxed break-words markdown-note">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.content}</ReactMarkdown>
-            </div>
-          )}
-
-          {/* Actions */}
-          {!isEditing && (
-            <div className="flex items-center justify-between pt-2 border-t border-border dark:border-border-dark">
-              <div className="flex items-center gap-1">
-                {confirmDelete ? (
-                  <>
-                    <span className="text-xs text-text-secondary dark:text-text-secondary-dark mr-2">Delete this note?</span>
-                    <Button variant="secondary" size="sm" onClick={handleCancelDelete}>
-                      Cancel
-                    </Button>
-                    <Button variant="primary" size="sm" onClick={handleDeleteClick}>
-                      Delete
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="icon"
-                      onClick={handleStartEdit}
-                      title="Edit note"
-                    >
-                      <Pencil size={16} />
-                    </Button>
-                    <Button
-                      variant="icon"
-                      onClick={handleDeleteClick}
-                      title="Delete note"
-                    >
-                      <Trash2 size={16} />
-                    </Button>
-                    <Button
-                      variant="icon"
-                      onClick={handleEnterChat}
-                      title="Chat with AI about this note"
-                    >
-                      <MessageSquare size={16} />
-                    </Button>
-                  </>
-                )}
-              </div>
-
-              {/* Timestamp */}
-              <span className="text-[0.72rem] text-text-muted dark:text-text-muted-dark">
-                {new Date(note.createdAt).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
             </div>
           )}
         </div>

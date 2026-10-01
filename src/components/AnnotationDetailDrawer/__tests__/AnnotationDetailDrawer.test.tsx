@@ -119,6 +119,14 @@ describe("AnnotationDetailDrawer", () => {
     expect(html).toContain("Delete note");
   });
 
+  it("renders listen-to-section button", () => {
+    const html = renderToString(
+      <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
+    );
+
+    expect(html).toContain("Listen to section");
+  });
+
   it("renders timestamp", () => {
     const html = renderToString(
       <AnnotationDetailDrawer noteId="note-1" onClose={vi.fn()} />,
