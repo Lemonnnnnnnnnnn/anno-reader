@@ -9,7 +9,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useBookStore, formatFromFilePath } from "@/stores/useBookStore";
+import { useBookStore, formatFromFilePath, type BookFormat } from "@/stores/useBookStore";
+import { loadWebSnapshot } from "@/lib/web";
 import {
   importBook,
   EpubImportError,
@@ -32,13 +33,16 @@ interface LoadedBook {
 }
 
 /** Resolve the effective format for a book (absent format → infer from path). */
-function effectiveFormat(filePath: string, format?: "epub" | "pdf"): "epub" | "pdf" {
+function effectiveFormat(filePath: string, format?: BookFormat): BookFormat {
   return format ?? formatFromFilePath(filePath);
 }
 
 /** Read + parse a book file into the LoadedBook shape. */
-async function parseBookFile(filePath: string, format: "epub" | "pdf"): Promise<LoadedBook> {
+async function parseBookFile(filePath: string, format: BookFormat): Promise<LoadedBook> {
   const arrayBuffer = await readFileAsArrayBuffer(filePath);
+  if (format === "web") {
+    return { parsed: loadWebSnapshot(new TextDecoder().decode(arrayBuffer)), pdfDocument: null };
+  }
 
   if (format === "pdf") {
     const pdfBook = await loadPdf(arrayBuffer, { extractContent: true, generateCover: false });

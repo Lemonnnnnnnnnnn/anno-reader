@@ -11,13 +11,16 @@ export interface BookMetadata {
   lastOpened: number;
   /** Source format. Absent means EPUB (backward compatible with old data). */
   format?: BookFormat;
+  sourceUrl?: string;
+  capturedAt?: number;
 }
 
 /** Supported book source formats. */
-export type BookFormat = "epub" | "pdf";
+export type BookFormat = "epub" | "pdf" | "web";
 
 /** Infer the book format from a file path (defaults to EPUB). */
 export function formatFromFilePath(filePath: string): BookFormat {
+  if (filePath.toLowerCase().endsWith(".web.json")) return "web";
   return filePath.toLowerCase().endsWith(".pdf") ? "pdf" : "epub";
 }
 

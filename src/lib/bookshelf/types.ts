@@ -2,7 +2,7 @@
  * Bookshelf type definitions.
  */
 
-import type { BookMetadata } from "@/stores/useBookStore";
+import type { BookMetadata, BookFormat } from "@/stores/useBookStore";
 
 /**
  * A bookshelf entry representing a book (EPUB or PDF).
@@ -15,7 +15,9 @@ export interface BookEntry {
   coverUrl: string | null;
   filePath: string;
   /** Source format. Absent means EPUB (backward compatible with old data). */
-  format?: "epub" | "pdf";
+  format?: BookFormat;
+  sourceUrl?: string;
+  capturedAt?: number;
   addedAt: number;
   lastOpened: number;
 }
@@ -59,5 +61,7 @@ export function entryToBookMetadata(entry: BookEntry): BookMetadata {
     filePath: entry.filePath,
     lastOpened: entry.lastOpened,
     ...(entry.format ? { format: entry.format } : {}),
+    ...(entry.sourceUrl ? { sourceUrl: entry.sourceUrl } : {}),
+    ...(entry.capturedAt ? { capturedAt: entry.capturedAt } : {}),
   };
 }

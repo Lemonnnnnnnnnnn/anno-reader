@@ -19,6 +19,7 @@ interface BookCardProps {
 
 export function BookCard({ book, onClick, onEdit, onRemove }: BookCardProps) {
   const isPdf = book.format === "pdf";
+  const isWeb = book.format === "web";
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -86,9 +87,9 @@ export function BookCard({ book, onClick, onEdit, onRemove }: BookCardProps) {
               {isPdf ? <FileText size={48} /> : <Book size={48} />}
             </div>
           )}
-          {isPdf && (
+          {(isPdf || isWeb) && (
             <span className="absolute top-2 right-2 px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide rounded bg-accent/90 text-white shadow-sm">
-              PDF
+              {isWeb ? "WEB" : "PDF"}
             </span>
           )}
         </div>

@@ -214,6 +214,7 @@ export function VerticalScroller({
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.data?.type === "link-click") {
+        if (currentBookRef.current?.format === "web" && event.source !== iframeRef.current?.contentWindow) return;
         const msg = event.data as LinkClickMessage;
         onLinkClickRef.current?.(msg.href);
       }

@@ -13,6 +13,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon, Type } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
@@ -125,6 +126,10 @@ export function ReaderPage() {
   }, []);
 
   const handleInlineLinkClick = useCallback((href: string) => {
+    if (format === "web" && /^https?:\/\//i.test(href)) {
+      void openUrl(href).catch(error => console.warn("Failed to open webpage link", error));
+      return;
+    }
     if (!parsedEpub || !ui.currentChapter) return;
 
     const resolved = resolveEpubHref(href, ui.currentChapter);
@@ -160,6 +165,7 @@ export function ReaderPage() {
       setScrollPosition(0);
     }
   }, [
+    format,
     getCurrentScrollY,
     parsedEpub,
     pushLinkHistory,

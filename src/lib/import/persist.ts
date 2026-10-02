@@ -12,7 +12,8 @@ import { EpubImportError, ImportErrorCode } from "./errors";
 /**
  * Canonical filename for a book's persisted copy inside entries/{id}/.
  */
-export function bookFileName(format: "epub" | "pdf"): string {
+export function bookFileName(format: "epub" | "pdf" | "web"): string {
+  if (format === "web") return "book.web.json";
   return `book.${format}`;
 }
 

@@ -72,6 +72,7 @@ export function ChapterRenderer({
     (state) => state.ui.currentChapterIndex,
   );
   const fontSize = useBookStore((state) => state.ui.fontSize);
+  const isWeb = useBookStore((state) => state.currentBook?.format === "web");
 
   const currentChapter = chapters[currentChapterIndex] ?? null;
 
@@ -104,8 +105,20 @@ export function ChapterRenderer({
       isolateEpubCss: true,
     });
 
+    if (isWeb) {
+      // Keep the snapshot in place; the parent opens clicked links in the browser.
+      return html.replace("</body>", `<script>
+        document.addEventListener('click', function(event) {
+          var anchor = event.target.closest('a[href]');
+          if (!anchor) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          window.parent.postMessage({type: 'link-click', href: anchor.getAttribute('href')}, '*');
+        }, true);
+      </script></body>`);
+    }
     return html;
-  }, [currentChapter, resources, opfFolder]);
+  }, [currentChapter, resources, opfFolder, isWeb]);
 
   // Extract plain text from chapter content for AI translation context
   const chapterText = useMemo(() => {

@@ -174,6 +174,12 @@ export function EditBookMetadataDialog({
                 {book.filePath}
               </p>
             )}
+            {book?.sourceUrl && (
+              <p className="m-0 text-xs font-sans text-text-muted dark:text-text-muted-dark break-all">
+                Source: {book.sourceUrl}
+                {book.capturedAt && <span className="block">Saved: {new Date(book.capturedAt).toLocaleString()}</span>}
+              </p>
+            )}
           </div>
         </div>
 

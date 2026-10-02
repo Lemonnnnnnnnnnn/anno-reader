@@ -13,6 +13,7 @@ import { useBookStore } from "@/stores/useBookStore";
 import { useChatStore } from "@/stores/useChatStore";
 import { importBook, EpubImportError } from "@/lib/import";
 import { BookCard } from "@/components/BookCard";
+import { ImportWebDialog } from "@/components/ImportWebDialog";
 import { EditBookMetadataDialog } from "@/components/EditBookMetadataDialog";
 import { Button, ErrorBanner, Modal } from "@/components/primitives";
 import { Settings, Book, Sun, Moon } from "lucide-react";
@@ -44,6 +45,7 @@ export function BookshelfPage() {
   const setTheme = useBookStore((state) => state.setTheme);
 
   const [editingBook, setEditingBook] = useState<BookshelfItem | null>(null);
+  const [importingWeb, setImportingWeb] = useState(false);
   const [deletingBook, setDeletingBook] = useState<BookshelfItem | null>(null);
   const [appVersion, setAppVersion] = useState<string>("");
   const updateAvailable = useUpdateStore((s) => s.status === "available");
@@ -160,6 +162,9 @@ export function BookshelfPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setImportingWeb(true)}>
+              Import Webpage
+            </Button>
             <Button variant="primary" onClick={handleImport}>
               Import Book
             </Button>
@@ -204,7 +209,7 @@ export function BookshelfPage() {
               Your bookshelf is empty
             </h2>
             <p className="text-sm text-text-secondary dark:text-text-secondary-dark max-w-[280px] m-0">
-              Import an EPUB or PDF file to start building your library
+              Import an EPUB, PDF or webpage to start building your library
             </p>
             <Button variant="primary" size="lg" onClick={handleImport}>
               Import Your First Book
@@ -235,6 +240,11 @@ export function BookshelfPage() {
       </footer>
 
       {/* Edit metadata dialog */}
+      <ImportWebDialog open={importingWeb} onClose={() => setImportingWeb(false)} onImported={async (book) => {
+        await loadBooks();
+        setBook(book);
+        handleBookSelect({ ...book, progress: null });
+      }} />
       <EditBookMetadataDialog
         book={editingBook}
         onClose={() => setEditingBook(null)}
