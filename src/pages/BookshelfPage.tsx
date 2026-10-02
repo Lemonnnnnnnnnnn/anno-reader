@@ -19,6 +19,8 @@ import { Settings, Book, Sun, Moon } from "lucide-react";
 import type { BookshelfItem } from "@/lib/bookshelf";
 import type { BookMetadata } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
+import { getAppVersion } from "@/lib/version";
+import { useUpdateStore } from "@/stores/useUpdateStore";
 
 export function BookshelfPage() {
   const navigate = useNavigate();
@@ -43,6 +45,20 @@ export function BookshelfPage() {
 
   const [editingBook, setEditingBook] = useState<BookshelfItem | null>(null);
   const [deletingBook, setDeletingBook] = useState<BookshelfItem | null>(null);
+  const [appVersion, setAppVersion] = useState<string>("");
+  const updateAvailable = useUpdateStore((s) => s.status === "available");
+
+  useEffect(() => {
+    getAppVersion().then(setAppVersion);
+  }, []);
+
+  // Silent update check shortly after startup (throttled inside the store).
+  useEffect(() => {
+    const t = setTimeout(() => {
+      useUpdateStore.getState().checkUpdate({ silent: true });
+    }, 3000);
+    return () => clearTimeout(t);
+  }, []);
 
   useTheme();
 
@@ -150,8 +166,19 @@ export function BookshelfPage() {
             <Button variant="icon" onClick={handleToggleTheme} title="Toggle theme">
               {theme === "light" ? <Sun size={16} /> : <Moon size={16} />}
             </Button>
-            <Button variant="icon" onClick={() => navigate("/settings")} title="Settings">
+            <Button
+              variant="icon"
+              onClick={() => navigate("/settings")}
+              title="Settings"
+              className="relative"
+            >
               <Settings size={16} />
+              {updateAvailable && (
+                <span
+                  className="absolute top-0 right-0 w-2 h-2 rounded-full bg-error"
+                  aria-hidden="true"
+                />
+              )}
             </Button>
           </div>
         </div>
@@ -197,6 +224,15 @@ export function BookshelfPage() {
           </div>
         )}
       </main>
+
+      {/* Footer */}
+      <footer className="shrink-0 pb-2 text-center">
+        {appVersion && (
+          <span className="text-xs font-sans text-text-muted dark:text-text-muted-dark opacity-70">
+            v{appVersion}
+          </span>
+        )}
+      </footer>
 
       {/* Edit metadata dialog */}
       <EditBookMetadataDialog

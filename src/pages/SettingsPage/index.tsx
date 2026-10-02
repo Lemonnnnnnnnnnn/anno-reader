@@ -1,10 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Database } from "lucide-react";
+import { ArrowLeft, Database, Info } from "lucide-react";
 import { Button } from "@/components/primitives";
 import { ProxySection } from "./ProxySection";
+import { useUpdateStore } from "@/stores/useUpdateStore";
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const updateAvailable = useUpdateStore((s) => s.status === "available");
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg dark:bg-bg-dark text-text dark:text-text-dark font-serif">
@@ -39,6 +41,19 @@ export function SettingsPage() {
             AI 配置
           </button>
           
+          <button
+            onClick={() => navigate("/about")}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
+          >
+            <Info size={18} className="text-text-muted dark:text-text-muted-dark" />
+            <span>About</span>
+            {updateAvailable && (
+              <span className="ml-auto text-xs font-sans font-medium text-error dark:text-error-dark">
+                有更新
+              </span>
+            )}
+          </button>
+
           <ProxySection />
 
         </div>
