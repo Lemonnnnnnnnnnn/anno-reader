@@ -162,6 +162,22 @@ describe("AnnotationDetailPanel", () => {
     expect(html).toContain("Listen to section");
   });
 
+  it("renders the Go to note action only when onGoToNote is provided", () => {
+    const without = renderToString(
+      <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,
+    );
+    expect(without).not.toContain("Go to note");
+
+    const withJump = renderToString(
+      <AnnotationDetailPanel
+        noteId="note-1"
+        onClose={vi.fn()}
+        onGoToNote={vi.fn()}
+      />,
+    );
+    expect(withJump).toContain("Go to note");
+  });
+
   it("renders timestamp", () => {
     const html = renderToString(
       <AnnotationDetailPanel noteId="note-1" onClose={vi.fn()} />,

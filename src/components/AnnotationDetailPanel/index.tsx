@@ -1,9 +1,11 @@
 /**
  * AnnotationDetailPanel component.
  *
- * Note detail panel with edit and delete actions. The container is
- * switchable via `variant`: a right-side drawer (default) or a centered
- * modal dialog. Both share the same content, pinned footer, and behavior.
+ * The single note detail surface, used from both entry points:
+ * - Reader (clicking a note): container follows the personalization
+ *   setting (drawer default), TTS autoplays, no jump action.
+ * - Annotations drawer (list browsing): forced centered modal, no TTS
+ *   autoplay, with a "Go to note" jump action.
  *
  * The note is always live-editable: a Tiptap markdown editor seeded from the
  * stored note, with changes autosaved on a short debounce (no manual save).
@@ -30,7 +32,7 @@ import { useBookStore } from "@/stores/useBookStore";
 import { Drawer, Modal, Button } from "@/components/primitives";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { ChatPanel } from "@/components/chat";
-import { Trash2, MessageSquare, Volume2 } from "lucide-react";
+import { Trash2, MessageSquare, Volume2, CornerDownRight } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
 import { useTTS } from "@/hooks/useTTS";
 import { useChatStreaming } from "@/lib/chat/streaming";
@@ -50,12 +52,22 @@ interface AnnotationDetailPanelProps {
   onClose: () => void;
   /** Container style: right-side drawer (default) or centered modal */
   variant?: NoteDetailVariant;
+  /**
+   * Jump-to-note action (e.g. from the Annotations drawer). When provided,
+   * the footer shows a "Go to note" button; the panel closes itself after
+   * invoking it. Omit it in the reader, where the note is already on screen.
+   */
+  onGoToNote?: () => void;
+  /** Autoplay the quoted passage on open (default: true) */
+  autoplay?: boolean;
 }
 
 export function AnnotationDetailPanel({
   noteId,
   onClose,
   variant = "drawer",
+  onGoToNote,
+  autoplay = true,
 }: AnnotationDetailPanelProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [chatMode, setChatMode] = useState(false);
@@ -90,9 +102,9 @@ export function AnnotationDetailPanel({
 
   // Autoplay the quoted section when a note opens. Runs after the stop
   // effect above, so switching notes stops the previous audio before this
-  // starts the new one.
+  // starts the new one. Gated by `autoplay` (default true).
   useEffect(() => {
-    if (note) {
+    if (note && autoplay) {
       void speak();
     }
     // Only trigger on open / note switch, not on every speak re-creation.
@@ -270,6 +282,11 @@ export function AnnotationDetailPanel({
     [sendChatMessage, chatSystemMessage],
   );
 
+  const handleGoToNote = useCallback(() => {
+    onGoToNote?.();
+    onClose();
+  }, [onGoToNote, onClose]);
+
   if (!note) return null;
 
   const noteFooter = !chatMode && (
@@ -337,6 +354,17 @@ export function AnnotationDetailPanel({
             minute: "2-digit",
           })}
         </span>
+        {onGoToNote && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleGoToNote}
+            title="Go to note in book"
+          >
+            <CornerDownRight size={14} />
+            <span className="ml-1">Go to note</span>
+          </Button>
+        )}
       </div>
     </div>
   );

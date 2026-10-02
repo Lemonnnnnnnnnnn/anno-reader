@@ -22,7 +22,8 @@ import { Search, X } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import { NoteItem } from "./NoteItem";
 import { HighlightItem } from "./HighlightItem";
-import { NotePreview } from "./NotePreview";
+import { findChapterIndex } from "./utils";
+import { AnnotationDetailPanel } from "@/components/AnnotationDetailPanel";
 import type { AnnotationDrawerProps, TabKey } from "./types";
 
 export type { AnnotationDrawerProps, TabKey };
@@ -107,6 +108,17 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
       setSearchQuery("");
     }
   }, []);
+
+  // Jump to the opened note's location in the book, then close the drawer so
+  // the reader is visible underneath. The panel closes itself afterwards.
+  const handleGoToNote = useCallback(() => {
+    const note = notes.find((n) => n.id === previewNoteId);
+    if (!note) return;
+    const index = findChapterIndex(note.chapterHref, chapters);
+    if (index === -1) return;
+    onNavigate(note.chapterHref, index, note.cfiRange);
+    onClose();
+  }, [notes, previewNoteId, chapters, onNavigate, onClose]);
 
   return (
     <Drawer open={open} onClose={onClose} side="right" title="Annotations">
@@ -201,13 +213,13 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
         </div>
       )}
 
-      {/* Quick full-content preview overlay */}
-      <NotePreview
-        previewNoteId={previewNoteId}
+      {/* Note detail overlay — always a centered modal regardless of the
+          personalization setting */}
+      <AnnotationDetailPanel
+        noteId={previewNoteId}
         onClose={() => setPreviewNoteId(null)}
-        onNavigate={onNavigate}
-        onDrawerClose={onClose}
-        chapters={chapters}
+        variant="modal"
+        onGoToNote={handleGoToNote}
       />
     </Drawer>
   );

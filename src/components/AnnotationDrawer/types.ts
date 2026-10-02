@@ -30,17 +30,3 @@ export interface HighlightItemProps {
   onClose: () => void;
   chapters: EpubChapterInfo[];
 }
-
-/** Props for the NotePreview overlay sub-component */
-export interface NotePreviewProps {
-  /** ID of the note to preview, or null if closed */
-  previewNoteId: string | null;
-  /** Callback when the preview overlay should close */
-  onClose: () => void;
-  /** Callback to navigate to a chapter (href, index, cfiRange?) */
-  onNavigate: (href: string, index: number, cfiRange?: string) => void;
-  /** Callback to close the parent list drawer (after jump) */
-  onDrawerClose: () => void;
-  /** All chapters for href-to-index resolution */
-  chapters: EpubChapterInfo[];
-}
