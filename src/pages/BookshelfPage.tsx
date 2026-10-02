@@ -6,7 +6,7 @@
  * (with confirmation), and navigation to reader.
  */
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookshelfStore } from "@/stores/useBookshelfStore";
 import { useBookStore } from "@/stores/useBookStore";
@@ -46,6 +46,11 @@ export function BookshelfPage() {
 
   const [editingBook, setEditingBook] = useState<BookshelfItem | null>(null);
   const [importingWeb, setImportingWeb] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const archivedCount = books.filter(book => book.archived).length;
+  const visibleBooks = useMemo(() => books
+    .filter(book => Boolean(book.archived) === showArchived)
+    .sort((a, b) => b.lastOpened - a.lastOpened), [books, showArchived]);
   const [deletingBook, setDeletingBook] = useState<BookshelfItem | null>(null);
   const [appVersion, setAppVersion] = useState<string>("");
   const updateAvailable = useUpdateStore((s) => s.status === "available");
@@ -97,12 +102,23 @@ export function BookshelfPage() {
   }, [addBook, setBook, handleBookSelect]);
 
   const handleBookClick = useCallback(
-    (book: BookshelfItem) => {
-      setBook(book);
+    async (book: BookshelfItem) => {
+      const lastOpened = Date.now();
+      await updateBook(book.id, { lastOpened });
+      setBook({ ...book, lastOpened });
       handleBookSelect(book);
     },
-    [setBook, handleBookSelect]
+    [setBook, handleBookSelect, updateBook]
   );
+
+  const handleArchive = useCallback(async (book: BookshelfItem) => {
+    const archived = !book.archived;
+    await updateBook(book.id, { archived });
+    const updated = useBookshelfStore.getState().books.find(item => item.id === book.id);
+    if (currentBook?.id === book.id && updated?.archived === archived) {
+      updateBookMetadata({ archived });
+    }
+  }, [updateBook, currentBook, updateBookMetadata]);
 
   const handleRemove = useCallback(
     (bookId: string) => {
@@ -158,7 +174,7 @@ export function BookshelfPage() {
               Anno Reader
             </h1>
             <p className="text-xs text-text-secondary dark:text-text-secondary-dark m-0">
-              {books.length} {books.length === 1 ? "book" : "books"}
+              {visibleBooks.length} {visibleBooks.length === 1 ? "item" : "items"}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -191,6 +207,17 @@ export function BookshelfPage() {
 
       {/* Content */}
       <main className="flex-1 overflow-auto p-6">
+        <div className="flex items-center justify-between gap-3 mb-5 max-w-[1200px] mx-auto">
+          <div className="flex gap-2" role="group" aria-label="Bookshelf view">
+            <Button variant={showArchived ? "secondary" : "primary"} aria-pressed={!showArchived} onClick={() => setShowArchived(false)}>
+              Bookshelf ({books.length - archivedCount})
+            </Button>
+            <Button variant={showArchived ? "primary" : "secondary"} aria-pressed={showArchived} onClick={() => setShowArchived(true)}>
+              Archived ({archivedCount})
+            </Button>
+          </div>
+          <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">Recently viewed first</span>
+        </div>
         {error && (
           <div className="flex items-center justify-between p-2 px-4 mb-4 bg-error-bg dark:bg-error-bg-dark border border-error dark:border-error rounded-md">
             <ErrorBanner message={error} />
@@ -200,30 +227,31 @@ export function BookshelfPage() {
           </div>
         )}
 
-        {books.length === 0 ? (
+        {visibleBooks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
             <div className="text-text-muted dark:text-text-muted-dark opacity-50">
               <Book size={64} />
             </div>
             <h2 className="text-xl font-semibold text-text dark:text-text-dark m-0">
-              Your bookshelf is empty
+              {showArchived ? "No archived items" : "Your bookshelf is empty"}
             </h2>
             <p className="text-sm text-text-secondary dark:text-text-secondary-dark max-w-[280px] m-0">
-              Import an EPUB, PDF or webpage to start building your library
+              {showArchived ? "Right-click a book or webpage and choose Archive. Your content, annotations and progress are kept." : "Import an EPUB, PDF or webpage to start building your library"}
             </p>
-            <Button variant="primary" size="lg" onClick={handleImport}>
+            {!showArchived && <Button variant="primary" size="lg" onClick={handleImport}>
               Import Your First Book
-            </Button>
+            </Button>}
           </div>
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-5 max-w-[1200px] mx-auto">
-            {books.map((book) => (
+            {visibleBooks.map((book) => (
               <BookCard
                 key={book.id}
                 book={{ ...book, progress: null }}
                 onClick={handleBookClick}
                 onEdit={setEditingBook}
                 onRemove={handleRemove}
+                onArchive={handleArchive}
               />
             ))}
           </div>

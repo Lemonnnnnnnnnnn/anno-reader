@@ -129,4 +129,19 @@ describe("useBookshelfStore", () => {
 
     expect(useBookshelfStore.getState().error).toBeNull();
   });
+
+  it("preserves archive status and website metadata across bookshelf reloads", async () => {
+    const { loadBookshelf, addEntry } = await import("@/lib/bookshelf/persistence");
+    const website: BookMetadata = {
+      ...mockBook, format: "web", sourceUrl: "https://example.com/article", capturedAt: 123, archived: true,
+    };
+    vi.mocked(addEntry).mockResolvedValue();
+    await useBookshelfStore.getState().addBook(website);
+    const persisted = vi.mocked(addEntry).mock.calls[0][0];
+    expect(persisted).toMatchObject({ archived: true, sourceUrl: website.sourceUrl, capturedAt: 123 });
+    vi.mocked(loadBookshelf).mockResolvedValue([persisted]);
+    useBookshelfStore.setState({ books: [] });
+    await useBookshelfStore.getState().loadBooks();
+    expect(useBookshelfStore.getState().books[0]).toEqual(website);
+  });
 });

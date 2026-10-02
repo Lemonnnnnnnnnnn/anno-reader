@@ -72,6 +72,7 @@ export const useBookshelfStore = create<BookshelfStore>((set) => ({
         ...(book.format ? { format: book.format } : {}),
         ...(book.sourceUrl ? { sourceUrl: book.sourceUrl } : {}),
         ...(book.capturedAt ? { capturedAt: book.capturedAt } : {}),
+        ...(book.archived !== undefined ? { archived: book.archived } : {}),
         addedAt: book.lastOpened,
         lastOpened: book.lastOpened,
       };

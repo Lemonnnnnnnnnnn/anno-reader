@@ -15,9 +15,10 @@ interface BookCardProps {
   onClick: (book: BookshelfItem) => void;
   onEdit?: (book: BookshelfItem) => void;
   onRemove: (bookId: string) => void;
+  onArchive?: (book: BookshelfItem) => void;
 }
 
-export function BookCard({ book, onClick, onEdit, onRemove }: BookCardProps) {
+export function BookCard({ book, onClick, onEdit, onRemove, onArchive }: BookCardProps) {
   const isPdf = book.format === "pdf";
   const isWeb = book.format === "web";
   const [contextMenu, setContextMenu] = useState<{
@@ -138,6 +139,11 @@ export function BookCard({ book, onClick, onEdit, onRemove }: BookCardProps) {
             {onEdit && (
               <button className="block w-full px-3 py-2 text-[0.8rem] text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer text-left font-inherit hover:bg-bg dark:hover:bg-bg-dark" onClick={handleEdit}>
                 Edit Metadata
+              </button>
+            )}
+            {onArchive && (
+              <button className="block w-full px-3 py-2 text-[0.8rem] text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer text-left font-inherit hover:bg-bg dark:hover:bg-bg-dark" onClick={() => { setContextMenu(null); onArchive(book); }}>
+                {book.archived ? "Restore to Bookshelf" : "Archive"}
               </button>
             )}
             <button className="block w-full px-3 py-2 text-[0.8rem] text-text dark:text-text-dark bg-transparent border-none rounded cursor-pointer text-left font-inherit hover:bg-error-bg dark:hover:bg-error-bg-dark text-error" onClick={handleRemove}>

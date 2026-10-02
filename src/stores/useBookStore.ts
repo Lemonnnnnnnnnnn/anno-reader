@@ -13,6 +13,8 @@ export interface BookMetadata {
   format?: BookFormat;
   sourceUrl?: string;
   capturedAt?: number;
+  /** Archived entries remain readable and keep all associated data. */
+  archived?: boolean;
 }
 
 /** Supported book source formats. */

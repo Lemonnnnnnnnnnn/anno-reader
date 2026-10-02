@@ -18,6 +18,7 @@ export interface BookEntry {
   format?: BookFormat;
   sourceUrl?: string;
   capturedAt?: number;
+  archived?: boolean;
   addedAt: number;
   lastOpened: number;
 }
@@ -63,5 +64,6 @@ export function entryToBookMetadata(entry: BookEntry): BookMetadata {
     ...(entry.format ? { format: entry.format } : {}),
     ...(entry.sourceUrl ? { sourceUrl: entry.sourceUrl } : {}),
     ...(entry.capturedAt ? { capturedAt: entry.capturedAt } : {}),
+    ...(entry.archived !== undefined ? { archived: entry.archived } : {}),
   };
 }
