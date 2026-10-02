@@ -9,7 +9,7 @@
  * - Footer with action buttons
  *
  * This component is designed to be used by both AITranslationPanel
- * and AnnotationDetailDrawer for consistent chat behavior.
+ * and AnnotationDetailPanel for consistent chat behavior.
  *
  * @example
  * ```tsx

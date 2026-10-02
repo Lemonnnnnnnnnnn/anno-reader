@@ -1,13 +1,13 @@
 /**
- * AnnotationDetailDrawer component.
+ * AnnotationDetailPanel component.
  *
- * Drawer-based panel that displays full note detail with edit and delete
- * actions. Uses the Drawer component as a container for consistent
- * right-side panel behavior.
+ * Note detail panel with edit and delete actions. The container is
+ * switchable via `variant`: a right-side drawer (default) or a centered
+ * modal dialog. Both share the same content, pinned footer, and behavior.
  *
  * The note is always live-editable: a Tiptap markdown editor seeded from the
  * stored note, with changes autosaved on a short debounce (no manual save).
- * Pending edits are flushed when the note changes, the drawer closes, or AI
+ * Pending edits are flushed when the note changes, the panel closes, or AI
  * chat mode opens.
  *
  * Features:
@@ -17,16 +17,17 @@
  *
  * @example
  * ```tsx
- * <AnnotationDetailDrawer
+ * <AnnotationDetailPanel
  *   noteId={activeNoteId}
  *   onClose={() => setActiveNoteId(null)}
+ *   variant={noteDetailLayout}
  * />
  * ```
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useBookStore } from "@/stores/useBookStore";
-import { Drawer, Button } from "@/components/primitives";
+import { Drawer, Modal, Button } from "@/components/primitives";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
 import { ChatPanel } from "@/components/chat";
 import { Trash2, MessageSquare, Volume2 } from "lucide-react";
@@ -40,14 +41,22 @@ const AUTOSAVE_DELAY_MS = 600;
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-interface AnnotationDetailDrawerProps {
+export type NoteDetailVariant = "drawer" | "modal";
+
+interface AnnotationDetailPanelProps {
   /** ID of the note to display, or null if closed */
   noteId: string | null;
   /** Callback when the panel should close */
   onClose: () => void;
+  /** Container style: right-side drawer (default) or centered modal */
+  variant?: NoteDetailVariant;
 }
 
-export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDrawerProps) {
+export function AnnotationDetailPanel({
+  noteId,
+  onClose,
+  variant = "drawer",
+}: AnnotationDetailPanelProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [chatMode, setChatMode] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -73,7 +82,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
   // Read the quoted book passage aloud. speak() toggles playback.
   const { speak, stop, isSpeaking } = useTTS(note?.text ?? "");
 
-  // Stop playback whenever the drawer closes or switches notes — the footer
+  // Stop playback whenever the panel closes or switches notes — the footer
   // control is not rendered in those states, so audio can't run uncontrolled.
   useEffect(() => {
     stop();
@@ -123,7 +132,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
         savedContentRef.current = content;
         setSaveStatus("saved");
       } catch (err) {
-        console.error("[AnnotationDetailDrawer] autosave failed:", err);
+        console.error("[AnnotationDetailPanel] autosave failed:", err);
         setSaveStatus("error");
       }
     });
@@ -156,7 +165,7 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
     setSaveStatus("idle");
   }, [noteId, currentBook, chatReset]);
 
-  // Persist pending edits when the note changes, the drawer closes, or the
+  // Persist pending edits when the note changes, the panel closes, or the
   // editor unmounts (AI chat opens). Cleanup runs before the reset effect
   // above updates the refs, so this flushes with the previous note's values.
   useEffect(() => {
@@ -332,64 +341,84 @@ export function AnnotationDetailDrawer({ noteId, onClose }: AnnotationDetailDraw
     </div>
   );
 
-  return (
-    <Drawer
-      open={!!noteId}
-      onClose={onClose}
-      title={chatMode ? "AI Chat" : "Note Detail"}
-      footer={noteFooter}
-    >
-      {chatMode ? (
-        <ChatPanel
-          messages={chatMessages}
-          streamingText={chatStreamingText}
-          status={chatStatus}
-          isStreaming={isChatStreaming}
-          onSend={handleChatSend}
-          onStop={chatStopStreaming}
-          onClose={onClose}
-          contextText={note.text}
-          inputPlaceholder="Ask about this note…"
-          footer={
-            <div className="shrink-0 flex items-center justify-between gap-2 pt-2 mt-1 border-t border-border dark:border-border-dark">
-              <Button variant="secondary" size="sm" onClick={handleExitChat}>
-                Back to Note
-              </Button>
-              <div className="flex items-center gap-2">
-                {isChatStreaming && (
-                  <Button variant="secondary" size="sm" onClick={chatStopStreaming}>
-                    Stop
-                  </Button>
-                )}
-                <Button variant="secondary" size="sm" onClick={onClose}>
-                  Close
-                </Button>
-              </div>
-            </div>
-          }
-        />
-      ) : (
-        <div className="flex flex-col gap-3 font-serif">
-          {/* Quoted original text */}
-          <div className="border-l-2 border-accent dark:border-accent-dark pl-3">
-            <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug overflow-hidden text-ellipsis line-clamp-3">
-              &ldquo;{note.text}&rdquo;
-            </p>
-          </div>
+  const title = chatMode ? "AI Chat" : "Note Detail";
 
-          {/* Note content: always live-editable, autosaved on idle */}
-          <MarkdownEditor
-            key={note.id}
-            initialContent={note.content}
-            onChange={scheduleSave}
-            onSubmit={() => {
-              void flushSave();
-              onClose();
-            }}
-            placeholder="Write your note..."
-          />
+  const noteContent = (
+    <div className="flex flex-col gap-3 font-serif">
+      {/* Quoted original text */}
+      <div className="border-l-2 border-accent dark:border-accent-dark pl-3">
+        <p className="m-0 text-xs text-text-secondary dark:text-text-secondary-dark italic leading-snug overflow-hidden text-ellipsis line-clamp-3">
+          &ldquo;{note.text}&rdquo;
+        </p>
+      </div>
+
+      {/* Note content: always live-editable, autosaved on idle */}
+      <MarkdownEditor
+        key={note.id}
+        initialContent={note.content}
+        onChange={scheduleSave}
+        onSubmit={() => {
+          void flushSave();
+          onClose();
+        }}
+        placeholder="Write your note..."
+      />
+    </div>
+  );
+
+  const chatContent = (
+    <ChatPanel
+      messages={chatMessages}
+      streamingText={chatStreamingText}
+      status={chatStatus}
+      isStreaming={isChatStreaming}
+      onSend={handleChatSend}
+      onStop={chatStopStreaming}
+      onClose={onClose}
+      contextText={note.text}
+      inputPlaceholder="Ask about this note…"
+      footer={
+        <div className="shrink-0 flex items-center justify-between gap-2 pt-2 mt-1 border-t border-border dark:border-border-dark">
+          <Button variant="secondary" size="sm" onClick={handleExitChat}>
+            Back to Note
+          </Button>
+          <div className="flex items-center gap-2">
+            {isChatStreaming && (
+              <Button variant="secondary" size="sm" onClick={chatStopStreaming}>
+                Stop
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
-      )}
+      }
+    />
+  );
+
+  // The drawer fills the viewport height, so ChatPanel can size itself with
+  // h-full. The modal body grows with its content, so chat needs an explicit
+  // bounded height.
+  const chatInModal = <div className="h-[60vh]">{chatContent}</div>;
+
+  if (variant === "modal") {
+    return (
+      <Modal
+        open={!!noteId}
+        onClose={onClose}
+        title={title}
+        size="wide"
+        footer={noteFooter}
+      >
+        {chatMode ? chatInModal : noteContent}
+      </Modal>
+    );
+  }
+
+  return (
+    <Drawer open={!!noteId} onClose={onClose} title={title} footer={noteFooter}>
+      {chatMode ? chatContent : noteContent}
     </Drawer>
   );
 }

@@ -24,7 +24,8 @@ import { updateHighlight, deleteHighlight } from "@/lib/annotations";
 import { quickTranslateSelectionToNote } from "@/lib/ai/quick-translate";
 import { generateCfiRange } from "@/lib/selection";
 import { TextSelectionToolbar, type SelectionActionData } from "../TextSelectionToolbar";
-import { AnnotationDetailDrawer } from "../AnnotationDetailDrawer";
+import { AnnotationDetailPanel } from "../AnnotationDetailPanel";
+import { usePreferencesStore } from "@/stores/usePreferencesStore";
 import { HighlightPopover } from "../HighlightPopover";
 import { AITranslationPanel } from "../AITranslationPanel";
 import { QuickTranslateChip } from "../QuickTranslateChip";
@@ -71,6 +72,7 @@ export function ReaderOverlays({
   );
   const currentBook = useBookStore((state) => state.currentBook);
   const aiConfig = useAIConfigStore((state) => state.config);
+  const noteDetailLayout = usePreferencesStore((s) => s.noteDetailLayout);
 
   // AI translation panel state
   const [translationPanel, setTranslationPanel] = useState<SelectionActionData | null>(null);
@@ -175,9 +177,10 @@ export function ReaderOverlays({
         onAskAI={onAskAI}
       />
       <QuickTranslateChip />
-      <AnnotationDetailDrawer
+      <AnnotationDetailPanel
         noteId={activeNoteId}
         onClose={handleClosePopover}
+        variant={noteDetailLayout}
       />
       {activeHighlight && highlightPosition && (
         <HighlightPopover

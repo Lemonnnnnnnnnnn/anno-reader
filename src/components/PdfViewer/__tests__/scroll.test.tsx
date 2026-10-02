@@ -58,8 +58,8 @@ vi.mock("../../ChapterRenderer", () => ({
   extractPlainText: (html: string) => html.replace(/<[^>]*>/g, " "),
 }));
 
-vi.mock("@/components/AnnotationDetailDrawer", () => ({
-  AnnotationDetailDrawer: () => <div data-testid="note-drawer" />,
+vi.mock("@/components/AnnotationDetailPanel", () => ({
+  AnnotationDetailPanel: () => <div data-testid="note-drawer" />,
 }));
 vi.mock("@/components/HighlightPopover", () => ({
   HighlightPopover: () => <div data-testid="highlight-popover" />,

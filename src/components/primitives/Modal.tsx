@@ -32,6 +32,8 @@ export interface ModalProps {
   size?: "md" | "wide";
   /** Modal content */
   children: ReactNode;
+  /** Optional footer pinned below the scrollable content area */
+  footer?: ReactNode;
 }
 
 const sizeClasses = {
@@ -46,6 +48,7 @@ export function Modal({
   closeOnOutsideClick = true,
   size = "md",
   children,
+  footer,
 }: ModalProps) {
   // Escape key handler
   const handleEscape = useCallback(
@@ -78,7 +81,7 @@ export function Modal({
 
       {/* Panel */}
       <div
-        className={`relative w-full ${sizeClasses[size]} bg-surface dark:bg-surface-dark rounded-lg shadow-xl border border-border dark:border-border-dark flex flex-col`}
+        className={`relative w-full ${sizeClasses[size]} max-h-[85vh] bg-surface dark:bg-surface-dark rounded-lg shadow-xl border border-border dark:border-border-dark flex flex-col`}
       >
         {/* Header */}
         {title && (
@@ -93,7 +96,14 @@ export function Modal({
         )}
 
         {/* Content */}
-        <div className="p-5">{children}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-5">{children}</div>
+
+        {/* Footer: pinned, does not scroll with the content */}
+        {footer && (
+          <div className="shrink-0 px-5 py-3 border-t border-border dark:border-border-dark bg-surface dark:bg-surface-dark">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body,
