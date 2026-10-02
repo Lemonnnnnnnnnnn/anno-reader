@@ -16,7 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun, Moon, Type } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
-import { ChapterRenderer } from "@/components/ChapterRenderer";
+import { ChapterRenderer, extractPlainText } from "@/components/ChapterRenderer";
 import { PdfViewer } from "@/components/PdfViewer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { TocDrawer } from "@/components/TocDrawer";
@@ -99,6 +99,22 @@ export function ReaderPage() {
   const getCurrentScrollY = useCallback(
     () => iframeRef.current?.contentWindow?.scrollY ?? 0,
     [],
+  );
+
+  // Resolve a chapter's snapshot + full text by href (for chat chapter context)
+  const resolveChapterContext = useCallback(
+    (href: string) => {
+      if (!parsedEpub) return null;
+      const index = findChapterIndexByHref(parsedEpub.chapters, href);
+      if (index === -1) return null;
+      const chapter = parsedEpub.chapters[index];
+      return {
+        href: chapter.href,
+        title: chapter.title || `Chapter ${index + 1}`,
+        text: extractPlainText(chapter.content),
+      };
+    },
+    [parsedEpub],
   );
 
   const pushLinkHistory = useCallback((entry: LinkHistoryEntry) => {
@@ -459,6 +475,8 @@ export function ReaderPage() {
         }}
         bookId={currentBook?.id}
         initialMessage={pendingChatMessage}
+        currentChapterHref={ui.currentChapter}
+        resolveChapterContext={resolveChapterContext}
       />
 
       {/* Font size popover */}

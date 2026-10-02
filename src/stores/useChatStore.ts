@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import type { ChatConversation, ChatMessage } from "@/lib/chat/types";
+import type {
+  ChatConversation,
+  ChatMessage,
+  ContextChapter,
+} from "@/lib/chat/types";
 import {
   loadConversations as loadFromDisk,
   saveConversations,
@@ -21,11 +25,17 @@ export interface ChatStore {
 
   // Actions
   addMessage: (message: ChatMessage) => void;
-  createConversation: (id: string, bookId?: string) => void;
+  createConversation: (
+    id: string,
+    bookId?: string,
+    contextChapter?: ContextChapter | null,
+  ) => void;
   deleteConversation: (id: string) => void;
   /** Remove every conversation belonging to a book (used when deleting a book) */
   deleteConversationsByBook: (bookId: string) => void;
   renameConversation: (id: string, title: string) => void;
+  /** Bind or unbind the chapter context snapshot of a conversation */
+  setConversationContext: (id: string, contextChapter: ContextChapter | null) => void;
   setCurrentConversation: (id: string | null) => void;
 
   // Persistence
@@ -79,7 +89,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     persistAfterSet(get);
   },
 
-  createConversation: (id, bookId = "") => {
+  createConversation: (id, bookId = "", contextChapter = null) => {
     const now = Date.now();
     const newConversation: ChatConversation = {
       id,
@@ -88,6 +98,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       messages: [],
       createdAt: now,
       updatedAt: now,
+      contextChapter,
     };
 
     set((state) => ({
@@ -148,6 +159,15 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     set((state) => ({
       conversations: state.conversations.map((conv) =>
         conv.id === id ? { ...conv, title, updatedAt: Date.now() } : conv,
+      ),
+    }));
+    persistAfterSet(get);
+  },
+
+  setConversationContext: (id, contextChapter) => {
+    set((state) => ({
+      conversations: state.conversations.map((conv) =>
+        conv.id === id ? { ...conv, contextChapter, updatedAt: Date.now() } : conv,
       ),
     }));
     persistAfterSet(get);

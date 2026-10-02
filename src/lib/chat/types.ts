@@ -44,6 +44,24 @@ export interface ChatConversation {
   createdAt: number;
   /** Unix timestamp when the conversation was last updated */
   updatedAt: number;
+  /**
+   * Chapter snapshot bound to this conversation for full-text context
+   * (bound at creation, or when the user re-checks the context checkbox).
+   * Null/undefined = no chapter context; the text itself is resolved at
+   * send time and never persisted.
+   */
+  contextChapter?: ContextChapter | null;
+}
+
+/**
+ * Chapter snapshot bound to a conversation.
+ * Persisted per conversation; the chapter's text is NOT stored here.
+ */
+export interface ContextChapter {
+  /** Chapter href at bind time */
+  href: string;
+  /** Chapter title at bind time (for display) */
+  title: string;
 }
 
 // ---------------------------------------------------------------------------

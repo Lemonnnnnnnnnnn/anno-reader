@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import type { NoteDetailVariant } from "@/components/AnnotationDetailPanel";
 
+/** Container style for switchable panels (note detail, AI chat). */
+export type PanelLayout = "drawer" | "modal";
+
 /**
  * User-facing display preferences (the "个性化" settings page).
  *
@@ -11,19 +14,20 @@ import type { NoteDetailVariant } from "@/components/AnnotationDetailPanel";
  */
 
 const NOTE_DETAIL_LAYOUT_KEY = "noteDetailLayout";
+const CHAT_LAYOUT_KEY = "chatLayout";
 
-function readStoredLayout(): NoteDetailVariant {
+function readStoredLayout(key: string, fallback: PanelLayout): PanelLayout {
   try {
-    const value = localStorage.getItem(NOTE_DETAIL_LAYOUT_KEY);
-    return value === "modal" ? "modal" : "drawer";
+    const value = localStorage.getItem(key);
+    return value === "drawer" || value === "modal" ? value : fallback;
   } catch {
-    return "drawer";
+    return fallback;
   }
 }
 
-function writeStoredLayout(layout: NoteDetailVariant): void {
+function writeStoredLayout(key: string, layout: PanelLayout): void {
   try {
-    localStorage.setItem(NOTE_DETAIL_LAYOUT_KEY, layout);
+    localStorage.setItem(key, layout);
   } catch {
     // Non-fatal: the preference just won't survive a restart.
   }
@@ -32,14 +36,24 @@ function writeStoredLayout(layout: NoteDetailVariant): void {
 interface PreferencesStore {
   /** How the note detail panel is displayed (default: drawer). */
   noteDetailLayout: NoteDetailVariant;
-  setNoteDetailLayout: (layout: NoteDetailVariant) => void;
+  setNoteDetailLayout: (layout: PanelLayout) => void;
+  /** How the AI chat panel is displayed (default: modal). */
+  chatLayout: PanelLayout;
+  setChatLayout: (layout: PanelLayout) => void;
 }
 
 export const usePreferencesStore = create<PreferencesStore>((set) => ({
-  noteDetailLayout: readStoredLayout(),
+  noteDetailLayout: readStoredLayout(NOTE_DETAIL_LAYOUT_KEY, "drawer"),
 
   setNoteDetailLayout: (layout) => {
-    writeStoredLayout(layout);
+    writeStoredLayout(NOTE_DETAIL_LAYOUT_KEY, layout);
     set({ noteDetailLayout: layout });
+  },
+
+  chatLayout: readStoredLayout(CHAT_LAYOUT_KEY, "modal"),
+
+  setChatLayout: (layout) => {
+    writeStoredLayout(CHAT_LAYOUT_KEY, layout);
+    set({ chatLayout: layout });
   },
 }));

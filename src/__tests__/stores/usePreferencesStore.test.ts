@@ -48,3 +48,29 @@ describe("usePreferencesStore", () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe("usePreferencesStore chat layout", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.resetModules();
+  });
+
+  it("defaults to the modal layout", async () => {
+    const { usePreferencesStore } = await import("@/stores/usePreferencesStore");
+    expect(usePreferencesStore.getState().chatLayout).toBe("modal");
+  });
+
+  it("reads the persisted chat layout on startup", async () => {
+    localStorage.setItem("chatLayout", "drawer");
+    const { usePreferencesStore } = await import("@/stores/usePreferencesStore");
+    expect(usePreferencesStore.getState().chatLayout).toBe("drawer");
+  });
+
+  it("persists the chat layout when it is changed", async () => {
+    const { usePreferencesStore } = await import("@/stores/usePreferencesStore");
+    usePreferencesStore.getState().setChatLayout("drawer");
+
+    expect(usePreferencesStore.getState().chatLayout).toBe("drawer");
+    expect(localStorage.getItem("chatLayout")).toBe("drawer");
+  });
+});

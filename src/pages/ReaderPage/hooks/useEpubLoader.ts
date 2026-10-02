@@ -24,7 +24,6 @@ import type { ParsedEpub } from "@/lib/epub";
 import { loadEpub } from "@/lib/epub";
 import { loadPdf, destroyPdfDocument } from "@/lib/pdf";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import { setParsedEpub as setRAGCache, clearParsedEpub as clearRAGCache } from "@/lib/rag";
 
 /** Loaded book content: ParsedEpub view + optional live PDF handle. */
 interface LoadedBook {
@@ -89,14 +88,13 @@ export function useEpubLoader() {
     : "epub";
 
   /**
-   * Shared post-load setup: seed state, RAG cache, restore annotations,
+   * Shared post-load setup: seed state, restore annotations,
    * and set the initial chapter.
    */
   const finalizeLoad = useCallback(
     async (loaded: LoadedBook, bookId: string, filePath: string) => {
       setParsedEpub(loaded.parsed);
       installPdfDocument(loaded.pdfDocument);
-      setRAGCache(loaded.parsed);
 
       // Restore saved notes, highlights, summaries, and progress for this book
       try {
@@ -209,7 +207,6 @@ export function useEpubLoader() {
 
         setParsedEpub(loaded.parsed);
         installPdfDocument(loaded.pdfDocument);
-        setRAGCache(loaded.parsed);
 
         // Restore saved notes, highlights, summaries, and progress
         try {
@@ -260,8 +257,7 @@ export function useEpubLoader() {
     if (!currentBook) {
       setParsedEpub(null);
       installPdfDocument(null);
-      clearRAGCache();
-    }
+          }
   }, [currentBook, installPdfDocument]);
 
   return { parsedEpub, pdfDocument, format, loading, error, setError, totalChapters, handleImport };

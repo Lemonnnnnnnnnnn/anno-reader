@@ -88,7 +88,7 @@ export function ChatInput({
         placeholder={placeholder}
         disabled={disabled}
         rows={1}
-        className="min-h-[40px] max-h-[160px] overflow-hidden"
+        className="min-h-[40px] max-h-[160px] overflow-y-auto"
       />
       <Button
         variant="icon"

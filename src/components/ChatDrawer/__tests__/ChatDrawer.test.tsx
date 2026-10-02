@@ -6,9 +6,43 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderToString } from "react-dom/server";
+import type { ReactNode } from "react";
 import { ChatDrawerView, ChatDrawer, SessionList } from "..";
 import { SessionItem } from "../SessionItem";
 import type { ChatMessage, ChatConversation } from "@/lib/chat/types";
+
+// The real Modal is portal-based and evaluates document.body eagerly, which
+// the node env lacks — stand in a portal-free Modal with the same contract.
+vi.mock("@/components/primitives", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/components/primitives")>();
+  const Modal = ({
+    open,
+    onClose,
+    title,
+    children,
+    footer,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    title?: string;
+    children: ReactNode;
+    footer?: ReactNode;
+  }) =>
+    open ? (
+      <div>
+        {title && (
+          <div>
+            <h2>{title}</h2>
+            <button aria-label="Close dialog" onClick={onClose} />
+          </div>
+        )}
+        {children}
+        {footer}
+      </div>
+    ) : null;
+  return { ...actual, Modal };
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -103,6 +137,16 @@ const viewDefaults = {
   onRetry: vi.fn(),
   onBackToList: vi.fn(),
   onNewChat: vi.fn(),
+  contextChapter: null,
+  onToggleChapterContext: vi.fn(),
+  hasChapterContext: true,
+  buildDebugInfo: () => ({
+    system: "You are a helpful reading assistant.",
+    messages: [],
+    chapterBound: null,
+    chapterResolved: false,
+    chapterTextLength: 0,
+  }),
 };
 
 // ---------------------------------------------------------------------------
@@ -114,6 +158,48 @@ describe("ChatDrawerView", () => {
     const html = renderToString(<ChatDrawerView {...viewDefaults} />);
 
     expect(html).toContain("AI Chat");
+  });
+
+  it("renders the chapter context checkbox when available", () => {
+    const html = renderToString(<ChatDrawerView {...viewDefaults} />);
+
+    expect(html).toContain("引用当前章节全文");
+    expect(html).toContain('type="checkbox"');
+  });
+
+  it("hides the chapter context checkbox when unavailable", () => {
+    const html = renderToString(
+      <ChatDrawerView {...viewDefaults} hasChapterContext={false} />,
+    );
+
+    expect(html).not.toContain("引用当前章节全文");
+  });
+
+  it("renders the bound chapter title when context is bound", () => {
+    const html = renderToString(
+      <ChatDrawerView
+        {...viewDefaults}
+        contextChapter={{ href: "ch7.xhtml", title: "Chapter 7" }}
+      />,
+    );
+
+    expect(html).toContain("引用章节全文 · Chapter 7");
+  });
+
+  it("renders the debug button", () => {
+    const html = renderToString(<ChatDrawerView {...viewDefaults} />);
+
+    expect(html).toContain('aria-label="Open chat debug panel"');
+  });
+
+  it("renders as a centered modal when variant is modal", () => {
+    const html = renderToString(
+      <ChatDrawerView {...viewDefaults} variant="modal" />,
+    );
+
+    expect(html).toContain("AI Chat");
+    expect(html).toContain('aria-label="Close dialog"');
+    expect(html).not.toContain('aria-label="Close drawer"');
   });
 
   it("renders the welcome empty state when no messages", () => {
@@ -363,12 +449,13 @@ describe("ChatDrawer (stateful)", () => {
     expect(html).toContain("Welcome to AI Chat");
   });
 
-  it("renders close button", () => {
+  it("renders close button via the default modal container", () => {
     const html = renderToString(
       <ChatDrawer isOpen={true} onClose={vi.fn()} />,
     );
 
-    expect(html).toContain('aria-label="Close drawer"');
+    // The preferences store defaults chatLayout to "modal".
+    expect(html).toContain('aria-label="Close dialog"');
   });
 
   it("renders the input area", () => {
