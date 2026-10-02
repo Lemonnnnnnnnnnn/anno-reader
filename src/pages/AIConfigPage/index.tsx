@@ -35,7 +35,7 @@ export function AIConfigPage() {
             <ArrowLeft size={18} />
           </Button>
           <h1 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight m-0">
-            AI Configuration
+            AI 配置
           </h1>
         </div>
       </header>

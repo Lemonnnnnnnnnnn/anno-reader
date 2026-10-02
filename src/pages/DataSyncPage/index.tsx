@@ -156,7 +156,7 @@ export function DataSyncPage() {
             <ArrowLeft size={18} />
           </Button>
           <h1 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight m-0">
-            Data & Sync
+            数据与同步
           </h1>
         </div>
       </header>

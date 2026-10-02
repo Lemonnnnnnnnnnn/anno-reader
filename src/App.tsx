@@ -8,7 +8,9 @@ import { ReaderPage } from "./pages/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AIConfigPage } from "./pages/AIConfigPage";
 import { DataSyncPage } from "./pages/DataSyncPage";
+import { ProxyPage } from "./pages/ProxyPage";
 import { AboutPage } from "./pages/AboutPage";
+import { PersonalizationPage } from "./pages/PersonalizationPage";
 import { useAIConfigStore } from "./stores/useAIConfigStore";
 import { useProxyConfigStore } from "./stores/useProxyConfigStore";
 import { readConfig, isDataDirValid } from "./lib/storage/config";
@@ -87,7 +89,9 @@ function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/ai-config" element={<AIConfigPage />} />
           <Route path="/data-sync" element={<DataSyncPage />} />
+          <Route path="/proxy" element={<ProxyPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/personalization" element={<PersonalizationPage />} />
           <Route path="/" element={<Navigate to="/bookshelf" replace />} />
           <Route path="*" element={<Navigate to="/bookshelf" replace />} />
         </Routes>

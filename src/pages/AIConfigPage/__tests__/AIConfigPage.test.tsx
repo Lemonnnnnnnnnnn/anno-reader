@@ -165,7 +165,7 @@ describe("AIConfigPage", () => {
   it("renders the page header", () => {
     const html = renderToString(<AIConfigPage />);
 
-    expect(html).toContain("AI Configuration");
+    expect(html).toContain("AI 配置");
   });
 
   it("renders Provider and Assistant tabs", () => {

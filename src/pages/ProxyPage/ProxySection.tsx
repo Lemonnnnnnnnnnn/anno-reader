@@ -79,14 +79,9 @@ export function ProxySection() {
   return (
     <section className="bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md p-4 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-sans font-medium text-text dark:text-text-dark">
-            代理设置
-          </span>
-          <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">
-            通过代理服务器连接网络
-          </span>
-        </div>
+        <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark">
+          通过代理服务器连接网络
+        </span>
         <button
           onClick={() => setEnabled(!enabled)}
           className={`

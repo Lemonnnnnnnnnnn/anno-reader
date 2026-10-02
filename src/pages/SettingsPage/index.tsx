@@ -1,8 +1,32 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Database, Info } from "lucide-react";
+import {
+  ArrowLeft,
+  Database,
+  Info,
+  Palette,
+  Sparkles,
+  Globe,
+  ChevronRight,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/primitives";
-import { ProxySection } from "./ProxySection";
 import { useUpdateStore } from "@/stores/useUpdateStore";
+
+interface SettingsEntry {
+  /** Route path to navigate to */
+  to: string;
+  /** Entry label */
+  label: string;
+  icon: LucideIcon;
+}
+
+const ENTRIES: SettingsEntry[] = [
+  { to: "/personalization", label: "个性化", icon: Palette },
+  { to: "/ai-config", label: "AI 配置", icon: Sparkles },
+  { to: "/proxy", label: "代理设置", icon: Globe },
+  { to: "/data-sync", label: "数据与同步", icon: Database },
+  { to: "/about", label: "关于", icon: Info },
+];
 
 export function SettingsPage() {
   const navigate = useNavigate();
@@ -17,45 +41,33 @@ export function SettingsPage() {
             <ArrowLeft size={18} />
           </Button>
           <h1 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight m-0">
-            Settings
+            设置
           </h1>
         </div>
       </header>
 
       {/* Content */}
       <main className="flex-1 overflow-auto p-6">
-        <div className="max-w-[600px] mx-auto flex flex-col gap-6">
-          {/* Data & Sync entry */}
-          <button
-            onClick={() => navigate("/data-sync")}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
-          >
-            <Database size={18} className="text-text-muted dark:text-text-muted-dark" />
-            <span>Data & Sync</span>
-          </button>
-
-          <button
-            onClick={() => navigate("/ai-config")}
-            className="w-full px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
-          >
-            AI 配置
-          </button>
-          
-          <button
-            onClick={() => navigate("/about")}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
-          >
-            <Info size={18} className="text-text-muted dark:text-text-muted-dark" />
-            <span>About</span>
-            {updateAvailable && (
-              <span className="ml-auto text-xs font-sans font-medium text-error dark:text-error-dark">
-                有更新
-              </span>
-            )}
-          </button>
-
-          <ProxySection />
-
+        <div className="max-w-[600px] mx-auto flex flex-col gap-2">
+          {ENTRIES.map(({ to, label, icon: Icon }) => (
+            <button
+              key={to}
+              onClick={() => navigate(to)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
+            >
+              <Icon size={18} className="text-text-muted dark:text-text-muted-dark shrink-0" />
+              <span>{label}</span>
+              {to === "/about" && updateAvailable && (
+                <span className="text-xs font-medium text-error dark:text-error-dark">
+                  有更新
+                </span>
+              )}
+              <ChevronRight
+                size={16}
+                className="ml-auto text-text-muted dark:text-text-muted-dark shrink-0"
+              />
+            </button>
+          ))}
         </div>
       </main>
     </div>

@@ -38,7 +38,7 @@ export function AboutPage() {
             <ArrowLeft size={18} />
           </Button>
           <h1 className="text-xl font-semibold text-text dark:text-text-dark tracking-tight m-0">
-            About
+            关于
           </h1>
         </div>
       </header>
@@ -60,7 +60,7 @@ export function AboutPage() {
               </p>
             )}
             <p className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark m-0 text-center max-w-[360px]">
-              Minimalist EPUB &amp; PDF reader with annotations.
+              极简 EPUB / PDF 阅读器，支持批注与笔记。
             </p>
           </div>
 
@@ -73,7 +73,7 @@ export function AboutPage() {
             className="w-full flex items-center gap-3 px-4 py-3 text-sm font-sans font-medium text-left bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md hover:border-accent dark:hover:border-accent-dark transition-colors cursor-pointer text-text dark:text-text-dark"
           >
             <ExternalLink size={18} className="text-text-muted dark:text-text-muted-dark" />
-            <span>GitHub Repository</span>
+            <span>GitHub 仓库</span>
           </button>
         </div>
       </main>
@@ -118,7 +118,7 @@ function UpdateSection() {
     <section className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md">
       <div className="flex flex-col gap-0.5 min-w-0">
         <h3 className="text-sm font-sans font-medium text-text dark:text-text-dark m-0">
-          Updates
+          软件更新
         </h3>
         {hint}
       </div>

@@ -47,11 +47,6 @@ describe("ProxySection", () => {
   // ── Component Rendering ──────────────────────────────────────────
 
   describe("rendering", () => {
-    it("renders section title", () => {
-      const html = renderToString(<ProxySection />);
-      expect(html).toContain("代理设置");
-    });
-
     it("renders section subtitle", () => {
       const html = renderToString(<ProxySection />);
       expect(html).toContain("通过代理服务器连接网络");
@@ -352,7 +347,7 @@ describe("ProxySection", () => {
       // Note: useEffect doesn't run during SSR, but we verify the mock is wired
       // This tests that the component renders without error even when isLoaded=false
       const html = renderToString(<ProxySection />);
-      expect(html).toContain("代理设置");
+      expect(html).toContain("通过代理服务器连接网络");
     });
 
     it("displays enabled state from store", () => {
@@ -389,7 +384,7 @@ describe("ProxySection", () => {
         isLoaded: true,
       };
       const html = renderToString(<ProxySection />);
-      expect(html).toContain("代理设置");
+      expect(html).toContain("通过代理服务器连接网络");
       expect(html).toContain('aria-checked="false"');
     });
 
