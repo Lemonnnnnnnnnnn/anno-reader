@@ -199,6 +199,7 @@ vi.mock("@/stores/useBookStore", () => ({
       notes: [],
       summaries: [],
       currentBook: { id: "book_1" },
+      ui: { theme: "light" },
     }),
 }));
 

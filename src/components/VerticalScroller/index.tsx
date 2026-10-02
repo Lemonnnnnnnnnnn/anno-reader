@@ -35,7 +35,7 @@ import {
 } from "@/lib/summaries";
 import { injectSummaryButton } from "@/lib/summaries/injectSummaryButton";
 import { useBookStore } from "@/stores/useBookStore";
-import { injectCssIntoIframe } from "@/lib/css";
+import { injectCssIntoIframe, buildThemeOverrideCss } from "@/lib/css";
 import { ReaderOverlays } from "../ReaderOverlays";
 import { injectLinkNavigationScript, type LinkClickMessage } from "@/lib/linkNavigation";
 import { useScrollTracking, useAnnotationSync } from "./hooks";
@@ -97,6 +97,7 @@ export function VerticalScroller({
   }, [chapterHref]);
 
   const currentBook = useBookStore((state) => state.currentBook);
+  const theme = useBookStore((state) => state.ui.theme);
 
   // Existing summary for the current chapter (drives injected button state).
   const existingSummary = useBookStore((state) =>
@@ -153,6 +154,15 @@ export function VerticalScroller({
     injectCssIntoIframe(iframe, css, "font-size-override");
   }, [fontSize, iframeRef]);
 
+  // Inject theme override into iframe (called on load and when theme
+  // changes). Injected instead of baked into srcdoc so switching theme does
+  // not rebuild the iframe — a rebuild would lose the scroll position.
+  const injectTheme = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !iframe.contentDocument?.body) return;
+    injectCssIntoIframe(iframe, buildThemeOverrideCss(theme), "theme-override");
+  }, [theme, iframeRef]);
+
   // Post a summary-init message to the iframe so the injected summary card
   // reflects the persisted state (button vs. existing summary) after load.
   // Uses refs so the load handler stays stable across summary changes.
@@ -171,6 +181,7 @@ export function VerticalScroller({
     // Use requestAnimationFrame to ensure DOM is ready
     requestAnimationFrame(() => {
       injectFontSize();
+      injectTheme();
       // After the iframe DOM is ready, seed the summary card state. A short
       // delay lets the injected summary script attach its message listener.
       setTimeout(() => {
@@ -182,12 +193,17 @@ export function VerticalScroller({
         });
       }, 0);
     });
-  }, [handleIframeLoad, injectFontSize, postToIframe]);
+  }, [handleIframeLoad, injectFontSize, injectTheme, postToIframe]);
 
   // Inject font size when fontSize changes (runtime adjustment)
   useEffect(() => {
     injectFontSize();
   }, [fontSize, injectFontSize]);
+
+  // Re-inject theme when it changes (runtime switch, no iframe rebuild)
+  useEffect(() => {
+    injectTheme();
+  }, [theme, injectTheme]);
 
   // Annotation state and synchronization
   const { annotationScript } = useAnnotationSync(chapterHref, iframeRef);

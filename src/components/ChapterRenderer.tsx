@@ -71,7 +71,6 @@ export function ChapterRenderer({
   const currentChapterIndex = useBookStore(
     (state) => state.ui.currentChapterIndex,
   );
-  const theme = useBookStore((state) => state.ui.theme);
   const fontSize = useBookStore((state) => state.ui.fontSize);
 
   const currentChapter = chapters[currentChapterIndex] ?? null;
@@ -79,6 +78,8 @@ export function ChapterRenderer({
   // Build srcdoc with EPUB CSS and resolved images
   // fontSize is NOT included here - it's applied via dynamic CSS injection in VerticalScroller
   // This avoids rebuilding the iframe when font size changes (preserving scroll position)
+  // theme is NOT included either - dark mode is injected dynamically for the
+  // same reason (see injectTheme in VerticalScroller)
   const srcdoc = useMemo(() => {
     if (!currentChapter) return "";
 
@@ -101,11 +102,10 @@ export function ChapterRenderer({
       epubCss: currentChapter.cssContent,
       fontFaceCss,
       isolateEpubCss: true,
-      theme,
     });
 
     return html;
-  }, [currentChapter, resources, opfFolder, theme]);
+  }, [currentChapter, resources, opfFolder]);
 
   // Extract plain text from chapter content for AI translation context
   const chapterText = useMemo(() => {

@@ -72,6 +72,47 @@ export function scopeCssToNamespace(css: string, namespace = ".epub-content"): s
 }
 
 /**
+ * Theme-specific CSS for the reader iframe.
+ *
+ * Dark mode applies a CSS filter inversion over the epub content (media
+ * elements are re-inverted to keep their original colors). Light mode needs
+ * no override. Kept separate from buildReaderOverrides so it can be injected
+ * dynamically when the theme changes, without rebuilding the iframe (which
+ * would lose the scroll position).
+ *
+ * @param theme - Theme mode ("light" or "dark"). Default: "light".
+ * @returns CSS string for the theme override, empty for light
+ */
+export function buildThemeOverrideCss(
+  theme: "light" | "dark" = "light",
+): string {
+  if (theme === "dark") {
+    return `
+      /* Dark theme: invert colors via CSS filter */
+      .epub-content {
+        filter: invert(1) hue-rotate(180deg);
+      }
+
+      /* Re-invert media elements to restore original colors */
+      .epub-content img,
+      .epub-content video,
+      .epub-content svg,
+      .epub-content canvas,
+      .epub-content [style*="background-image"] {
+        filter: invert(1) hue-rotate(180deg);
+      }
+
+      /* Keep annotation highlights readable */
+      .anno-highlight {
+        color: #1a1a1a !important;
+      }
+    `;
+  }
+
+  return "";
+}
+
+/**
  * Build a CSS override block that ensures reader-critical properties
  * are preserved even when EPUB CSS tries to change them.
  *
@@ -100,32 +141,7 @@ export function buildReaderOverrides(
     }
   `;
 
-  if (theme === "dark") {
-    return `
-      ${layoutOverrides}
-
-      /* Dark theme: invert colors via CSS filter */
-      .epub-content {
-        filter: invert(1) hue-rotate(180deg);
-      }
-
-      /* Re-invert media elements to restore original colors */
-      .epub-content img,
-      .epub-content video,
-      .epub-content svg,
-      .epub-content canvas,
-      .epub-content [style*="background-image"] {
-        filter: invert(1) hue-rotate(180deg);
-      }
-
-      /* Keep annotation highlights readable */
-      .anno-highlight {
-        color: #1a1a1a !important;
-      }
-    `;
-  }
-
-  return layoutOverrides;
+  return `${layoutOverrides}\n${buildThemeOverrideCss(theme)}`;
 }
 
 /**

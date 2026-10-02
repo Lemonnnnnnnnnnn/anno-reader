@@ -36,6 +36,7 @@ export {
   sanitizeEpubCss,
   scopeCssToNamespace,
   buildReaderOverrides,
+  buildThemeOverrideCss,
   combineCss,
   isolateEpubCss,
 } from "./isolation";
