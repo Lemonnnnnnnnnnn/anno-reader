@@ -15,6 +15,16 @@ describe("usePreferencesStore", () => {
     expect(usePreferencesStore.getState().noteDetailLayout).toBe("drawer");
   });
 
+  it("hides reading scrollbars by default and persists opting out", async () => {
+    const { usePreferencesStore } = await import("@/stores/usePreferencesStore");
+    expect(usePreferencesStore.getState().hideReadingScrollbar).toBe(true);
+    usePreferencesStore.getState().setHideReadingScrollbar(false);
+    expect(localStorage.getItem("hideReadingScrollbar")).toBe("false");
+    vi.resetModules();
+    const reloaded = await import("@/stores/usePreferencesStore");
+    expect(reloaded.usePreferencesStore.getState().hideReadingScrollbar).toBe(false);
+  });
+
   it("reads the persisted layout on startup", async () => {
     localStorage.setItem("noteDetailLayout", "modal");
     const { usePreferencesStore } = await import("@/stores/usePreferencesStore");

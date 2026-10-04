@@ -21,6 +21,8 @@ export interface NoteItemProps {
   note: Note;
   /** Opens the full-content preview for this note id */
   onPreview: (noteId: string) => void;
+  draft?: string;
+  onDraftChange: (noteId: string, text: string | undefined) => void;
 }
 
 /** Props for the HighlightItem sub-component */

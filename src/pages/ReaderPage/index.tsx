@@ -18,6 +18,7 @@ import { ArrowLeft, List, StickyNote, Search, Settings, MessageSquare, Book, Sun
 import { useBookStore } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 import { ChapterRenderer, extractPlainText } from "@/components/ChapterRenderer";
+import { ChapterProgressRail } from "@/components/ChapterProgressRail";
 import { PdfViewer } from "@/components/PdfViewer";
 import { ChapterNavigation } from "@/components/ChapterNavigation";
 import { TocDrawer } from "@/components/TocDrawer";
@@ -77,13 +78,16 @@ export function ReaderPage() {
 
   // Iframe ref for ChapterRenderer (EPUB link navigation / annotation scroll)
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const setIframeEl = (el: HTMLIFrameElement | null) => {
+  const [progressTarget, setProgressTarget] = useState<HTMLElement | null>(null);
+  const setIframeEl = useCallback((el: HTMLIFrameElement | null) => {
     iframeRef.current = el;
     vimScrollElRef.current = el;
-  };
+    setProgressTarget(el);
+  }, []);
 
   const setPdfScrollEl = useCallback((el: HTMLDivElement | null) => {
     vimScrollElRef.current = el;
+    setProgressTarget(el);
   }, []);
 
   // Vim-like smooth scrolling (j/k keys)
@@ -387,7 +391,7 @@ export function ReaderPage() {
         )}
 
         {!loading && parsedEpub && (
-          <div className="h-full overflow-hidden">
+          <div className="relative h-full overflow-hidden">
             {format === "pdf" && pdfDocument ? (
               <PdfViewer
                 document={pdfDocument}
@@ -409,6 +413,7 @@ export function ReaderPage() {
                 onLinkBack={handleLinkBack}
               />
             )}
+            <ChapterProgressRail target={progressTarget} chapterTitle={parsedEpub.chapters[ui.currentChapterIndex]?.title ?? ""} chapterNumber={ui.currentChapterIndex + 1} isPdf={format === "pdf"} />
           </div>
         )}
         </main>

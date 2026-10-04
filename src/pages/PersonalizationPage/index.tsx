@@ -108,6 +108,8 @@ function LayoutSection({
 
 export function PersonalizationPage() {
   const navigate = useNavigate();
+  const hideReadingScrollbar = usePreferencesStore(s => s.hideReadingScrollbar);
+  const setHideReadingScrollbar = usePreferencesStore(s => s.setHideReadingScrollbar);
   const noteDetailLayout = usePreferencesStore((s) => s.noteDetailLayout);
   const setNoteDetailLayout = usePreferencesStore((s) => s.setNoteDetailLayout);
   const chatLayout = usePreferencesStore((s) => s.chatLayout);
@@ -130,6 +132,15 @@ export function PersonalizationPage() {
       {/* Content */}
       <main className="flex-1 overflow-auto p-6">
         <div className="max-w-[600px] mx-auto flex flex-col gap-8">
+          <section className="rounded-xl border border-border dark:border-border-dark bg-surface dark:bg-surface-dark p-5">
+            <label className="flex items-center justify-between gap-4 cursor-pointer">
+              <span className="font-sans font-medium">沉浸式阅读</span>
+              <input type="checkbox" checked={hideReadingScrollbar} onChange={e => setHideReadingScrollbar(e.target.checked)} className="h-4 w-4 accent-accent" />
+            </label>
+            <p className="text-sm font-sans text-text-secondary dark:text-text-secondary-dark mb-0">
+              默认隐藏阅读滚动条。鼠标靠近右侧时，浮现本章进度尺；滚轮和键盘仍可正常滚动。
+            </p>
+          </section>
           <LayoutSection
             title="Note Detail 展示方式"
             value={noteDetailLayout}

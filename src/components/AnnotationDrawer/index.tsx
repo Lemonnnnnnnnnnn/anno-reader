@@ -16,6 +16,7 @@
  */
 
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { Virtuoso } from "react-virtuoso";
 import { useShallow } from "zustand/react/shallow";
 import { Drawer } from "@/components/primitives";
 import { Search, X } from "lucide-react";
@@ -33,6 +34,20 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
   const [searchQuery, setSearchQuery] = useState("");
   const [previewNoteId, setPreviewNoteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const bookId = useBookStore(state => state.currentBook?.id);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const handleDraftChange = useCallback((noteId: string, text: string | undefined) => {
+    setDrafts(previous => {
+      const next = { ...previous };
+      if (text === undefined) delete next[noteId];
+      else next[noteId] = text;
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    if (!open) setDrafts({});
+  }, [open]);
+  useEffect(() => { setDrafts({}); }, [bookId]);
 
   // Auto-focus search input when drawer opens
   useEffect(() => {
@@ -121,9 +136,9 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
   }, [notes, previewNoteId, chapters, onNavigate, onClose]);
 
   return (
-    <Drawer open={open} onClose={onClose} side="right" title="Annotations">
+    <Drawer open={open} onClose={onClose} side="right" title="Annotations" contentClassName="flex-1 min-h-0 flex flex-col overflow-hidden p-4">
       {/* Search input */}
-      <div className="flex gap-2 mb-3">
+      <div className="flex gap-2 mb-3 shrink-0">
         <div className="relative flex-1">
           <Search
             size={14}
@@ -152,7 +167,7 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
       </div>
 
       {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border dark:border-border-dark mb-3">
+      <div className="flex gap-1 border-b border-border dark:border-border-dark mb-3 shrink-0">
         <button
           type="button"
           onClick={() => setActiveTab("notes")}
@@ -178,7 +193,7 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
       </div>
 
       {isEmpty ? (
-        <div className="flex items-center justify-center h-full">
+        <div className="flex flex-1 items-center justify-center">
           <p className="text-text-muted dark:text-text-muted-dark text-sm">
             {isSearching
               ? activeTab === "notes"
@@ -190,27 +205,43 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
           </p>
         </div>
       ) : activeTab === "notes" ? (
-        <div className="flex flex-col gap-2">
-          {filteredNotes.map((note) => (
-            <NoteItem
-              key={note.id}
-              note={note}
-              onPreview={setPreviewNoteId}
-            />
-          ))}
-        </div>
+        <Virtuoso
+          key={`notes-${bookId}-${searchQuery}`}
+          className="flex-1 min-h-0"
+          data={filteredNotes}
+          computeItemKey={(_, note) => note.id}
+          defaultItemHeight={150}
+          increaseViewportBy={200}
+          itemContent={(_, note) => (
+            <div className="pb-2">
+              <NoteItem
+                note={note}
+                onPreview={setPreviewNoteId}
+                draft={drafts[note.id]}
+                onDraftChange={handleDraftChange}
+              />
+            </div>
+          )}
+        />
       ) : (
-        <div className="flex flex-col gap-2">
-          {filteredHighlights.map((highlight) => (
-            <HighlightItem
-              key={highlight.id}
-              highlight={highlight}
-              onNavigate={onNavigate}
-              onClose={onClose}
-              chapters={chapters}
-            />
-          ))}
-        </div>
+        <Virtuoso
+          key={`highlights-${bookId}-${searchQuery}`}
+          className="flex-1 min-h-0"
+          data={filteredHighlights}
+          computeItemKey={(_, highlight) => highlight.id}
+          defaultItemHeight={130}
+          increaseViewportBy={200}
+          itemContent={(_, highlight) => (
+            <div className="pb-2">
+              <HighlightItem
+                highlight={highlight}
+                onNavigate={onNavigate}
+                onClose={onClose}
+                chapters={chapters}
+              />
+            </div>
+          )}
+        />
       )}
 
       {/* Note detail overlay — always a centered modal regardless of the

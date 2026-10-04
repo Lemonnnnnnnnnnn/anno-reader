@@ -2,6 +2,11 @@
 @source "../node_modules/streamdown/dist/*.js";
 @config "../tailwind.config.ts";
 
+@utility reader-scrollbar-hidden {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
 @layer base {
   body {
     font-family: "Literata", "Georgia", "Iowan Old Style", "Palatino Linotype",

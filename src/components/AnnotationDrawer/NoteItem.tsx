@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { memo, useCallback } from "react";
 import { Button, TextArea } from "@/components/primitives";
 import { Pencil, Trash2 } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
@@ -6,9 +6,9 @@ import { formatTimestamp } from "./utils";
 import type { NoteItemProps } from "./types";
 
 /** Single note card inside the drawer with edit/delete actions. */
-export function NoteItem({ note, onPreview }: NoteItemProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState("");
+export const NoteItem = memo(function NoteItem({ note, onPreview, draft, onDraftChange }: NoteItemProps) {
+  const isEditing = draft !== undefined;
+  const editText = draft ?? "";
 
   const truncatedText =
     note.text.length > 50 ? `${note.text.slice(0, 50)}\u2026` : note.text;
@@ -18,25 +18,23 @@ export function NoteItem({ note, onPreview }: NoteItemProps) {
   }, [note.id, onPreview]);
 
   const handleStartEdit = useCallback(() => {
-    setEditText(note.content);
-    setIsEditing(true);
-  }, [note.content]);
+    onDraftChange(note.id, note.content);
+  }, [note.id, note.content, onDraftChange]);
 
   const handleSaveEdit = useCallback(async () => {
     await updateNote(note.id, editText.trim(), note.bookId);
-    setIsEditing(false);
-    setEditText("");
-  }, [note.id, note.bookId, editText]);
+    onDraftChange(note.id, undefined);
+  }, [note.id, note.bookId, editText, onDraftChange]);
 
   const handleCancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setEditText("");
-  }, []);
+    onDraftChange(note.id, undefined);
+  }, [note.id, onDraftChange]);
 
   const handleDelete = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     await deleteNote(note.id, note.bookId);
-  }, [note.id, note.bookId]);
+    onDraftChange(note.id, undefined);
+  }, [note.id, note.bookId, onDraftChange]);
 
   return (
     <div className="border border-border dark:border-border-dark rounded-lg bg-surface-alt dark:bg-surface-alt-dark">
@@ -54,7 +52,7 @@ export function NoteItem({ note, onPreview }: NoteItemProps) {
         {/* Note content preview */}
         {!isEditing && note.content && (
           <p className="mt-1.5 m-0 text-sm text-text dark:text-text-dark leading-relaxed line-clamp-2 break-words">
-            {note.content}
+            {note.content.length > 240 ? `${note.content.slice(0, 240)}\u2026` : note.content}
           </p>
         )}
 
@@ -69,7 +67,7 @@ export function NoteItem({ note, onPreview }: NoteItemProps) {
         <div className="px-3 pb-3 flex flex-col gap-2">
           <TextArea
             value={editText}
-            onChange={(e) => setEditText(e.target.value)}
+            onChange={(e) => onDraftChange(note.id, e.target.value)}
             onSubmit={handleSaveEdit}
             onCancel={handleCancelEdit}
             rows={3}
@@ -112,4 +110,4 @@ export function NoteItem({ note, onPreview }: NoteItemProps) {
       )}
     </div>
   );
-}
+});

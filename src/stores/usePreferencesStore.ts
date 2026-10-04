@@ -34,6 +34,8 @@ function writeStoredLayout(key: string, layout: PanelLayout): void {
 }
 
 interface PreferencesStore {
+  hideReadingScrollbar: boolean;
+  setHideReadingScrollbar: (hidden: boolean) => void;
   /** How the note detail panel is displayed (default: drawer). */
   noteDetailLayout: NoteDetailVariant;
   setNoteDetailLayout: (layout: PanelLayout) => void;
@@ -43,6 +45,14 @@ interface PreferencesStore {
 }
 
 export const usePreferencesStore = create<PreferencesStore>((set) => ({
+  hideReadingScrollbar: (() => {
+    try { return localStorage.getItem("hideReadingScrollbar") !== "false"; }
+    catch { return true; }
+  })(),
+  setHideReadingScrollbar: (hidden) => {
+    try { localStorage.setItem("hideReadingScrollbar", String(hidden)); } catch { /* UI preference remains usable */ }
+    set({ hideReadingScrollbar: hidden });
+  },
   noteDetailLayout: readStoredLayout(NOTE_DETAIL_LAYOUT_KEY, "drawer"),
 
   setNoteDetailLayout: (layout) => {

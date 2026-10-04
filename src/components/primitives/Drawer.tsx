@@ -32,6 +32,8 @@ export interface DrawerProps {
   children: ReactNode;
   /** Optional footer pinned below the scrollable content area */
   footer?: ReactNode;
+  /** Override content layout for panels with their own scroll container. */
+  contentClassName?: string;
 }
 
 export function Drawer({
@@ -42,6 +44,7 @@ export function Drawer({
   closeOnOutsideClick = true,
   children,
   footer,
+  contentClassName = "flex-1 overflow-y-auto p-4",
 }: DrawerProps) {
   // Escape key handler
   const handleEscape = useCallback(
@@ -98,7 +101,7 @@ export function Drawer({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">{children}</div>
+        <div className={contentClassName}>{children}</div>
 
         {/* Footer: pinned, does not scroll with the content */}
         {footer && (
