@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Button, TextArea } from "@/components/primitives";
 import { ArrowUp, Loader2 } from "lucide-react";
+import { matchesAction } from "@/stores/useKeyboardStore";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -61,7 +62,7 @@ export function ChatInput({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      if (matchesAction("sendChat", e.nativeEvent)) {
         e.preventDefault();
         handleSend();
       }

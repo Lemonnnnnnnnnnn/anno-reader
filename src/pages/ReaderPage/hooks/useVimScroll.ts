@@ -11,6 +11,9 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
+import { isTypingTarget, type KeyboardInput } from "@/lib/keyboard";
+import { matchesAction, useKeyboardStore } from "@/stores/useKeyboardStore";
+import { useOverlayStore } from "@/stores/useOverlayStore";
 
 // ---------------------------------------------------------------------------
 // SmoothScroller — requestAnimationFrame-based smooth scroll engine
@@ -103,18 +106,6 @@ class SmoothScroller {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Check if the user is typing in an input/textarea — don't hijack keys */
-function isTypingInInput(): boolean {
-  const el = document.activeElement;
-  if (!el) return false;
-  const tag = el.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    (el as HTMLElement).isContentEditable
-  );
-}
-
 /**
  * Build a ScrollTarget for an iframe (EPUB) or a scrollable element (PDF).
  *
@@ -176,55 +167,46 @@ export function useVimScroll(
   }, [scrollElRef]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isTypingInInput()) return;
-
+    const scroll = (event: KeyboardInput) => {
+      if (useOverlayStore.getState().openCount > 0 || isTypingTarget()) return false;
+      const direction = matchesAction("scrollDown", event) ? 1 : matchesAction("scrollUp", event) ? -1 : 0;
+      if (!direction) return false;
       const scroller = getScroller();
-      if (!scroller) return;
-
-      if (e.key === "j" || e.key === "ArrowDown") {
-        e.preventDefault();
-        scroller.scrollDown();
-      } else if (e.key === "k" || e.key === "ArrowUp") {
-        e.preventDefault();
-        scroller.scrollUp();
-      }
+      if (!scroller) return false;
+      scroller.startScroll(direction);
+      return true;
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || isTypingTarget(e.target)) return;
+      if (scroll(e)) e.preventDefault();
     };
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "j" || e.key === "k" || e.key === "ArrowUp" || e.key === "ArrowDown") {
-        scrollerRef.current?.stopScroll();
-      }
+    const handleKeyUp = () => {
+      scrollerRef.current?.stopScroll();
     };
 
     // Handle keys forwarded from iframe via postMessage
     const handleMessage = (e: MessageEvent) => {
       if (e.data?.type === "iframe-keydown") {
-        const scroller = getScroller();
-        if (!scroller) return;
-
-        if (e.data.key === "ArrowDown" || e.data.key === "j") {
-          scroller.scrollDown();
-        } else if (e.data.key === "ArrowUp" || e.data.key === "k") {
-          scroller.scrollUp();
-        }
+        if (typeof e.data.key === "string") scroll(e.data);
       } else if (e.data?.type === "iframe-keyup") {
-        if (e.data.key === "ArrowUp" || e.data.key === "ArrowDown" ||
-            e.data.key === "j" || e.data.key === "k") {
-          scrollerRef.current?.stopScroll();
-        }
+        scrollerRef.current?.stopScroll();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("message", handleMessage);
+    const unsubscribeKeyboard = useKeyboardStore.subscribe(() => scrollerRef.current?.stopScroll());
+    const unsubscribeOverlay = useOverlayStore.subscribe(() => scrollerRef.current?.stopScroll());
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("message", handleMessage);
       scrollerRef.current?.stopScroll();
+      unsubscribeKeyboard();
+      unsubscribeOverlay();
     };
   }, [getScroller]);
 }

@@ -8,26 +8,15 @@
  * Includes input guard to prevent navigation while typing in text fields.
  */
 
-import { useEffect, useCallback } from "react";
+import { useCallback } from "react";
 import { useBookStore, type ReadingProgress } from "@/stores/useBookStore";
 import type { ParsedEpub } from "@/lib/epub";
+import { useKeyboardAction } from "@/hooks/useKeyboardAction";
 
 /** Message shape posted from the iframe keyboard forwarder script */
 export interface KeyboardMessage {
   type: "iframe-keydown";
   key: string;
-}
-
-/** Check if the user is typing in an input/textarea — don't hijack keys */
-function isTypingInInput(): boolean {
-  const el = document.activeElement;
-  if (!el) return false;
-  const tag = el.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    (el as HTMLElement).isContentEditable
-  );
 }
 
 export function useKeyboardNav(parsedEpub: ParsedEpub | null) {
@@ -87,57 +76,6 @@ export function useKeyboardNav(parsedEpub: ParsedEpub | null) {
     ],
   );
 
-  /**
-   * Handle keyboard navigation.
-   * Shared logic for both direct keydown and iframe-forwarded events.
-   */
-  const handleNavigation = useCallback(
-    (key: string) => {
-      if (!parsedEpub || parsedEpub.chapters.length === 0) return;
-
-      const totalChapters = parsedEpub.chapters.length;
-
-      if (key === "ArrowLeft") {
-        if (ui.currentChapterIndex > 0) {
-          goToChapter(ui.currentChapterIndex - 1);
-        }
-      } else if (key === "ArrowRight") {
-        if (ui.currentChapterIndex < totalChapters - 1) {
-          goToChapter(ui.currentChapterIndex + 1);
-        }
-      }
-    },
-    [parsedEpub, ui.currentChapterIndex, goToChapter],
-  );
-
-  // Direct keyboard events on parent window
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if user is typing in an input field
-      if (isTypingInInput()) return;
-
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        e.preventDefault();
-        handleNavigation(e.key);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleNavigation]);
-
-  // Listen for keyboard events forwarded from iframe via postMessage
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const data = event.data as KeyboardMessage | undefined;
-      if (!data || data.type !== "iframe-keydown") return;
-
-      if (data.key === "ArrowLeft" || data.key === "ArrowRight") {
-        handleNavigation(data.key);
-      }
-    };
-
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [handleNavigation]);
+  useKeyboardAction("previousChapter", () => goToChapter(ui.currentChapterIndex - 1));
+  useKeyboardAction("nextChapter", () => goToChapter(ui.currentChapterIndex + 1));
 }

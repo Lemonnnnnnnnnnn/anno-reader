@@ -5,6 +5,7 @@ import {
   forwardRef,
   useImperativeHandle,
 } from "react";
+import { matchesAction } from "@/stores/useKeyboardStore";
 
 interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   onSubmit?: () => void;
@@ -26,11 +27,11 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
     }, []);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      if (onSubmit && matchesAction("submit", e.nativeEvent)) {
         e.preventDefault();
         onSubmit?.();
       }
-      if (e.key === "Escape") {
+      if (!e.nativeEvent.isComposing && e.key === "Escape") {
         onCancel?.();
       }
     };

@@ -27,6 +27,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { matchesAction } from "@/stores/useKeyboardStore";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
@@ -114,7 +115,7 @@ export function MarkdownEditor({
             "markdown-note text-sm text-text dark:text-text-dark leading-relaxed break-words px-3 py-2 min-h-40 w-full outline-none",
         },
         handleKeyDown: (_view, event) => {
-          if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+          if (onSubmitRef.current && matchesAction("submit", event)) {
             onSubmitRef.current?.();
             return true;
           }

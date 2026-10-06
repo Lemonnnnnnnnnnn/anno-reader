@@ -18,6 +18,7 @@
  */
 
 import { useRef } from "react";
+import { useKeyboardAction } from "@/hooks/useKeyboardAction";
 import { Button, TextArea } from "@/components/primitives";
 import { Pencil, Highlighter, Languages, Bot, Volume2, Zap } from "lucide-react";
 import { useTTS } from "@/hooks/useTTS";
@@ -83,6 +84,21 @@ export function TextSelectionToolbar({
   });
 
   const { speak, isSpeaking } = useTTS(selection?.text ?? "");
+
+  const selectionReady = !!selection && mode === "default" && !isCreating;
+  const dispatchSelection = (callback?: (data: SelectionActionData) => void) => {
+    if (!selection || !callback) return;
+    callback({ selectedText: selection.text, chapterHref, startOffset: selection.startOffset, endOffset: selection.endOffset, sentence: selection.sentence, paragraph: selection.paragraph });
+    resetSelection();
+  };
+  useKeyboardAction("selectionNote", handleAddNote, selectionReady);
+  useKeyboardAction("selectionHighlight", handleHighlight, selectionReady);
+  useKeyboardAction("selectionTranslate", () => dispatchSelection(onTranslate), selectionReady && !!onTranslate);
+  useKeyboardAction("selectionQuickTranslate", () => dispatchSelection(onQuickTranslate), selectionReady && !!onQuickTranslate);
+  useKeyboardAction("selectionAskAI", () => {
+    if (selection && onAskAI) { onAskAI(selection.text); resetSelection(); }
+  }, selectionReady && !!onAskAI);
+  useKeyboardAction("selectionSpeak", () => { void speak(); }, selectionReady);
 
   if (!selection) return null;
 

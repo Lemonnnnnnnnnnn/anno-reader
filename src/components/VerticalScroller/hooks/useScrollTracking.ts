@@ -10,6 +10,8 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useBookStore } from "@/stores/useBookStore";
+import { KEYBOARD_ACTIONS } from "@/lib/keyboard";
+import { parseHotkey } from "@tanstack/react-hotkeys";
 
 const RESTORE_MIN_FRAME_COUNT = 4;
 const RESTORE_STABLE_FRAME_COUNT = 3;
@@ -100,30 +102,43 @@ export function injectScrollScript(srcdoc: string): string {
 export const KEYBOARD_FORWARDER_SCRIPT = `
 <script>
 (function() {
-  var FORWARD_KEYS = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'j', 'k'];
+  var shortcuts = ${JSON.stringify(KEYBOARD_ACTIONS.filter((action) => action.scope === "navigation" || action.scope === "selection").flatMap((action) => action.defaults.map((binding) => parseHotkey(binding))))};
+  var blocked = false;
+  window.addEventListener('message', function(e) {
+    if (e.source !== window.parent || !e.data || e.data.type !== 'keyboard-config') return;
+    shortcuts = e.data.shortcuts;
+    blocked = e.data.blocked;
+  });
+  function isTyping(e) {
+    var el = e.target;
+    return el && (el.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])') || el.isContentEditable);
+  }
+  function matches(e, shortcut) {
+    if (!!e.ctrlKey !== shortcut.ctrl || !!e.metaKey !== shortcut.meta || !!e.altKey !== shortcut.alt || !!e.shiftKey !== shortcut.shift) return false;
+    if (shortcut.code) return e.code === shortcut.code;
+    var key = e.key === ' ' ? 'Space' : e.key;
+    if (key.toLowerCase() === shortcut.key.toLowerCase()) return true;
+    // Option/dead-key input may change the produced character on some layouts.
+    return e.code && e.code.indexOf('Key') === 0 && e.code.slice(3).toLowerCase() === shortcut.key.toLowerCase() && (e.altKey || e.key === 'Dead');
+  }
 
   window.addEventListener('keydown', function(e) {
-    if (FORWARD_KEYS.indexOf(e.key) === -1) return;
-
-    // Prevent native scroll for arrow up/down — parent handles smooth scrolling
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      e.preventDefault();
-    }
+    if (blocked || e.isComposing || e.getModifierState('AltGraph') || isTyping(e) || !shortcuts.some(function(shortcut) { return matches(e, shortcut); })) return;
+    e.preventDefault();
 
     window.parent.postMessage({
       type: 'iframe-keydown',
-      key: e.key
+      key: e.key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, shiftKey: e.shiftKey, repeat: e.repeat
     }, '*');
   });
 
   window.addEventListener('keyup', function(e) {
-    if (FORWARD_KEYS.indexOf(e.key) === -1) return;
-
     window.parent.postMessage({
       type: 'iframe-keyup',
-      key: e.key
+      key: e.key, code: e.code, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, shiftKey: e.shiftKey
     }, '*');
   });
+  window.parent.postMessage({ type: 'iframe-keyboard-ready' }, '*');
 })();
 </script>`;
 

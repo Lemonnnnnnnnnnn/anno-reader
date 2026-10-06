@@ -22,6 +22,7 @@ import type { BookMetadata } from "@/stores/useBookStore";
 import useTheme from "@/hooks/useTheme";
 import { getAppVersion } from "@/lib/version";
 import { useUpdateStore } from "@/stores/useUpdateStore";
+import { useKeyboardAction } from "@/hooks/useKeyboardAction";
 
 export function BookshelfPage() {
   const navigate = useNavigate();
@@ -152,6 +153,8 @@ export function BookshelfPage() {
     },
     [editingBook, updateBook, currentBook, updateBookMetadata]
   );
+
+  useKeyboardAction("settings", () => navigate("/settings"));
 
   if (loading) {
     return (

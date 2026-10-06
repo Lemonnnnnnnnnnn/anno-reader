@@ -26,6 +26,8 @@ import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DictionaryDrawer } from "@/components/DictionaryDrawer";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { FontSizePopover } from "@/components/FontSizePopover";
+import { useKeyboardAction } from "@/hooks/useKeyboardAction";
+import { useKeyboardBridge } from "@/hooks/useKeyboardBridge";
 import { Button } from "@/components/primitives";
 import { useRouteGuard, useEpubLoader, useKeyboardNav, useVimScroll, useAutoHideChrome } from "./hooks";
 import { parseCfiOffsets, scrollToAnchor, scrollToCharOffset } from "@/components/VerticalScroller/hooks/useScrollTracking";
@@ -71,6 +73,7 @@ export function ReaderPage() {
 
   // Keyboard navigation between chapters (pages for PDF)
   useKeyboardNav(parsedEpub);
+  useKeyboardBridge();
 
   // Shared scroll element for vim j/k scrolling: the EPUB chapter iframe
   // or the PDF page scroll container (never mounted simultaneously)
@@ -218,6 +221,14 @@ export function ReaderPage() {
     setAnnotationDrawerOpen(false);
     setDictionaryDrawerOpen(false);
   };
+
+  useKeyboardAction("settings", () => navigate("/settings"));
+  useKeyboardAction("toc", () => { setTocDrawerOpen(true); setChatDrawerOpen(false); });
+  useKeyboardAction("annotations", () => { setAnnotationDrawerOpen(true); setChatDrawerOpen(false); });
+  useKeyboardAction("dictionary", () => { setDictionaryDrawerOpen(true); setChatDrawerOpen(false); });
+  useKeyboardAction("chat", () => {
+    setChatDrawerOpen(true); setTocDrawerOpen(false); setAnnotationDrawerOpen(false); setDictionaryDrawerOpen(false);
+  });
 
   // Return null if no book (before redirect completes)
   if (!guardedBook) {
