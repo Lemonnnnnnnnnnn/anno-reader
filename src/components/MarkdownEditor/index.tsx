@@ -51,6 +51,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/primitives";
+import { NoteColor, NOTE_COLORS } from "./noteColor";
 
 interface MarkdownEditorProps {
   /** Markdown source the editor is seeded with on mount */
@@ -102,6 +103,7 @@ export function MarkdownEditor({
           link: { openOnClick: false },
         }),
         Markdown,
+        NoteColor,
         TaskList,
         TaskItem.configure({ nested: true }),
         // GFM tables: MarkdownView renders them (remark-gfm), so the editor
@@ -193,6 +195,7 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       code: editor.isActive("code"),
       codeBlock: editor.isActive("codeBlock"),
       link: editor.isActive("link"),
+      color: editor.getAttributes("noteColor").color ?? "",
     }),
   });
 
@@ -242,6 +245,17 @@ function EditorToolbar({ editor }: { editor: Editor }) {
       </ToolButton>
 
       <div className="w-px h-4 bg-border dark:bg-border-dark mx-1" />
+
+      <select aria-label="文字颜色" title="文字颜色" value={state.color}
+        className="max-w-24 rounded border border-border dark:border-border-dark bg-surface dark:bg-surface-dark text-text dark:text-text-dark text-xs p-1"
+        onChange={event => {
+          const color = event.target.value;
+          if (color) editor.chain().focus().setMark("noteColor", { color }).run();
+          else editor.chain().focus().unsetMark("noteColor").run();
+        }}>
+        <option value="">默认颜色</option>
+        {NOTE_COLORS.map(color => <option key={color.value} value={color.value}>{color.label}</option>)}
+      </select>
 
       <ToolButton
         active={state.h2}

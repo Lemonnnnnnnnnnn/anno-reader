@@ -15,6 +15,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "@tiptap/markdown";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { TableKit } from "@tiptap/extension-table";
+import { NoteColor } from "../noteColor";
 
 const extensions = [
   StarterKit.configure({
@@ -22,6 +23,7 @@ const extensions = [
     link: { openOnClick: false },
   }),
   Markdown,
+  NoteColor,
   TaskList,
   TaskItem.configure({ nested: true }),
   TableKit.configure({ table: { resizable: false } }),
@@ -44,6 +46,8 @@ function roundTrip(markdown: string): string {
 // not rewrite the stored note.
 const EXACT_SAMPLES = [
   "Plain paragraph text.",
+  'A <span data-note-color="red">colored **bold** word</span> here.',
+  '<span data-note-color="blue">中文颜色</span>',
   "**bold** and *italic* and ~~strike~~ and `code`",
   "## Heading\n\n### Subheading",
   "- one\n- two\n- three",

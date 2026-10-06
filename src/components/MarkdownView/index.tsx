@@ -15,6 +15,14 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import { NOTE_COLORS } from "@/lib/noteColors";
+
+const colorSchema = {
+  ...defaultSchema,
+  attributes: { ...defaultSchema.attributes, span: [["dataNoteColor", ...NOTE_COLORS.map(color => color.value)]] },
+};
 
 interface MarkdownViewProps {
   /** Markdown source to render */
@@ -26,7 +34,11 @@ interface MarkdownViewProps {
 export function MarkdownView({ content, className = "" }: MarkdownViewProps) {
   return (
     <div className={className}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, colorSchema]]}
+        components={{ span: ({ node, children }) => {
+          const color = NOTE_COLORS.find(color => color.value === node?.properties.dataNoteColor);
+          return <span className={color?.className}>{children}</span>;
+        } }}>{content}</ReactMarkdown>
     </div>
   );
 }
