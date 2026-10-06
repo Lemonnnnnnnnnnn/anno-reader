@@ -14,6 +14,7 @@ import { useChatStore } from "@/stores/useChatStore";
 import { importBook, EpubImportError } from "@/lib/import";
 import { BookCard } from "@/components/BookCard";
 import { ImportWebDialog } from "@/components/ImportWebDialog";
+import { TranslationButton } from "@/components/TranslationButton";
 import { EditBookMetadataDialog } from "@/components/EditBookMetadataDialog";
 import { Button, ErrorBanner, Modal } from "@/components/primitives";
 import { Settings, Book, Sun, Moon } from "lucide-react";
@@ -181,6 +182,7 @@ export function BookshelfPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <TranslationButton />
             <Button variant="secondary" onClick={() => setImportingWeb(true)}>
               Import Webpage
             </Button>

@@ -1,9 +1,13 @@
 import type { AIProvider } from "./types";
 
+export type TranslationThinking = "default" | "none" | "low" | "high" | "max";
+
 /**
  * Request to translate text via AI.
  */
 export interface TranslationRequest {
+  /** Explicit control used only by the standalone translator. */
+  thinkingControl?: TranslationThinking;
   /** The text to translate */
   text: string;
   /** Surrounding context for better translation */

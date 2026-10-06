@@ -55,6 +55,20 @@ const mockProvider: AIProvider = {
   enabled: true,
 };
 
+describe("standalone translation", () => {
+  it("uses a translation-only prompt and skips dictionary and reading context", async () => {
+    vi.clearAllMocks();
+    const signal = new AbortController().signal;
+    await new TranslationService().translatePlain("Hello", "Chinese", mockProvider, "low", signal);
+    expect(mockTranslateStream).toHaveBeenCalledWith(expect.objectContaining({
+      text: "Hello", userMessage: "Hello", context: "", targetLanguage: "Chinese",
+        thinkingControl: "low", systemMessage: expect.stringContaining("Always provide the full translation first"),
+    }), mockProvider, { abortSignal: signal });
+    expect(mockGetContext).not.toHaveBeenCalled();
+    expect(mockCreateDefaultAggregator).not.toHaveBeenCalled();
+  });
+});
+
 const mockRole: AIRole = {
   id: "test-role",
   name: "Test Role",

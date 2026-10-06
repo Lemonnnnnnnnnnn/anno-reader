@@ -97,6 +97,38 @@ describe("OpenAIProvider", () => {
   // translate()
   // =========================================================================
   describe("translate()", () => {
+    it.each([
+      ["none", "gpt-test", { reasoningEffort: "none" }],
+      ["low", "gpt-test", { reasoningEffort: "low" }],
+      ["high", "gpt-test", { reasoningEffort: "high" }],
+      ["max", "gpt-test", { reasoningEffort: "max" }],
+      ["none", "deepseek-chat", { thinking: { type: "disabled" } }],
+      ["low", "deepseek-test", { thinking: { type: "enabled" }, reasoningEffort: "low" }],
+      ["high", "deepseek-test", { thinking: { type: "enabled" }, reasoningEffort: "high" }],
+      ["max", "deepseek-test", { thinking: { type: "enabled" }, reasoningEffort: "max" }],
+    ] as const)("passes %s thinking control for %s through streaming provider options", async (thinkingControl, model, expected) => {
+      mockStreamText.mockReturnValue({ textStream: (async function* () { yield "你好"; })() });
+      const result = await provider.translateStream({ ...mockRequest, thinkingControl }, { ...mockProvider, model });
+      const chunks = [];
+      for await (const chunk of result.textStream) chunks.push(chunk);
+      expect(chunks.join("")).toBe("你好");
+      expect(mockStreamText).toHaveBeenCalledWith(expect.objectContaining({
+        providerOptions: { [mockProvider.name]: expected },
+      }));
+    });
+
+    it("omits thinking parameters when using service defaults", async () => {
+      mockStreamText.mockReturnValue({ textStream: (async function* () { yield "你好"; })() });
+      await provider.translateStream({ ...mockRequest, thinkingControl: "default" }, mockProvider);
+      expect(mockStreamText.mock.calls[0][0]).not.toHaveProperty("providerOptions");
+    });
+
+    it("recognizes the official DeepSeek endpoint even with a model alias", async () => {
+      mockStreamText.mockReturnValue({ textStream: (async function* () { yield "你好"; })() });
+      await provider.translateStream({ ...mockRequest, thinkingControl: "none" }, { ...mockProvider, baseUrl: "https://api.deepseek.com/v1", model: "custom-alias" });
+      expect(mockStreamText.mock.calls[0][0].providerOptions).toEqual({ [mockProvider.name]: { thinking: { type: "disabled" } } });
+    });
+
     it("should call generateText with correct model, system, prompt, maxOutputTokens, and temperature", async () => {
       mockGenerateText.mockResolvedValue({ text: "你好世界" });
 

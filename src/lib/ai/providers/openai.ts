@@ -15,6 +15,20 @@ import { useProxyConfigStore } from "@/stores/useProxyConfigStore";
 
 const errorHandler = new AIErrorHandler();
 
+function translationOptions(request: TranslationRequest, provider: AIProvider) {
+  const mode = request.thinkingControl;
+  if (!mode || mode === "default") return undefined;
+  const isDeepSeek = new URL(provider.baseUrl).hostname === "api.deepseek.com"
+    || provider.model.toLowerCase().includes("deepseek");
+  return {
+    [provider.name]: isDeepSeek
+      ? mode === "none"
+        ? { thinking: { type: "disabled" } }
+        : { thinking: { type: "enabled" }, reasoningEffort: mode }
+      : { reasoningEffort: mode },
+  };
+}
+
 /**
  * Create an AI SDK provider instance from our config shape.
  * Reused per-call to pick up any config changes, including proxy settings.
@@ -143,6 +157,7 @@ export class OpenAIProvider implements AITranslationService {
         prompt: request.userMessage,
         maxOutputTokens: provider.maxTokens,
         temperature: provider.temperature,
+        ...(request.thinkingControl && request.thinkingControl !== "default" ? { providerOptions: translationOptions(request, provider) } : {}),
       });
 
       const trimmed = text.trim();
@@ -177,6 +192,7 @@ export class OpenAIProvider implements AITranslationService {
         prompt: request.userMessage,
         maxOutputTokens: provider.maxTokens,
         temperature: provider.temperature,
+        ...(request.thinkingControl && request.thinkingControl !== "default" ? { providerOptions: translationOptions(request, provider) } : {}),
         abortSignal: options?.abortSignal,
         onError: ({ error }) => {
           streamError = error instanceof Error ? error : new Error(String(error));

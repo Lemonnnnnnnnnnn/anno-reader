@@ -26,6 +26,7 @@ import { AnnotationDrawer } from "@/components/AnnotationDrawer";
 import { DictionaryDrawer } from "@/components/DictionaryDrawer";
 import { ChatDrawer } from "@/components/ChatDrawer";
 import { FontSizePopover } from "@/components/FontSizePopover";
+import { TranslationButton } from "@/components/TranslationButton";
 import { useKeyboardAction } from "@/hooks/useKeyboardAction";
 import { useKeyboardBridge } from "@/hooks/useKeyboardBridge";
 import { Button } from "@/components/primitives";
@@ -302,6 +303,7 @@ export function ReaderPage() {
                   >
                     <Search size={16} />
                   </Button>
+                  <TranslationButton />
                   <Button
                     variant="icon"
                     className="ml-2"
