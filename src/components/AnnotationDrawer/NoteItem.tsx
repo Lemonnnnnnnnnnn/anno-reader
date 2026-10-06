@@ -4,6 +4,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
 import { formatTimestamp } from "./utils";
 import type { NoteItemProps } from "./types";
+import { NoteStarButton } from "@/components/NoteStarButton";
 
 /** Single note card inside the drawer with edit/delete actions. */
 export const NoteItem = memo(function NoteItem({ note, onPreview, draft, onDraftChange }: NoteItemProps) {
@@ -92,6 +93,7 @@ export const NoteItem = memo(function NoteItem({ note, onPreview, draft, onDraft
       {/* Action buttons */}
       {!isEditing && (
         <div className="flex items-center justify-end gap-0.5 px-2 pb-2">
+          <NoteStarButton note={note} />
           <Button
             variant="icon"
             onClick={handleStartEdit}

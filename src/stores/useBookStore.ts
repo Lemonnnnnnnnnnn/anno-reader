@@ -41,6 +41,7 @@ export interface Note {
   cfiRange: string;
   text: string;
   content: string;
+  starred?: boolean;
   createdAt: number;
 }
 

@@ -4,9 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VirtuosoMockContext } from "react-virtuoso";
 import { AnnotationDrawer } from "..";
 import { useBookStore } from "@/stores/useBookStore";
-import { updateNote } from "@/lib/annotations";
+import { updateNote, setNoteStarred } from "@/lib/annotations";
 
-vi.mock("@/lib/annotations", () => ({ updateNote: vi.fn(), deleteNote: vi.fn(), deleteHighlight: vi.fn() }));
+vi.mock("@/lib/annotations", () => ({ updateNote: vi.fn(), deleteNote: vi.fn(), deleteHighlight: vi.fn(), setNoteStarred: vi.fn() }));
 vi.mock("@/components/AnnotationDetailPanel", () => ({ AnnotationDetailPanel: () => null }));
 let container: HTMLDivElement;
 let root: Root;
@@ -55,6 +55,24 @@ afterEach(async () => {
 });
 
 describe("virtualized annotations", () => {
+  it("marks notes and filters important notes together with search", async () => {
+    vi.mocked(setNoteStarred).mockImplementation(async (id, starred) => {
+      useBookStore.setState(state => ({ notes: state.notes.map(note => note.id === id ? { ...note, starred } : note) }));
+    });
+    await click(container.querySelector('[aria-label="Star note"]')!);
+    expect(setNoteStarred).toHaveBeenCalledWith("note-499", true, "book");
+    await click(container.querySelector('[aria-label="Filter starred notes"]')!);
+    expect(container.querySelector('[aria-label="Filter starred notes"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.textContent).toContain("Notes (500)");
+    expect(container.querySelectorAll('[title="Edit note"]')).toHaveLength(1);
+    await input(container.querySelector("input")!, "needle");
+    expect(container.textContent).toContain("No matching notes");
+    await input(container.querySelector("input")!, "");
+    await click(container.querySelector('[aria-label="Unstar note"]')!);
+    expect(container.textContent).toContain("No starred notes yet");
+    await click(button("Highlights"));
+    expect(container.querySelector('[aria-label="Filter starred notes"]')).toBeNull();
+  });
   it("mounts only a small visible subset of 500 notes and highlights", async () => {
     const mounted = container.querySelectorAll('[title="Edit note"]').length;
     expect(mounted).toBeGreaterThan(0);

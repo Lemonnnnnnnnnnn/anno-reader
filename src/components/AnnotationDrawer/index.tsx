@@ -19,7 +19,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { useShallow } from "zustand/react/shallow";
 import { Drawer } from "@/components/primitives";
-import { Search, X } from "lucide-react";
+import { Search, Star, X } from "lucide-react";
 import { useBookStore } from "@/stores/useBookStore";
 import { NoteItem } from "./NoteItem";
 import { HighlightItem } from "./HighlightItem";
@@ -31,6 +31,7 @@ export type { AnnotationDrawerProps, TabKey };
 
 export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: AnnotationDrawerProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("notes");
+  const [starredOnly, setStarredOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [previewNoteId, setPreviewNoteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -107,6 +108,9 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
     );
   }, [sortedNotes, searchQuery]);
 
+  const starredNotes = useMemo(() => filteredNotes.filter(note => note.starred), [filteredNotes]);
+  const visibleNotes = starredOnly ? starredNotes : filteredNotes;
+
   const filteredHighlights = useMemo(() => {
     if (!searchQuery.trim()) return sortedHighlights;
     const q = searchQuery.toLowerCase();
@@ -114,8 +118,8 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
   }, [sortedHighlights, searchQuery]);
 
   const isSearching = searchQuery.trim().length > 0;
-  const isEmpty = activeTab === "notes"
-    ? filteredNotes.length === 0
+  const isEmpty = activeTab !== "highlights"
+    ? visibleNotes.length === 0
     : filteredHighlights.length === 0;
 
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -192,23 +196,32 @@ export function AnnotationDrawer({ open, onClose, onNavigate, chapters }: Annota
         </button>
       </div>
 
+      {activeTab === "notes" && <div className="flex justify-end mb-2 shrink-0">
+        <button type="button" title={starredOnly ? "Show all notes" : "Show starred notes"} aria-label="Filter starred notes"
+          aria-pressed={starredOnly} onClick={() => setStarredOnly(value => !value)}
+          className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs cursor-pointer transition-colors ${starredOnly ? "text-amber-600 dark:text-amber-400 bg-amber-500/10" : "text-text-secondary dark:text-text-secondary-dark hover:bg-surface-alt dark:hover:bg-surface-alt-dark"}`}>
+          <Star size={14} className={starredOnly ? "fill-current" : ""} /><span>{starredNotes.length}</span>
+        </button>
+      </div>}
+
       {isEmpty ? (
         <div className="flex flex-1 items-center justify-center">
           <p className="text-text-muted dark:text-text-muted-dark text-sm">
             {isSearching
-              ? activeTab === "notes"
+              ? activeTab !== "highlights"
                 ? "No matching notes"
                 : "No matching highlights"
+              : activeTab === "notes" && starredOnly ? "No starred notes yet"
               : activeTab === "notes"
                 ? "No notes yet"
                 : "No highlights yet"}
           </p>
         </div>
-      ) : activeTab === "notes" ? (
+      ) : activeTab !== "highlights" ? (
         <Virtuoso
-          key={`notes-${bookId}-${searchQuery}`}
+          key={`${activeTab}-${starredOnly}-${bookId}-${searchQuery}`}
           className="flex-1 min-h-0"
-          data={filteredNotes}
+          data={visibleNotes}
           computeItemKey={(_, note) => note.id}
           defaultItemHeight={150}
           increaseViewportBy={200}

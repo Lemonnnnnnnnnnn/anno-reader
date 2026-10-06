@@ -31,6 +31,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useBookStore } from "@/stores/useBookStore";
 import { Drawer, Modal, Button } from "@/components/primitives";
 import { MarkdownEditor } from "@/components/MarkdownEditor";
+import { NoteStarButton } from "@/components/NoteStarButton";
 import { ChatPanel } from "@/components/chat";
 import { Trash2, MessageSquare, Volume2, CornerDownRight } from "lucide-react";
 import { deleteNote, updateNote } from "@/lib/annotations";
@@ -292,6 +293,7 @@ export function AnnotationDetailPanel({
   const noteFooter = !chatMode && (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-1">
+        <NoteStarButton note={note} />
         {confirmDelete ? (
           <>
             <span className="text-xs text-text-secondary dark:text-text-secondary-dark mr-2">

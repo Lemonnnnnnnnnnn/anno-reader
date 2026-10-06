@@ -64,6 +64,7 @@ function toNoteData(note: Note): NoteData {
     cfiRange: note.cfiRange,
     text: note.text,
     content: note.content,
+    starred: note.starred === true,
     createdAt: new Date(note.createdAt).toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -80,6 +81,7 @@ function toStoreNote(data: NoteData): Note {
     cfiRange: data.cfiRange,
     text: data.text,
     content: data.content,
+    starred: data.starred === true,
     createdAt: new Date(data.createdAt).getTime(),
   };
 }
@@ -229,6 +231,19 @@ export async function updateNote(
 
   // Persist to disk
   await persistNotes(bookId);
+}
+
+/** Mark a note as important, retaining its content and reading location. */
+export async function setNoteStarred(noteId: string, starred: boolean, bookId: string): Promise<void> {
+  const note = useBookStore.getState().notes.find(n => n.id === noteId && n.bookId === bookId);
+  if (!note) return;
+  useBookStore.setState(state => ({ notes: state.notes.map(n => n.id === noteId && n.bookId === bookId ? { ...n, starred } : n) }));
+  try {
+    await persistNotes(bookId);
+  } catch (error) {
+    useBookStore.setState(state => ({ notes: state.notes.map(n => n.id === noteId && n.bookId === bookId && n.starred === starred ? { ...n, starred: note.starred } : n) }));
+    throw error;
+  }
 }
 
 /**

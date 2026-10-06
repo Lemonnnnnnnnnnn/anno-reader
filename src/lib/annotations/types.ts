@@ -21,6 +21,8 @@ export interface NoteData {
   text: string;
   /** User's note content */
   content: string;
+  /** Missing on older notes; treated as unstarred. */
+  starred?: boolean;
   /** ISO timestamp of creation */
   createdAt: string;
   /** ISO timestamp of last update */

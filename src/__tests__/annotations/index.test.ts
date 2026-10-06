@@ -10,6 +10,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useBookStore, type Highlight } from "@/stores/useBookStore";
 import { createTestHighlight } from "@/__tests__/helpers/annotation-test-helpers";
+import { setNoteStarred, restoreNotes, updateNote } from "@/lib/annotations";
+import { saveNotesToFile, loadNotesFromFile } from "@/lib/annotations/persistence";
 
 // Mock persistence module
 vi.mock("@/lib/annotations/persistence", () => ({
@@ -20,6 +22,39 @@ vi.mock("@/lib/annotations/persistence", () => ({
   saveHighlightsToFile: vi.fn().mockResolvedValue(undefined),
   deleteHighlightsFile: vi.fn().mockResolvedValue(undefined),
 }));
+
+describe("note stars", () => {
+  const note = { id: "note-1", bookId: "book-1", chapterHref: "chapter", cfiRange: "range", text: "quote", content: "content", createdAt: 1000 };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useBookStore.setState({ notes: [{ ...note }], highlights: [] });
+  });
+  it("persists stars, preserves them across content edits and restores them from disk", async () => {
+    await setNoteStarred(note.id, true, note.bookId);
+    await updateNote(note.id, "edited", note.bookId);
+    expect(useBookStore.getState().notes[0]).toMatchObject({ starred: true, content: "edited" });
+    const saved = vi.mocked(saveNotesToFile).mock.calls.at(-1)![1];
+    expect(saved[0]).toMatchObject({ starred: true, content: "edited" });
+    vi.mocked(loadNotesFromFile).mockResolvedValueOnce(saved);
+    useBookStore.setState({ notes: [] });
+    await restoreNotes(note.bookId);
+    expect(useBookStore.getState().notes[0]).toMatchObject({ starred: true, content: "edited" });
+    await setNoteStarred(note.id, false, note.bookId);
+    expect(useBookStore.getState().notes[0].starred).toBe(false);
+  });
+  it("loads old notes without a star as unstarred", async () => {
+    vi.mocked(loadNotesFromFile).mockResolvedValueOnce([{ ...note, createdAt: new Date(1000).toISOString(), updatedAt: new Date(1000).toISOString() }]);
+    await restoreNotes(note.bookId);
+    expect(useBookStore.getState().notes[0].starred).toBe(false);
+  });
+  it("rolls back a star when saving fails and ignores notes belonging to another book", async () => {
+    vi.mocked(saveNotesToFile).mockRejectedValueOnce(new Error("disk failure"));
+    await expect(setNoteStarred(note.id, true, note.bookId)).rejects.toThrow("disk failure");
+    expect(useBookStore.getState().notes[0].starred).toBeUndefined();
+    await setNoteStarred(note.id, true, "other-book");
+    expect(saveNotesToFile).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe("updateHighlight", () => {
   beforeEach(() => {
