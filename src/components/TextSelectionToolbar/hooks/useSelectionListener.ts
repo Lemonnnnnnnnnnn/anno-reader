@@ -10,12 +10,14 @@
 import { useState, useEffect, useRef } from "react";
 import { type SelectionMessage } from "@/lib/selection";
 import type { SelectionState, ToolbarMode } from "../constants";
+import { useOverlayStore } from "@/stores/useOverlayStore";
 
 export function useSelectionListener() {
   const [selection, setSelection] = useState<SelectionState | null>(null);
   const [mode, setMode] = useState<ToolbarMode>("default");
   const [noteText, setNoteText] = useState("");
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const overlayOpen = useOverlayStore((state) => state.openCount > 0);
 
   const clearPendingSelectionReset = () => {
     if (clearTimerRef.current) {
@@ -23,6 +25,14 @@ export function useSelectionListener() {
       clearTimerRef.current = null;
     }
   };
+
+  useEffect(() => {
+    if (!overlayOpen) return;
+    clearPendingSelectionReset();
+    setSelection(null);
+    setMode("default");
+    setNoteText("");
+  }, [overlayOpen]);
 
   /**
    * Listen for text-selection messages from the iframe.
@@ -32,6 +42,7 @@ export function useSelectionListener() {
       const data = event.data;
 
       if (data?.type === "text-selection") {
+        if (useOverlayStore.getState().openCount > 0) return;
         clearPendingSelectionReset();
         const msg = data as SelectionMessage;
         setSelection({
@@ -94,7 +105,7 @@ export function useSelectionListener() {
   };
 
   return {
-    selection,
+    selection: overlayOpen ? null : selection,
     setSelection,
     mode,
     setMode,

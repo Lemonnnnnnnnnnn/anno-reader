@@ -17,6 +17,7 @@
 import { type ReactNode, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useOverlayPresence } from "@/hooks/useOverlayPresence";
 import { Button } from "@/components/primitives";
 
 export interface ModalProps {
@@ -50,6 +51,7 @@ export function Modal({
   children,
   footer,
 }: ModalProps) {
+  useOverlayPresence(open);
   // Escape key handler
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {

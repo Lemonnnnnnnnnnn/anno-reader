@@ -15,6 +15,7 @@
 
 import { type ReactNode, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
+import { useOverlayPresence } from "@/hooks/useOverlayPresence";
 import { Button } from "@/components/primitives";
 
 export interface DrawerProps {
@@ -46,6 +47,7 @@ export function Drawer({
   footer,
   contentClassName = "flex-1 overflow-y-auto p-4",
 }: DrawerProps) {
+  useOverlayPresence(open);
   // Escape key handler
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {

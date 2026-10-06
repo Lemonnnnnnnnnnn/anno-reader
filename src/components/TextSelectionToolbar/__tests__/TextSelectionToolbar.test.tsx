@@ -21,6 +21,8 @@ import { TextSelectionToolbar } from "..";
 import { useBookStore } from "@/stores/useBookStore";
 import { createHighlight } from "@/lib/annotations";
 import { HIGHLIGHT_COLORS } from "../constants";
+import { Modal, Drawer } from "@/components/primitives";
+import { useOverlayStore } from "@/stores/useOverlayStore";
 
 const QUICK_TITLE = "Translate and save as note";
 
@@ -83,6 +85,42 @@ afterEach(() => {
 });
 
 describe("TextSelectionToolbar quick translate", () => {
+  it.each([Modal, Drawer])("dismisses selection when an overlay opens and requires a fresh selection after closing", async (Overlay) => {
+    const render = (open: boolean) => act(() => root.render(<>
+      <TextSelectionToolbar containerRef={{ current: container }} chapterHref="chapter1.xhtml" />
+      <Overlay open={open} onClose={() => {}} title="Test">Content</Overlay>
+    </>));
+    render(false);
+    await postSelection();
+    expect(container.querySelector("[data-selection-toolbar]")).not.toBeNull();
+    click("Add note to selection");
+    expect(container.querySelector("textarea")).not.toBeNull();
+    render(true);
+    expect(container.querySelector("[data-selection-toolbar]")).toBeNull();
+    await postSelection();
+    expect(container.querySelector("[data-selection-toolbar]")).toBeNull();
+    render(false);
+    expect(container.querySelector("[data-selection-toolbar]")).toBeNull();
+    await postSelection();
+    expect(container.querySelector("[data-selection-toolbar]")).not.toBeNull();
+    expect(container.querySelector("textarea")).toBeNull();
+  });
+
+  it("continues suppressing selection until all nested overlays close, and cleans up on unmount", async () => {
+    const render = (modal: boolean, drawer: boolean) => act(() => root.render(<>
+      <TextSelectionToolbar containerRef={{ current: container }} chapterHref="chapter1.xhtml" />
+      <Drawer open={drawer} onClose={() => {}}><Modal open={modal} onClose={() => {}}>Content</Modal></Drawer>
+    </>));
+    render(true, true);
+    expect(useOverlayStore.getState().openCount).toBe(2);
+    render(false, true);
+    expect(useOverlayStore.getState().openCount).toBe(1);
+    await postSelection();
+    expect(container.querySelector("[data-selection-toolbar]")).toBeNull();
+    act(() => root.render(null));
+    expect(useOverlayStore.getState().openCount).toBe(0);
+  });
+
   it("passes the selection to onQuickTranslate and closes the toolbar", async () => {
     const onQuickTranslate = vi.fn();
     const onTranslate = vi.fn();
