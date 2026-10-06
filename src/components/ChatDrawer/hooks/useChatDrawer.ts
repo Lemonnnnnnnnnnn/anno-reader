@@ -162,7 +162,9 @@ export function useChatDrawer({
         ? initialMessage.slice(0, 50) + "..."
         : initialMessage;
       const newId = crypto.randomUUID();
-      createConversation(newId, bookId, bindCurrentChapter());
+      const chapter = bindCurrentChapter();
+      setContextChapter(chapter);
+      createConversation(newId, bookId, chapter);
       // Rename with the selection text as title
       useChatStore.getState().renameConversation(newId, title);
       setView("conversation");
