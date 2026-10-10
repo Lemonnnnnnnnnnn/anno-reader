@@ -212,6 +212,11 @@ export function useEpubLoader() {
         setParsedEpub(loaded.parsed);
         installPdfDocument(loaded.pdfDocument);
 
+        // Start with a valid location for this book. With no saved progress,
+        // the previous book's chapter index must not leak into this one.
+        setCurrentChapter(loaded.parsed.chapters[0].href, 0);
+        useBookStore.getState().setScrollPosition(0);
+
         // Restore saved notes, highlights, summaries, and progress
         try {
           await restoreNotes(currentBook!.id);
@@ -220,6 +225,16 @@ export function useEpubLoader() {
           await restoreProgress(currentBook!.id, readPath);
         } catch (restoreErr) {
           console.warn("Failed to restore annotations:", restoreErr);
+        }
+
+        // Synced or older progress can refer to a chapter that no longer exists.
+        const store = useBookStore.getState();
+        const chapter = loaded.parsed.chapters[store.ui.currentChapterIndex];
+        if (!chapter) {
+          setCurrentChapter(loaded.parsed.chapters[0].href, 0);
+          store.setScrollPosition(0);
+        } else {
+          setCurrentChapter(chapter.href, store.ui.currentChapterIndex);
         }
 
         // Start tracking progress (auto-save on scroll/chapter change)
@@ -246,7 +261,7 @@ export function useEpubLoader() {
       // NOTE: the PDF document is released via installPdfDocument/unmount,
       // not here — this cleanup also runs when parsedEpub becomes non-null.
     };
-  }, [currentBook, parsedEpub, installPdfDocument]);
+  }, [currentBook, parsedEpub, installPdfDocument, setCurrentChapter]);
 
   // Release the pdf.js document when the reader unmounts
   useEffect(() => {
