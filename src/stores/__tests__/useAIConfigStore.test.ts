@@ -231,6 +231,67 @@ describe("useAIConfigStore", () => {
     });
   });
 
+  // -- Summary preference actions -------------------------------------------
+
+  describe("updateSummaryPreferences", () => {
+    it("starts with default summary preferences", () => {
+      resetStore();
+      // resetStore fixture omits the field; defaults apply on first update
+      useAIConfigStore.getState().updateSummaryPreferences({});
+      const { summaryPreferences } = useAIConfigStore.getState().config;
+      expect(summaryPreferences).toEqual({ language: "auto", detail: "brief" });
+    });
+
+    it("updates language only, keeping other fields", () => {
+      resetStore();
+      useAIConfigStore.getState().updateSummaryPreferences({});
+      useAIConfigStore.getState().updateSummaryPreferences({ language: "english" });
+      const { summaryPreferences } = useAIConfigStore.getState().config;
+      expect(summaryPreferences).toEqual({ language: "english", detail: "brief" });
+    });
+
+    it("merges partial updates over existing preferences", () => {
+      resetStore();
+      useAIConfigStore.getState().updateSummaryPreferences({});
+      useAIConfigStore.getState().updateSummaryPreferences({ language: "chinese" });
+      useAIConfigStore.getState().updateSummaryPreferences({ detail: "detailed" });
+      const { summaryPreferences } = useAIConfigStore.getState().config;
+      expect(summaryPreferences).toEqual({ language: "chinese", detail: "detailed" });
+    });
+  });
+
+  describe("loadConfig summary preferences", () => {
+    it("falls back to defaults when persisted config has none", async () => {
+      mockReadConfig.mockResolvedValue({ dataDir: "/test/data" });
+      mockExists.mockResolvedValue(true);
+      mockReadTextFile.mockResolvedValue(
+        JSON.stringify({ providers: [], selectedProviderId: null }),
+      );
+
+      await useAIConfigStore.getState().loadConfig();
+
+      const { summaryPreferences } = useAIConfigStore.getState().config;
+      expect(summaryPreferences).toEqual({ language: "auto", detail: "brief" });
+    });
+
+    it("restores persisted preferences and merges missing fields", async () => {
+      mockReadConfig.mockResolvedValue({ dataDir: "/test/data" });
+      mockExists.mockResolvedValue(true);
+      mockReadTextFile.mockResolvedValue(
+        JSON.stringify({
+          providers: [],
+          selectedProviderId: null,
+          summaryPreferences: { language: "english" },
+        }),
+      );
+
+      await useAIConfigStore.getState().loadConfig();
+
+      const { summaryPreferences } = useAIConfigStore.getState().config;
+      expect(summaryPreferences).toEqual({ language: "english", detail: "brief" });
+    });
+  });
+
   // -- Role actions --------------------------------------------------------
 
   describe("addRole", () => {

@@ -3,6 +3,8 @@
  * Simplified: removed AIPrompt, PromptTemplate, custom ContextType.
  */
 
+import type { SummaryPreferences } from "@/lib/summaries/types";
+
 // ---------------------------------------------------------------------------
 // Provider Types
 // ---------------------------------------------------------------------------
@@ -165,6 +167,8 @@ export interface AIConfig {
   roles: AIRole[];
   /** ID of the currently active role, null if none selected */
   selectedRoleId: string | null;
+  /** Chapter summary preferences (language, detail level) */
+  summaryPreferences: SummaryPreferences;
 }
 
 // ---------------------------------------------------------------------------

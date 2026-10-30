@@ -16,6 +16,7 @@ import type { TabId } from "./constants";
 import { TABS } from "./constants";
 import { ProviderTab } from "./ProviderTab";
 import { AssistantTab } from "./AssistantTab";
+import { SummaryTab } from "./SummaryTab";
 
 export function AIConfigPage() {
   const navigate = useNavigate();
@@ -68,6 +69,7 @@ export function AIConfigPage() {
         <div className="max-w-[800px] mx-auto flex flex-col gap-6">
           {activeTab === "provider" && <ProviderTab />}
           {activeTab === "assistant" && <AssistantTab />}
+          {activeTab === "summary" && <SummaryTab />}
         </div>
       </main>
     </div>

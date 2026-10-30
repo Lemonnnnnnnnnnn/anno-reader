@@ -232,5 +232,14 @@ export {
   saveSummariesToFile,
   deleteSummariesFile,
 } from "./persistence";
-export type { SummaryData } from "./types";
-export { generateSummaryStream } from "./summaryService";
+export {
+  generateSummaryStream,
+  buildSummarySystemPrompt,
+} from "./summaryService";
+export type {
+  SummaryData,
+  SummaryPreferences,
+  SummaryLanguage,
+  SummaryDetail,
+} from "./types";
+export { DEFAULT_SUMMARY_PREFERENCES } from "./types";

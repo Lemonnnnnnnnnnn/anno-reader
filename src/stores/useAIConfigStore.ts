@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import type { AIConfig, AIProvider, ContextConfig, AIRole } from "@/lib/ai/types";
 import { BUILTIN_ROLES } from "@/lib/ai/constants";
+import {
+  DEFAULT_SUMMARY_PREFERENCES,
+  type SummaryPreferences,
+} from "@/lib/summaries/types";
 import { readConfig } from "@/lib/storage/config";
 import { writeTextFile, readTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 
@@ -24,6 +28,9 @@ export interface AIConfigStore {
   updateRole: (id: string, updates: Partial<AIRole>) => void;
   removeRole: (id: string) => void;
   setSelectedRole: (id: string | null) => void;
+
+  // Summary preference actions
+  updateSummaryPreferences: (prefs: Partial<SummaryPreferences>) => void;
 
   // Persistence actions
   persistConfig: () => Promise<void>;
@@ -62,6 +69,7 @@ const DEFAULT_CONFIG: AIConfig = {
   },
   roles: BUILTIN_ROLES,
   selectedRoleId: BUILTIN_ROLES.find(r => r.isDefault)?.id ?? null,
+  summaryPreferences: { ...DEFAULT_SUMMARY_PREFERENCES },
 };
 
 /**
@@ -171,6 +179,20 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
     persistAfterSet(get);
   },
 
+  updateSummaryPreferences: (prefs) => {
+    set((state) => ({
+      config: {
+        ...state.config,
+        summaryPreferences: {
+          ...DEFAULT_SUMMARY_PREFERENCES,
+          ...state.config.summaryPreferences,
+          ...prefs,
+        },
+      },
+    }));
+    persistAfterSet(get);
+  },
+
   persistConfig: async () => {
     const config = await readConfig();
     if (!config) {
@@ -242,6 +264,10 @@ export const useAIConfigStore = create<AIConfigStore>((set, get) => ({
         },
         roles: parsed.roles ?? DEFAULT_CONFIG.roles,
         selectedRoleId: parsed.selectedRoleId ?? DEFAULT_CONFIG.selectedRoleId,
+        summaryPreferences: {
+          ...DEFAULT_CONFIG.summaryPreferences,
+          ...(parsed.summaryPreferences ?? {}),
+        },
       };
 
       set({ config: merged, isLoaded: true });

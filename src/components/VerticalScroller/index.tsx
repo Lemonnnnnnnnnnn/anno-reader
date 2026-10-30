@@ -35,6 +35,8 @@ import {
 } from "@/lib/summaries";
 import { injectSummaryButton } from "@/lib/summaries/injectSummaryButton";
 import { useBookStore } from "@/stores/useBookStore";
+import { useAIConfigStore } from "@/stores/useAIConfigStore";
+import type { SummaryLanguage } from "@/lib/summaries/types";
 import { injectCssIntoIframe, buildThemeOverrideCss } from "@/lib/css";
 import { ReaderOverlays } from "../ReaderOverlays";
 import { injectLinkNavigationScript, type LinkClickMessage } from "@/lib/linkNavigation";
@@ -190,6 +192,7 @@ export function VerticalScroller({
           type: "summary-init",
           hasSummary: !!existing,
           content: existing?.content ?? null,
+          language: useAIConfigStore.getState().config.summaryPreferences.language,
         });
       }, 0);
     });
@@ -222,6 +225,43 @@ export function VerticalScroller({
         // Trigger (or re-trigger) streaming chapter summary generation.
         void runSummaryRef.current();
       }
+      if (event.data?.type === "summary-pref-change") {
+        // Quick language switch from the injected card. Persist the
+        // preference, then regenerate so the change applies immediately.
+        const language = event.data?.language;
+        if (
+          language === "auto" ||
+          language === "chinese" ||
+          language === "english"
+        ) {
+          useAIConfigStore
+            .getState()
+            .updateSummaryPreferences({ language: language as SummaryLanguage });
+          if (existingSummaryRef.current) {
+            void runSummaryRef.current();
+          }
+        }
+      }
+      if (event.data?.type === "summary-copy") {
+        // The sandboxed iframe may not have clipboard access — copy on its
+        // behalf and acknowledge so the card can show feedback.
+        const text = typeof event.data?.text === "string" ? event.data.text : "";
+        const iframe = iframeRef.current;
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            iframe?.contentWindow?.postMessage(
+              { type: "summary-copied", ok: true },
+              "*",
+            );
+          })
+          .catch(() => {
+            iframe?.contentWindow?.postMessage(
+              { type: "summary-copied", ok: false },
+              "*",
+            );
+          });
+      }
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
@@ -242,7 +282,7 @@ export function VerticalScroller({
     if (!text || text.trim().length === 0) {
       postToIframe({
         type: "summary-error",
-        message: "本章没有可总结的文本内容。",
+        message: "No readable text in this chapter to summarize.",
       });
       return;
     }
@@ -287,7 +327,7 @@ export function VerticalScroller({
       postToIframe({ type: "summary-done", content: fullText });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      const message = err instanceof Error ? err.message : "生成总结失败";
+      const message = err instanceof Error ? err.message : "Failed to generate summary";
       postToIframe({ type: "summary-error", message });
     } finally {
       if (summaryAbortRef.current === controller) {

@@ -63,7 +63,7 @@ export function usePageSummary({
 
     if (!chapterText || chapterText.trim().length === 0) {
       setStatus("error");
-      setError("本章没有可总结的文本内容。");
+      setError("No readable text on this page to summarize.");
       return;
     }
 
@@ -97,7 +97,7 @@ export function usePageSummary({
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
       setStatus("error");
-      setError(err instanceof Error ? err.message : "生成总结失败");
+      setError(err instanceof Error ? err.message : "Failed to generate summary");
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;

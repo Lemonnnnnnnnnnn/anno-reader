@@ -7,11 +7,12 @@
 
 import type { AIProvider, AIRole, ProviderType } from "@/lib/ai/types";
 
-export type TabId = "provider" | "assistant";
+export type TabId = "provider" | "assistant" | "summary";
 
 export const TABS: { id: TabId; label: string }[] = [
   { id: "provider", label: "Provider" },
   { id: "assistant", label: "Assistant" },
+  { id: "summary", label: "Summary" },
 ];
 
 export const EMPTY_PROVIDER: Omit<AIProvider, "id"> = {

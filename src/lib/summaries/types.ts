@@ -5,6 +5,33 @@
  */
 
 /**
+ * Output language for generated summaries.
+ * - "auto": match the language of the chapter body
+ * - "chinese": always summarize in Simplified Chinese
+ * - "english": always summarize in English
+ */
+export type SummaryLanguage = "auto" | "chinese" | "english";
+
+/** Level of detail for generated summaries. */
+export type SummaryDetail = "brief" | "detailed";
+
+/**
+ * User preferences applied when generating chapter summaries.
+ * Persisted as part of AIConfig (ai-config.json).
+ */
+export interface SummaryPreferences {
+  /** Language of the generated summary */
+  language: SummaryLanguage;
+  /** How detailed the summary should be */
+  detail: SummaryDetail;
+}
+
+export const DEFAULT_SUMMARY_PREFERENCES: SummaryPreferences = {
+  language: "auto",
+  detail: "brief",
+};
+
+/**
  * Persisted chapter summary for a single book.
  * Stored as JSON in the app's data directory.
  */
