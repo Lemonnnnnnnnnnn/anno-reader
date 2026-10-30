@@ -199,10 +199,126 @@ export function parseCfiOffsets(cfi: string): { start: number; end: number } | n
   return { start: parseInt(match[1], 10), end: parseInt(match[2], 10) };
 }
 
+// ---------------------------------------------------------------------------
+// Sentence context extraction
+//
+// PDF pages carry no paragraph structure — only line-wrapped visual lines —
+// so a single line is usually a sentence FRAGMENT. To give the AI the same
+// full-sentence context the EPUB path gets from the DOM, the lines are
+// joined into a flow and split on sentence terminators before extracting
+// the sentence (or paragraph) containing the selection.
+// ---------------------------------------------------------------------------
+
+/** Sentence terminators — kept in sync with extractSentenceContext in lib/ai/context.ts. */
+const SENTENCE_TERMINATORS = ".!?\u3002\uff01\uff1f";
+
+/** Quotes/brackets that may follow a terminator and still close the sentence. */
+const SENTENCE_CLOSERS = "\"'\u201d\u2019)]\u300b\uff09";
+
+/** Max sentence length — mirrors MAX_SENTENCE_CONTEXT_CHARS in lib/ai/context.ts. */
+const MAX_SENTENCE_CONTEXT_CHARS = 500;
+
+/** A sentence span within the joined line flow. */
+interface SentenceSpan {
+  start: number;
+  end: number;
+}
+
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function isTerminator(ch: string): boolean {
+  return SENTENCE_TERMINATORS.includes(ch);
+}
+
+function isCloser(ch: string): boolean {
+  return SENTENCE_CLOSERS.includes(ch);
+}
+
 /**
- * Find sentence-ish context for a selection: the first extracted line
- * that contains the selected text (PDF lines are short, so the line is
- * a good "sentence" proxy). Falls back to the selection itself.
+ * Merge line-end hyphenations created by joining lines with spaces
+ * ("exam- ple" → "example"). In-line hyphens ("well-known") are never
+ * followed by a space in a single line, so they are left untouched.
+ */
+function dehyphenate(text: string): string {
+  return text.replace(/([A-Za-z])- /g, "$1");
+}
+
+/**
+ * Drop spaces between adjacent CJK characters — CJK text uses no spaces,
+ * so any space there is a line-join artifact. Display-only cleanup: the
+ * flow used for selection matching always keeps the spaces.
+ */
+const CJK_CHAR = "\\u4e00-\\u9fff\\u3040-\\u30ff\\u3000-\\u303f\\uff00-\\uffef";
+const cjkJoinSpaceRegex = new RegExp(`([${CJK_CHAR}]) +(?=[${CJK_CHAR}])`, "g");
+
+function dropCjkJoinSpaces(text: string): string {
+  return text.replace(cjkJoinSpaceRegex, "$1");
+}
+
+/** Split the joined line flow into sentence spans (whitespace included, trimmed later). */
+function splitSentences(flow: string): SentenceSpan[] {
+  const spans: SentenceSpan[] = [];
+  let start = 0;
+
+  for (let i = 0; i < flow.length; i++) {
+    if (!isTerminator(flow[i])) continue;
+    let end = i + 1;
+    while (end < flow.length && isCloser(flow[end])) end++;
+    if (flow.slice(start, end).trim().length > 0) {
+      spans.push({ start, end });
+    }
+    start = end;
+  }
+  // Trailing fragment without a terminator (sentence may continue on the next page)
+  if (flow.slice(start).trim().length > 0) {
+    spans.push({ start, end: flow.length });
+  }
+  return spans;
+}
+
+/**
+ * Locate the (whitespace-normalized) selection within the joined line flow.
+ * Selections spanning lines contain newlines that normalize to the same
+ * single spaces the flow is built from.
+ */
+function findSelectionInFlow(
+  selectedText: string,
+  flow: string,
+): { start: number; end: number } | null {
+  const needle = normalizeWhitespace(selectedText);
+  if (!needle) return null;
+  const idx = flow.indexOf(needle);
+  if (idx === -1) return null;
+  return { start: idx, end: idx + needle.length };
+}
+
+/** First line fully containing the selection (legacy fallback). */
+function findContainingLine(
+  selectedText: string,
+  lines: readonly string[],
+): string | null {
+  const needle = selectedText.trim();
+  if (!needle) return null;
+  for (const line of lines) {
+    if (line.includes(needle)) return line;
+  }
+  return null;
+}
+
+/** Extract, tidy (hyphenation / CJK join spaces), and cap a sentence span. */
+function spanToContext(flow: string, span: SentenceSpan): string {
+  const text = dropCjkJoinSpaces(dehyphenate(flow.slice(span.start, span.end).trim()));
+  return text.length > MAX_SENTENCE_CONTEXT_CHARS
+    ? text.slice(0, MAX_SENTENCE_CONTEXT_CHARS)
+    : text;
+}
+
+/**
+ * Find sentence context for a selection: the full sentence containing it,
+ * assembled ACROSS line breaks (with line-end hyphenation merged). Falls
+ * back to the containing line, then to the selection itself.
  */
 export function findSentenceContext(
   selectedText: string,
@@ -210,24 +326,49 @@ export function findSentenceContext(
 ): string {
   const needle = selectedText.trim();
   if (!needle) return needle;
-  for (const line of lines) {
-    if (line.includes(needle)) return line;
+
+  const flow = normalizeWhitespace(lines.join(" "));
+  const selection = findSelectionInFlow(selectedText, flow);
+  const spans = splitSentences(flow);
+
+  if (selection) {
+    const span = spans.find(
+      (s) => selection.start >= s.start && selection.start < s.end,
+    );
+    if (span) {
+      return spanToContext(flow, span);
+    }
   }
-  return needle;
+
+  return findContainingLine(selectedText, lines) ?? needle;
 }
 
 /**
- * Find paragraph-ish context: the containing line plus its neighbors
- * (up to 3 lines total), joined with spaces.
+ * Find paragraph-ish context: the containing sentence plus one sentence
+ * on each side (PDF pages have no paragraph markers — a sentence window
+ * is the closest reliable proxy).
  */
 export function findParagraphContext(
   selectedText: string,
   lines: readonly string[],
 ): string {
   const needle = selectedText.trim();
-  const idx = lines.findIndex((line) => needle && line.includes(needle));
-  if (idx === -1) return needle;
-  const from = Math.max(0, idx - 1);
-  const to = Math.min(lines.length, idx + 2);
-  return lines.slice(from, to).join(" ");
+  if (!needle) return needle;
+
+  const flow = normalizeWhitespace(lines.join(" "));
+  const selection = findSelectionInFlow(selectedText, flow);
+  const spans = splitSentences(flow);
+
+  if (selection) {
+    const idx = spans.findIndex(
+      (s) => selection.start >= s.start && selection.start < s.end,
+    );
+    if (idx !== -1) {
+      return dropCjkJoinSpaces(
+        dehyphenate(flow.slice(spans[Math.max(0, idx - 1)].start, spans[Math.min(spans.length - 1, idx + 1)].end).trim()),
+      );
+    }
+  }
+
+  return findContainingLine(selectedText, lines) ?? needle;
 }

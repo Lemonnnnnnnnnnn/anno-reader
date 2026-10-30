@@ -383,6 +383,59 @@ describe("TranslationService", () => {
   });
 
   // =========================================================================
+  // context plumbing (TranslationContextInfo)
+  // =========================================================================
+  describe("effective context", () => {
+    it("should attach the effective context to the streaming response", async () => {
+      mockGetContext.mockResolvedValue(mockContextData);
+      mockTranslateStream.mockResolvedValue({
+        textStream: (async function* () { yield "你好世界"; })(),
+        provider: mockProvider,
+      });
+
+      const result = await service.translateStream("Hello world", "Chinese", mockConfig);
+
+      expect(result.context).toEqual({
+        text: "Hello world",
+        dictionaryText: "hello: 你好\nworld: 世界",
+        source: "builtin-sentence",
+      });
+    });
+
+    it("should store context in the cache and return it on cache hit", async () => {
+      mockGetContext.mockResolvedValue(mockContextData);
+      mockTranslateStream.mockResolvedValue({
+        textStream: (async function* () { yield "你好世界"; })(),
+        provider: mockProvider,
+      });
+      const first = await service.translateStream("Hello world", "Chinese", mockConfig);
+      for await (const _ of first.textStream) { void _; }
+
+      const contextInfo = first.context;
+      service.cacheTranslation("Hello world", "Chinese", "你好世界", mockProvider, contextInfo);
+
+      const cached = await service.translateStream("Hello world", "Chinese", mockConfig);
+      expect(mockTranslateStream).toHaveBeenCalledTimes(1);
+      expect(cached.context).toEqual(contextInfo);
+    });
+
+    it("should return undefined context on cache hit for entries cached without context", async () => {
+      mockGetContext.mockResolvedValue(mockContextData);
+      mockTranslateStream.mockResolvedValue({
+        textStream: (async function* () { yield "你好世界"; })(),
+        provider: mockProvider,
+      });
+      await service.translateStream("Hello world", "Chinese", mockConfig);
+
+      // Legacy call site without the context argument
+      service.cacheTranslation("Hello world", "Chinese", "你好世界", mockProvider);
+
+      const cached = await service.translateStream("Hello world", "Chinese", mockConfig);
+      expect(cached.context).toBeUndefined();
+    });
+  });
+
+  // =========================================================================
   // cacheTranslation()
   // =========================================================================
   describe("cacheTranslation()", () => {

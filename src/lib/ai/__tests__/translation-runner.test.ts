@@ -71,7 +71,7 @@ describe("runTranslationStream", () => {
     // onStreamStart fires before the first chunk
     expect(events).toEqual(["start", "chunk:你", "chunk:你好"]);
     expect(mockCacheTranslation).toHaveBeenCalledTimes(1);
-    expect(mockCacheTranslation).toHaveBeenCalledWith("hello", "Chinese", "你好", provider);
+    expect(mockCacheTranslation).toHaveBeenCalledWith("hello", "Chinese", "你好", provider, undefined);
   });
 
   it("passes context and options through to the service", async () => {
@@ -159,6 +159,6 @@ describe("runTranslationStream", () => {
     });
 
     expect(result.translation).toBe("one");
-    expect(mockCacheTranslation).toHaveBeenCalledWith("text", "Chinese", "one", provider);
+    expect(mockCacheTranslation).toHaveBeenCalledWith("text", "Chinese", "one", provider, undefined);
   });
 });

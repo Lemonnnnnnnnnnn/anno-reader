@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 import { Button, ErrorBanner, TextArea } from "@/components/primitives";
-import { Loader2, Volume2, RefreshCw, Pencil, MessageSquare, StickyNote } from "lucide-react";
+import { Loader2, Volume2, RefreshCw, Pencil, MessageSquare, StickyNote, BookOpen } from "lucide-react";
 import { Streamdown } from "streamdown";
 import type { PanelStatus } from "./hooks";
+import type { TranslationContextInfo } from "@/lib/ai/service";
 
 interface TranslationModeProps {
   status: PanelStatus;
@@ -22,6 +23,8 @@ interface TranslationModeProps {
   isSpeaking: boolean;
   onSpeak: () => void;
   onEnterChat: () => void;
+  /** Context actually used for this translation (null while loading / from old cache entries) */
+  contextInfo: TranslationContextInfo | null;
 }
 
 /**
@@ -43,9 +46,35 @@ export function TranslationMode({
   isSpeaking,
   onSpeak,
   onEnterChat,
+  contextInfo,
 }: TranslationModeProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(translationText);
+  const [showContext, setShowContext] = useState(false);
+
+  // Render context text with the selected passage highlighted so it is easy
+  // to spot inside the sentence (only when it appears verbatim).
+  const renderContextText = useCallback(
+    (text: string): ReactNode => {
+      if (!selectedText || !text.includes(selectedText)) {
+        return text;
+      }
+      return text.split(selectedText).flatMap((part, i) =>
+        i === 0
+          ? [part]
+          : [
+              <mark
+                key={i}
+                className="bg-accent/20 dark:bg-accent-dark/20 text-inherit rounded-sm px-0.5"
+              >
+                {selectedText}
+              </mark>,
+              part,
+            ],
+      );
+    },
+    [selectedText],
+  );
 
   const handleEdit = useCallback(() => {
     setEditedText(translationText);
@@ -71,21 +100,63 @@ export function TranslationMode({
             <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark font-sans">
               Original
             </label>
-            {isTTSAvailable && (
+            <div className="flex items-center gap-1">
               <button
-                onClick={onSpeak}
-                className={`p-1 rounded transition-opacity ${isSpeaking ? "opacity-100" : "opacity-50 hover:opacity-75"
+                onClick={() => setShowContext((v) => !v)}
+                className={`p-1 rounded transition-opacity ${showContext ? "opacity-100" : "opacity-50 hover:opacity-75"
                   }`}
-                title={isSpeaking ? "Stop speaking" : "Listen"}
+                title="查看翻译上下文"
               >
-                <Volume2 size={14} className="text-text-secondary dark:text-text-secondary-dark" />
+                <BookOpen size={14} className="text-text-secondary dark:text-text-secondary-dark" />
               </button>
-            )}
+              {isTTSAvailable && (
+                <button
+                  onClick={onSpeak}
+                  className={`p-1 rounded transition-opacity ${isSpeaking ? "opacity-100" : "opacity-50 hover:opacity-75"
+                    }`}
+                  title={isSpeaking ? "Stop speaking" : "Listen"}
+                >
+                  <Volume2 size={14} className="text-text-secondary dark:text-text-secondary-dark" />
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-sm text-text dark:text-text-dark bg-bg dark:bg-bg-dark rounded-md p-3 font-serif leading-relaxed">
             {selectedText}
           </p>
         </div>
+
+        {/* Effective context used for this translation (toggleable) */}
+        {showContext && (
+          <div>
+            <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1 font-sans">
+              Context
+            </label>
+            {contextInfo && (contextInfo.text || contextInfo.dictionaryText) ? (
+              <>
+                {contextInfo.text && (
+                  <p className="text-sm text-text-secondary dark:text-text-secondary-dark bg-bg dark:bg-bg-dark rounded-md p-3 font-serif leading-relaxed whitespace-pre-wrap">
+                    {renderContextText(contextInfo.text)}
+                  </p>
+                )}
+                {contextInfo.dictionaryText && (
+                  <>
+                    <label className="block text-xs font-medium text-text-secondary dark:text-text-secondary-dark mt-3 mb-1 font-sans">
+                      Dictionary
+                    </label>
+                    <p className="text-xs text-text-secondary dark:text-text-secondary-dark bg-bg dark:bg-bg-dark rounded-md p-3 font-sans leading-relaxed whitespace-pre-wrap">
+                      {contextInfo.dictionaryText}
+                    </p>
+                  </>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-text-secondary dark:text-text-secondary-dark font-sans">
+                无上下文（未启用上下文模块或命中旧缓存）
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Loading state */}
         {status === "loading" && (

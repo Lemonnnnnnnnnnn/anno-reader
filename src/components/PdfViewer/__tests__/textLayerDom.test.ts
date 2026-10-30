@@ -213,8 +213,11 @@ describe("isInsideFloatingUi", () => {
 describe("findSentenceContext", () => {
   const lines = ["The quick brown", "fox jumps over", "the lazy dog"];
 
-  it("returns the line containing the selection", () => {
-    expect(findSentenceContext("fox jumps", lines)).toBe("fox jumps over");
+  it("assembles the containing sentence across lines", () => {
+    // No terminator on the page → the whole flow is one sentence
+    expect(findSentenceContext("fox jumps", lines)).toBe(
+      "The quick brown fox jumps over the lazy dog",
+    );
   });
 
   it("falls back to the selection when not found", () => {
@@ -223,18 +226,21 @@ describe("findSentenceContext", () => {
 });
 
 describe("findParagraphContext", () => {
-  const lines = ["l0", "l1", "l2", "l3", "l4"];
+  // Sentences S0..S4 wrapped across lines (sentence-based window, not line-based)
+  const lines = ["S0 one.", "S1 two is", "here.", "S2 three.", "S3 four.", "S4 five."];
 
-  it("joins the containing line with one neighbor on each side", () => {
-    expect(findParagraphContext("l2", lines)).toBe("l1 l2 l3");
+  it("returns the containing sentence plus one on each side", () => {
+    expect(findParagraphContext("three", lines)).toBe(
+      "S1 two is here. S2 three. S3 four.",
+    );
   });
 
-  it("clamps at the start of the line array", () => {
-    expect(findParagraphContext("l0", lines)).toBe("l0 l1");
+  it("clamps at the start of the sentence list", () => {
+    expect(findParagraphContext("S0", lines)).toBe("S0 one. S1 two is here.");
   });
 
-  it("clamps at the end of the line array", () => {
-    expect(findParagraphContext("l4", lines)).toBe("l3 l4");
+  it("clamps at the end of the sentence list", () => {
+    expect(findParagraphContext("S4", lines)).toBe("S3 four. S4 five.");
   });
 
   it("falls back to the selection when not found", () => {

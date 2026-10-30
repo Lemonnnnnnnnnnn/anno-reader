@@ -12,6 +12,7 @@ import { translationService } from "@/lib/ai/translation";
 import { runTranslationStream } from "@/lib/ai/translation-runner";
 import { AIErrorHandler } from "@/lib/ai/error-handler";
 import { useAIConfigStore } from "@/stores/useAIConfigStore";
+import type { TranslationContextInfo } from "@/lib/ai/service";
 
 export type PanelStatus = "loading" | "streaming" | "success" | "error";
 
@@ -30,6 +31,7 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
   const [translationText, setTranslationText] = useState("");
   const [streamingText, setStreamingText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [contextInfo, setContextInfo] = useState<TranslationContextInfo | null>(null);
 
   const config = useAIConfigStore((s) => s.config);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -41,6 +43,7 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
     setStatus("loading");
     setError(null);
     setStreamingText("");
+    setContextInfo(null);
 
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
@@ -48,7 +51,7 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
     try {
       // Retries (including stream-consumption failures) live in the shared
       // runner so the background quick-translate path behaves identically.
-      const { translation } = await runTranslationStream({
+      const { translation, context } = await runTranslationStream({
         text: selectedText,
         targetLanguage: "Chinese",
         config,
@@ -66,6 +69,7 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
         },
       });
 
+      setContextInfo(context ?? null);
       setTranslationText(translation);
       setStatus("success");
       setError(null);
@@ -108,5 +112,6 @@ export function useTranslation({ selectedText, chapterText, offset, selectionSen
     translate,
     retryTranslation,
     stopTranslation,
+    contextInfo,
   };
 }

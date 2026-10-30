@@ -21,6 +21,19 @@ export interface TranslationRequest {
 }
 
 /**
+ * The context that was actually used for a translation request
+ * (built by getContext from the enabled context modules).
+ */
+export interface TranslationContextInfo {
+  /** Context text injected into the prompt's {context} placeholder */
+  text: string;
+  /** Dictionary query results injected into {dictionaryResults}, if any */
+  dictionaryText?: string;
+  /** IDs of the modules that produced this context */
+  source: string;
+}
+
+/**
  * Response from AI translation.
  */
 export interface TranslationResponse {
@@ -32,6 +45,8 @@ export interface TranslationResponse {
   provider: AIProvider;
   /** Whether this result was served from cache */
   cached: boolean;
+  /** Context used when the translation was produced (optional) */
+  context?: TranslationContextInfo;
 }
 
 /**
@@ -42,6 +57,8 @@ export interface StreamingTranslationResponse {
   textStream: AsyncIterable<string>;
   /** The provider used for translation */
   provider: AIProvider;
+  /** Context used for this request (from cache when cache hit) */
+  context?: TranslationContextInfo;
 }
 
 /**

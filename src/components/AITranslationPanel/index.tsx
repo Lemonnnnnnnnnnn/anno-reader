@@ -46,6 +46,7 @@ export function AITranslationPanel({
     translate,
     retryTranslation,
     stopTranslation,
+    contextInfo,
   } = useTranslation({ selectedText, chapterText, offset: startOffset, selectionSentence: sentence });
 
   const { isSaving, handleAddNote } = useNoteSaving({
@@ -175,6 +176,7 @@ export function AITranslationPanel({
             isSpeaking={isSpeaking}
             onSpeak={speak}
             onEnterChat={handleEnterChat}
+            contextInfo={contextInfo}
           />
         )}
       </div>

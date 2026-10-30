@@ -16,7 +16,7 @@
 
 import { translationService } from "./translation";
 import { AIErrorHandler } from "./error-handler";
-import type { AIServiceError } from "./service";
+import type { AIServiceError, TranslationContextInfo } from "./service";
 import type { AIConfig, AIProvider } from "./types";
 
 const errorHandler = new AIErrorHandler();
@@ -55,6 +55,8 @@ export interface RunTranslationResult {
   translation: string;
   /** Provider that produced it */
   provider: AIProvider;
+  /** Context actually used for the translation (context modules + dictionary) */
+  context?: TranslationContextInfo;
 }
 
 /**
@@ -99,9 +101,19 @@ export async function runTranslationStream({
         onChunk?.(accumulated);
       }
 
-      translationService.cacheTranslation(text, targetLanguage, accumulated, result.provider);
+      translationService.cacheTranslation(
+        text,
+        targetLanguage,
+        accumulated,
+        result.provider,
+        result.context,
+      );
 
-      return { translation: accumulated, provider: result.provider };
+      return {
+        translation: accumulated,
+        provider: result.provider,
+        context: result.context,
+      };
     },
     maxRetries,
     onRetry,

@@ -1,5 +1,5 @@
 import type { AIConfig, AIProvider, AIRole } from "./types";
-import type { TranslationRequest, TranslationResponse, StreamingTranslationResponse, TranslationThinking } from "./service";
+import type { TranslationRequest, TranslationResponse, StreamingTranslationResponse, TranslationThinking, TranslationContextInfo } from "./service";
 import { AIServiceError } from "./service";
 import { OpenAIProvider } from "./providers/openai";
 import { getContext } from "./context";
@@ -104,6 +104,7 @@ class TranslationService {
         return {
           textStream: (async function* () { yield cachedText; })(),
           provider: cached.provider,
+          context: cached.context,
         };
       }
     }
@@ -161,7 +162,14 @@ class TranslationService {
     };
 
     const result = await this.provider.translateStream(request, provider, options);
-    return result;
+
+    // Expose the effective context so the UI can show what was sent
+    const context: TranslationContextInfo = {
+      text: contextData.text,
+      dictionaryText: contextData.dictionaryText,
+      source: contextData.source,
+    };
+    return { ...result, context };
   }
 
   /**
@@ -173,12 +181,14 @@ class TranslationService {
     targetLanguage: string,
     translation: string,
     provider: AIProvider,
+    context?: TranslationContextInfo,
   ): void {
     const response: TranslationResponse = {
       translation,
       originalText: text,
       provider,
       cached: false,
+      context,
     };
     this.cache.set(text, targetLanguage, response);
   }
