@@ -13,11 +13,17 @@ import { AboutPage } from "./pages/AboutPage";
 import { PersonalizationPage } from "./pages/PersonalizationPage";
 import { useAIConfigStore } from "./stores/useAIConfigStore";
 import { useProxyConfigStore } from "./stores/useProxyConfigStore";
+import { useGitSyncStore } from "./stores/useGitSyncStore";
+import { useGitAutoSync } from "./hooks/useGitAutoSync";
 import { readConfig, isDataDirValid } from "./lib/storage/config";
 
 function App() {
   const loadAIConfig = useAIConfigStore((s) => s.loadConfig);
   const loadProxyConfig = useProxyConfigStore((s) => s.loadConfig);
+  const loadGitSyncConfig = useGitSyncStore((s) => s.loadConfig);
+
+  // Periodic git auto-sync — mounted here so the timer lives across routes.
+  useGitAutoSync();
 
   // Global config check — show DataDirSetup if no valid config
   const [configReady, setConfigReady] = useState<boolean | null>(null);
@@ -64,7 +70,8 @@ function App() {
   useEffect(() => {
     loadAIConfig();
     loadProxyConfig();
-  }, [loadAIConfig, loadProxyConfig]);
+    loadGitSyncConfig();
+  }, [loadAIConfig, loadProxyConfig, loadGitSyncConfig]);
 
   // Loading state while checking config
   if (configReady === null) {

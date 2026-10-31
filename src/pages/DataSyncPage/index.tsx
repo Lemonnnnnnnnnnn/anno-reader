@@ -19,14 +19,23 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button, ErrorBanner } from "@/components/primitives";
+import { Toggle } from "@/components/primitives/Toggle";
 import {
   readConfig,
   writeConfig,
   ensureDataSubdirs,
+  DEFAULT_CONFIG,
+  MIN_INTERVAL_MINUTES,
+  MAX_INTERVAL_MINUTES,
 } from "@/lib/storage/config";
-import { getGitStatus, syncGit } from "@/lib/git";
-import type { GitStatus, SyncResult } from "@/lib/git";
-import { DEFAULT_COMMIT_TEMPLATE } from "@/lib/git/types";
+import { getGitStatus } from "@/lib/git";
+import type { GitStatus } from "@/lib/git";
+import { useGitSyncStore } from "@/stores/useGitSyncStore";
+
+/** Format a sync timestamp as a short local time for status lines. */
+function formatSyncTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString();
+}
 
 export function DataSyncPage() {
   const navigate = useNavigate();
@@ -38,9 +47,29 @@ export function DataSyncPage() {
   // Git state
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [loadingGit, setLoadingGit] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Git sync store — shared by manual and auto sync
+  const autoSyncEnabled = useGitSyncStore((s) => s.autoSyncEnabled);
+  const intervalMinutes = useGitSyncStore((s) => s.intervalMinutes);
+  const setAutoSyncEnabled = useGitSyncStore((s) => s.setAutoSyncEnabled);
+  const setIntervalMinutes = useGitSyncStore((s) => s.setIntervalMinutes);
+  const runSync = useGitSyncStore((s) => s.runSync);
+  const isSyncing = useGitSyncStore((s) => s.isSyncing);
+  const lastSyncAt = useGitSyncStore((s) => s.lastSyncAt);
+  const lastSyncTrigger = useGitSyncStore((s) => s.lastSyncTrigger);
+  const lastAutoSyncAt = useGitSyncStore((s) => s.lastAutoSyncAt);
+  const lastSyncSuccess = useGitSyncStore((s) => s.lastSyncSuccess);
+  const lastSyncMessage = useGitSyncStore((s) => s.lastSyncMessage);
+  const lastSyncConflicts = useGitSyncStore((s) => s.lastSyncConflicts);
+
+  // Interval field — kept as raw text while editing, committed on blur
+  const [intervalInput, setIntervalInput] = useState<string>(() =>
+    String(intervalMinutes),
+  );
+  useEffect(() => {
+    setIntervalInput(String(intervalMinutes));
+  }, [intervalMinutes]);
 
   // Load current config
   useEffect(() => {
@@ -89,10 +118,7 @@ export function DataSyncPage() {
       if (config) {
         await writeConfig({ ...config, dataDir: selected });
       } else {
-        await writeConfig({
-          dataDir: selected,
-          proxy: { enabled: false, address: "", port: "" },
-        });
+        await writeConfig({ ...DEFAULT_CONFIG, dataDir: selected });
       }
       await ensureDataSubdirs(selected);
 
@@ -106,37 +132,33 @@ export function DataSyncPage() {
     }
   }, []);
 
-  // Run git sync
+  // Run git sync (manual trigger — the store guards against concurrent runs)
   const handleSync = useCallback(async () => {
-    setSyncing(true);
-    setSyncResult(null);
     setError(null);
+    const result = await runSync("manual");
 
-    try {
-      const result = await syncGit(dataDir, DEFAULT_COMMIT_TEMPLATE);
-      setSyncResult(result);
-
-      // Reload git status after sync
-      if (result.success) {
-        await loadGitStatus(dataDir);
-      }
-    } catch (err) {
-      // Tauri invoke() can reject with a plain string, an object, or an
-      // Error instance. Preserve as much info as possible for debugging.
-      const message =
-        typeof err === "string"
-          ? err
-          : err instanceof Error
-            ? err.message
-            : typeof err === "object" && err !== null
-              ? JSON.stringify(err)
-              : "Sync failed";
-      console.error("[DataSyncPage] syncGit threw:", err);
-      setError(`Sync failed: ${message}`);
-    } finally {
-      setSyncing(false);
+    // Refresh ahead/behind/dirty indicators after a successful sync
+    if (result?.success && dataDir) {
+      await loadGitStatus(dataDir);
     }
-  }, [dataDir, loadGitStatus]);
+  }, [runSync, dataDir, loadGitStatus]);
+
+  // Commit the interval field on blur; invalid input reverts to the
+  // persisted value.
+  const handleIntervalBlur = useCallback(() => {
+    const parsed = Number.parseInt(intervalInput, 10);
+    if (
+      Number.isInteger(parsed) &&
+      parsed >= MIN_INTERVAL_MINUTES &&
+      parsed <= MAX_INTERVAL_MINUTES
+    ) {
+      if (parsed !== intervalMinutes) {
+        setIntervalMinutes(parsed);
+      }
+    } else {
+      setIntervalInput(String(intervalMinutes));
+    }
+  }, [intervalInput, intervalMinutes, setIntervalMinutes]);
 
   // Refresh git status
   const handleRefresh = useCallback(() => {
@@ -290,10 +312,10 @@ export function DataSyncPage() {
                   <Button
                     variant="primary"
                     onClick={handleSync}
-                    disabled={syncing}
+                    disabled={isSyncing}
                     className="w-full flex items-center justify-center"
                   >
-                    {syncing ? (
+                    {isSyncing ? (
                       <>
                         <Loader2 size={16} className="animate-spin mr-2" />
                         Syncing...
@@ -309,17 +331,69 @@ export function DataSyncPage() {
               )}
             </div>
 
+            {/* Auto sync settings */}
+            {gitStatus?.is_repo && (
+              <div className="p-4 bg-surface dark:bg-surface-dark border border-border dark:border-border-dark rounded-md flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-sans text-text dark:text-text-dark">
+                      自动备份
+                    </span>
+                    <span className="text-xs text-text-muted dark:text-text-muted-dark">
+                      按固定间隔自动执行同步(提交 → 拉取 → 推送)
+                    </span>
+                  </div>
+                  <Toggle
+                    checked={autoSyncEnabled}
+                    onChange={setAutoSyncEnabled}
+                    label="启用自动备份"
+                    disabled={!gitStatus.remote}
+                  />
+                </div>
+
+                <label className="flex items-center gap-2">
+                  <span className="text-xs font-sans text-text-secondary dark:text-text-secondary-dark shrink-0">
+                    同步间隔(分钟)
+                  </span>
+                  <input
+                    type="text"
+                    value={intervalInput}
+                    onChange={(e) => setIntervalInput(e.target.value)}
+                    onBlur={handleIntervalBlur}
+                    disabled={!gitStatus.remote}
+                    className="w-20 px-2 py-1 text-sm font-sans bg-bg dark:bg-bg-dark border border-border dark:border-border-dark rounded-md outline-none focus:border-accent dark:focus:border-accent-dark text-text dark:text-text-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                </label>
+
+                {gitStatus.remote ? (
+                  lastAutoSyncAt !== null ? (
+                    <p className="text-xs text-text-muted dark:text-text-muted-dark m-0">
+                      上次自动同步:{formatSyncTime(lastAutoSyncAt)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-text-muted dark:text-text-muted-dark m-0">
+                      自动备份尚未执行;仅在仓库有远端且有变更时才会运行。
+                    </p>
+                  )
+                ) : (
+                  <p className="text-xs text-text-muted dark:text-text-muted-dark m-0">
+                    需要先配置远端仓库(origin)才能启用自动备份。
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Sync result */}
-            {syncResult && (
+            {lastSyncAt !== null && (
               <div
                 className={`p-4 rounded-md border ${
-                  syncResult.success
+                  lastSyncSuccess
                     ? "bg-success/5 dark:bg-success-dark/5 border-success/20 dark:border-success-dark/20"
                     : "bg-error/5 dark:bg-error-dark/5 border-error/20 dark:border-error-dark/20"
                 }`}
               >
                 <div className="flex items-start gap-2">
-                  {syncResult.success ? (
+                  {lastSyncSuccess ? (
                     <Check
                       size={16}
                       className="shrink-0 text-success dark:text-success-dark mt-0.5"
@@ -332,11 +406,17 @@ export function DataSyncPage() {
                   )}
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-sans text-text dark:text-text-dark">
-                      {syncResult.message}
+                      {lastSyncMessage}
                     </span>
-                    {syncResult.conflicts.length > 0 && (
+                    <span className="flex items-center gap-2 text-xs text-text-muted dark:text-text-muted-dark">
+                      <span>
+                        {formatSyncTime(lastSyncAt)} ·{" "}
+                        {lastSyncTrigger === "auto" ? "自动" : "手动"}
+                      </span>
+                    </span>
+                    {lastSyncConflicts.length > 0 && (
                       <ul className="text-xs text-error dark:text-error-dark m-0 pl-4 list-disc">
-                        {syncResult.conflicts.map((file: string, i: number) => (
+                        {lastSyncConflicts.map((file: string, i: number) => (
                           <li key={i}>{file}</li>
                         ))}
                       </ul>

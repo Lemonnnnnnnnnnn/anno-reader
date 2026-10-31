@@ -19,11 +19,22 @@ export interface ProxyConfig {
   port: string;
 }
 
+/** Git auto-sync settings for periodic backups. */
+export interface GitSyncConfig {
+  autoSyncEnabled: boolean;
+  intervalMinutes: number;
+}
+
 /** App configuration — user-selected data directory. */
 export interface AppConfig {
   dataDir: string;
   proxy: ProxyConfig;
+  gitSync: GitSyncConfig;
 }
+
+/** Allowed range for auto-sync interval in minutes. */
+export const MIN_INTERVAL_MINUTES = 1;
+export const MAX_INTERVAL_MINUTES = 1440;
 
 /** Default configuration — used to fill missing fields for backward compatibility. */
 export const DEFAULT_CONFIG: AppConfig = {
@@ -33,10 +44,34 @@ export const DEFAULT_CONFIG: AppConfig = {
     address: "",
     port: "",
   },
+  gitSync: {
+    autoSyncEnabled: false,
+    intervalMinutes: 30,
+  },
 };
 
 /** Configuration filename within appLocalDataDir */
 const CONFIG_FILE = "config.json";
+
+/**
+ * Sanitize the gitSync section parsed from JSON. Fields coming from disk are
+ * untrusted — the interval must be an integer within the allowed range.
+ */
+export function sanitizeGitSync(parsed: Partial<GitSyncConfig> = {}): GitSyncConfig {
+  const interval = parsed.intervalMinutes;
+  const intervalMinutes =
+    typeof interval === "number" &&
+    Number.isInteger(interval) &&
+    interval >= MIN_INTERVAL_MINUTES &&
+    interval <= MAX_INTERVAL_MINUTES
+      ? interval
+      : DEFAULT_CONFIG.gitSync.intervalMinutes;
+
+  return {
+    autoSyncEnabled: parsed.autoSyncEnabled === true,
+    intervalMinutes,
+  };
+}
 
 /**
  * Read the app config from disk.
@@ -60,6 +95,7 @@ export async function readConfig(): Promise<AppConfig | null> {
       ...DEFAULT_CONFIG,
       ...parsed,
       proxy: { ...DEFAULT_CONFIG.proxy, ...parsed.proxy },
+      gitSync: sanitizeGitSync(parsed.gitSync),
     };
   } catch {
     return null;
