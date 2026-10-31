@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { toast } from "sonner";
 import { readConfig, writeConfig } from "@/lib/storage/config";
 import { getGitStatus, syncGit } from "@/lib/git";
 import type { SyncResult } from "@/lib/git";
@@ -146,17 +147,37 @@ export const useGitSyncStore = create<GitSyncStore>((set, get) => ({
         lastSyncMessage: result.message,
         lastSyncConflicts: result.conflicts,
       });
+
+      // Auto backups notify via toast (silent skips never reach here).
+      // Manual sync has inline feedback on the Data Sync page instead.
+      if (trigger === "auto") {
+        if (result.success) {
+          toast.success("自动备份完成");
+        } else {
+          toast.error("自动备份失败", {
+            description: result.message,
+            duration: 8000,
+          });
+        }
+      }
+
       return result;
     } catch (err) {
       console.error("[useGitSyncStore] sync failed:", err);
+      const message = errorMessage(err);
       set({
         lastSyncAt: Date.now(),
         lastSyncTrigger: trigger,
         lastAutoSyncAt: trigger === "auto" ? Date.now() : get().lastAutoSyncAt,
         lastSyncSuccess: false,
-        lastSyncMessage: errorMessage(err),
+        lastSyncMessage: message,
         lastSyncConflicts: [],
       });
+
+      if (trigger === "auto") {
+        toast.error("自动备份失败", { description: message, duration: 8000 });
+      }
+
       return null;
     } finally {
       set({ isSyncing: false });

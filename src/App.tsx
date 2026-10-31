@@ -1,8 +1,10 @@
 import "./App.css";
 import { useEffect, useState, useCallback } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { DataDirSetup } from "./components/DataDirSetup";
+import { useBookStore } from "./stores/useBookStore";
 import { BookshelfPage } from "./pages/BookshelfPage";
 import { ReaderPage } from "./pages/ReaderPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -21,6 +23,7 @@ function App() {
   const loadAIConfig = useAIConfigStore((s) => s.loadConfig);
   const loadProxyConfig = useProxyConfigStore((s) => s.loadConfig);
   const loadGitSyncConfig = useGitSyncStore((s) => s.loadConfig);
+  const theme = useBookStore((s) => s.ui.theme);
 
   // Periodic git auto-sync — mounted here so the timer lives across routes.
   useGitAutoSync();
@@ -89,6 +92,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <Toaster position="top-right" theme={theme} richColors />
       <BrowserRouter>
         <Routes>
           <Route path="/bookshelf" element={<BookshelfPage />} />

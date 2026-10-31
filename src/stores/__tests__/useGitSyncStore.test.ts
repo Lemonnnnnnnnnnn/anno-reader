@@ -16,6 +16,13 @@ vi.mock("@/lib/git", () => ({
   syncGit: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockReadConfig = (await import("@/lib/storage/config")).readConfig as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,6 +31,8 @@ const mockWriteConfig = (await import("@/lib/storage/config")).writeConfig as an
 const mockGetGitStatus = (await import("@/lib/git")).getGitStatus as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockSyncGit = (await import("@/lib/git")).syncGit as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockToast = (await import("sonner")).toast as any;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -384,6 +393,72 @@ describe("useGitSyncStore", () => {
       release(OK_RESULT);
       await first;
       expect(useGitSyncStore.getState().isSyncing).toBe(false);
+    });
+  });
+
+  // -- runSync toast notifications ------------------------------------------
+
+  describe("runSync toast notifications", () => {
+    beforeEach(() => primeStore());
+
+    it("toasts success on an auto backup", async () => {
+      mockGetGitStatus.mockResolvedValue(makeStatus({ has_changes: true }));
+      mockSyncGit.mockResolvedValue(OK_RESULT);
+
+      await useGitSyncStore.getState().runSync("auto");
+
+      expect(mockToast.success).toHaveBeenCalledTimes(1);
+      expect(mockToast.success).toHaveBeenCalledWith("自动备份完成");
+      expect(mockToast.error).not.toHaveBeenCalled();
+    });
+
+    it("toasts error on a backend-reported auto backup failure", async () => {
+      mockGetGitStatus.mockResolvedValue(makeStatus({ has_changes: true }));
+      mockSyncGit.mockResolvedValue({
+        success: false,
+        message: "Pull failed",
+        conflicts: [],
+      });
+
+      await useGitSyncStore.getState().runSync("auto");
+
+      expect(mockToast.error).toHaveBeenCalledTimes(1);
+      expect(mockToast.error).toHaveBeenCalledWith("自动备份失败", {
+        description: "Pull failed",
+        duration: 8000,
+      });
+      expect(mockToast.success).not.toHaveBeenCalled();
+    });
+
+    it("toasts error when the auto backup throws", async () => {
+      mockGetGitStatus.mockResolvedValue(makeStatus({ has_changes: true }));
+      mockSyncGit.mockRejectedValue("Failed to push: network down");
+
+      await useGitSyncStore.getState().runSync("auto");
+
+      expect(mockToast.error).toHaveBeenCalledWith("自动备份失败", {
+        description: "Failed to push: network down",
+        duration: 8000,
+      });
+    });
+
+    it("does not toast when the auto backup is skipped", async () => {
+      // Nothing to do — clean repo, in sync with remote.
+      mockGetGitStatus.mockResolvedValue(makeStatus());
+
+      await useGitSyncStore.getState().runSync("auto");
+
+      expect(mockToast.success).not.toHaveBeenCalled();
+      expect(mockToast.error).not.toHaveBeenCalled();
+    });
+
+    it("does not toast on manual sync (inline result card instead)", async () => {
+      mockSyncGit.mockResolvedValue(OK_RESULT);
+
+      await useGitSyncStore.getState().runSync("manual");
+
+      expect(mockToast.success).not.toHaveBeenCalled();
+      expect(mockToast.error).not.toHaveBeenCalled();
     });
   });
 });
