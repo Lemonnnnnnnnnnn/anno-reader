@@ -152,7 +152,8 @@ export const useGitSyncStore = create<GitSyncStore>((set, get) => ({
       // Manual sync has inline feedback on the Data Sync page instead.
       if (trigger === "auto") {
         if (result.success) {
-          toast.success("自动备份完成");
+          // Neutral styling on purpose — a routine backup isn't worth green.
+        toast("自动备份完成");
         } else {
           toast.error("自动备份失败", {
             description: result.message,

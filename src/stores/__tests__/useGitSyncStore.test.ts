@@ -17,10 +17,10 @@ vi.mock("@/lib/git", () => ({
 }));
 
 vi.mock("sonner", () => ({
-  toast: {
+  toast: Object.assign(vi.fn(), {
     success: vi.fn(),
     error: vi.fn(),
-  },
+  }),
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -407,8 +407,10 @@ describe("useGitSyncStore", () => {
 
       await useGitSyncStore.getState().runSync("auto");
 
-      expect(mockToast.success).toHaveBeenCalledTimes(1);
-      expect(mockToast.success).toHaveBeenCalledWith("自动备份完成");
+      // Neutral toast (plain call), not the green success variant.
+      expect(mockToast).toHaveBeenCalledTimes(1);
+      expect(mockToast).toHaveBeenCalledWith("自动备份完成");
+      expect(mockToast.success).not.toHaveBeenCalled();
       expect(mockToast.error).not.toHaveBeenCalled();
     });
 
@@ -448,6 +450,7 @@ describe("useGitSyncStore", () => {
 
       await useGitSyncStore.getState().runSync("auto");
 
+      expect(mockToast).not.toHaveBeenCalled();
       expect(mockToast.success).not.toHaveBeenCalled();
       expect(mockToast.error).not.toHaveBeenCalled();
     });
@@ -457,6 +460,7 @@ describe("useGitSyncStore", () => {
 
       await useGitSyncStore.getState().runSync("manual");
 
+      expect(mockToast).not.toHaveBeenCalled();
       expect(mockToast.success).not.toHaveBeenCalled();
       expect(mockToast.error).not.toHaveBeenCalled();
     });
