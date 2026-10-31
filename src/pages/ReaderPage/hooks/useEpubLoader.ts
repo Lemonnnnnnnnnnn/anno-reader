@@ -9,7 +9,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useBookStore, formatFromFilePath, type BookFormat } from "@/stores/useBookStore";
+import { useBookStore, formatFromFilePath, type BookFormat, type BookMetadata } from "@/stores/useBookStore";
 import { loadWebSnapshot } from "@/lib/web";
 import {
   importBook,
@@ -175,10 +175,18 @@ export function useEpubLoader() {
     }
   }, [finalizeLoad]);
 
-  // Auto-load book content when currentBook exists but parsedEpub is missing
+  // Load-once guard keyed by currentBook identity. Must not be a parsedEpub
+  // dependency: setParsedEpub fires mid-load and would re-run this effect,
+  // executing its cleanup before loadBook() installs the progress tracker —
+  // the tracker would then never be unsubscribed or flushed, and would
+  // overwrite saved progress with chapter 0 on the next reader visit.
+  const loadingBookRef = useRef<BookMetadata | null>(null);
+
+  // Auto-load book content for the current book
   // (e.g., page refresh, navigation from bookshelf)
   useEffect(() => {
-    if (!currentBook || parsedEpub) return;
+    if (!currentBook || loadingBookRef.current === currentBook) return;
+    loadingBookRef.current = currentBook;
 
     let cancelled = false;
     let cleanupTracking: (() => void) | null = null;
@@ -238,6 +246,7 @@ export function useEpubLoader() {
         }
 
         // Start tracking progress (auto-save on scroll/chapter change)
+        if (cancelled) return;
         cleanupTracking = trackProgress(currentBook!.id, readPath);
       } catch (err) {
         if (!cancelled) {
@@ -253,15 +262,15 @@ export function useEpubLoader() {
 
     return () => {
       cancelled = true;
+      loadingBookRef.current = null;
       // Flush any pending progress saves and stop tracking
       if (cleanupTracking) {
         flushProgress();
         cleanupTracking();
       }
-      // NOTE: the PDF document is released via installPdfDocument/unmount,
-      // not here — this cleanup also runs when parsedEpub becomes non-null.
+      // NOTE: the PDF document is released via installPdfDocument/unmount.
     };
-  }, [currentBook, parsedEpub, installPdfDocument, setCurrentChapter]);
+  }, [currentBook, installPdfDocument, setCurrentChapter]);
 
   // Release the pdf.js document when the reader unmounts
   useEffect(() => {
