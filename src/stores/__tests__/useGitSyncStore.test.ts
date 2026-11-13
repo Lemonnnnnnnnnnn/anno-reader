@@ -13,6 +13,7 @@ vi.mock("@/lib/storage/config", () => ({
 
 vi.mock("@/lib/git", () => ({
   getGitStatus: vi.fn(),
+  getGitStatusAfterFetch: vi.fn(),
   syncGit: vi.fn(),
 }));
 
@@ -29,6 +30,9 @@ const mockReadConfig = (await import("@/lib/storage/config")).readConfig as any;
 const mockWriteConfig = (await import("@/lib/storage/config")).writeConfig as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockGetGitStatus = (await import("@/lib/git")).getGitStatus as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockGetGitStatusAfterFetch = (await import("@/lib/git"))
+  .getGitStatusAfterFetch as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockSyncGit = (await import("@/lib/git")).syncGit as any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,6 +59,7 @@ const OK_RESULT: SyncResult = {
   success: true,
   message: "Synced successfully: Sync at {datetime}",
   conflicts: [],
+  pulled: false,
 };
 
 function resetStore() {
@@ -70,6 +75,7 @@ function resetStore() {
     lastSyncSuccess: null,
     lastSyncMessage: null,
     lastSyncConflicts: [],
+    lastPullAt: null,
   });
 }
 
@@ -240,6 +246,8 @@ describe("useGitSyncStore", () => {
 
       expect(result).toBeNull();
       expect(mockSyncGit).not.toHaveBeenCalled();
+      // No point fetching when it isn't even a repo.
+      expect(mockGetGitStatusAfterFetch).not.toHaveBeenCalled();
     });
 
     it("skips when there is no remote", async () => {
@@ -251,19 +259,25 @@ describe("useGitSyncStore", () => {
 
       expect(result).toBeNull();
       expect(mockSyncGit).not.toHaveBeenCalled();
+      expect(mockGetGitStatusAfterFetch).not.toHaveBeenCalled();
     });
 
-    it("skips when there is nothing to do (clean, in sync)", async () => {
+    it("skips when there is nothing to do (clean, in sync, fetch confirms)", async () => {
       mockGetGitStatus.mockResolvedValue(makeStatus());
+      // After the fetch the remote still has nothing new.
+      mockGetGitStatusAfterFetch.mockResolvedValue(makeStatus());
 
       const result = await useGitSyncStore.getState().runSync("auto");
 
       expect(result).toBeNull();
+      // A remote-only delta is invisible to cached refs — the fetch must
+      // happen before deciding there is nothing to do.
+      expect(mockGetGitStatusAfterFetch).toHaveBeenCalledWith("/test/data");
       expect(mockSyncGit).not.toHaveBeenCalled();
       expect(useGitSyncStore.getState().isSyncing).toBe(false);
     });
 
-    it("runs when there are local changes", async () => {
+    it("runs when there are local changes (no fetch needed)", async () => {
       mockGetGitStatus.mockResolvedValue(makeStatus({ has_changes: true }));
       mockSyncGit.mockResolvedValue(OK_RESULT);
 
@@ -274,6 +288,8 @@ describe("useGitSyncStore", () => {
         "Sync at {datetime}",
       );
       expect(result).toEqual(OK_RESULT);
+      // A local delta already qualifies — no network check before syncing.
+      expect(mockGetGitStatusAfterFetch).not.toHaveBeenCalled();
       expect(useGitSyncStore.getState().isSyncing).toBe(false);
     });
 
@@ -284,15 +300,31 @@ describe("useGitSyncStore", () => {
       await useGitSyncStore.getState().runSync("auto");
 
       expect(mockSyncGit).toHaveBeenCalledTimes(1);
+      expect(mockGetGitStatusAfterFetch).not.toHaveBeenCalled();
     });
 
-    it("runs when remote has new commits (behind)", async () => {
-      mockGetGitStatus.mockResolvedValue(makeStatus({ behind: 3 }));
+    it("runs when the fetch reveals remote commits (behind)", async () => {
+      // Cached refs know nothing; only after fetching does behind show up.
+      mockGetGitStatus.mockResolvedValue(makeStatus());
+      mockGetGitStatusAfterFetch.mockResolvedValue(makeStatus({ behind: 3 }));
       mockSyncGit.mockResolvedValue(OK_RESULT);
 
-      await useGitSyncStore.getState().runSync("auto");
+      const result = await useGitSyncStore.getState().runSync("auto");
 
       expect(mockSyncGit).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(OK_RESULT);
+    });
+
+    it("falls back to cached status when the fetch check rejects", async () => {
+      // Simulate the IPC itself failing — the stale (still clean) status
+      // must win and the sync must skip without throwing.
+      mockGetGitStatus.mockResolvedValue(makeStatus());
+      mockGetGitStatusAfterFetch.mockRejectedValue("invoke failed");
+
+      const result = await useGitSyncStore.getState().runSync("auto");
+
+      expect(result).toBeNull();
+      expect(mockSyncGit).not.toHaveBeenCalled();
     });
   });
 
@@ -341,6 +373,7 @@ describe("useGitSyncStore", () => {
         success: false,
         message: "Pull failed",
         conflicts: ["entries/book1/notes.json"],
+        pulled: false,
       };
       mockSyncGit.mockResolvedValue(conflictResult);
 
@@ -350,6 +383,40 @@ describe("useGitSyncStore", () => {
       expect(state.lastSyncSuccess).toBe(false);
       expect(state.lastSyncMessage).toBe("Pull failed");
       expect(state.lastSyncConflicts).toEqual(["entries/book1/notes.json"]);
+    });
+
+    it("records lastPullAt when the sync pulled remote commits", async () => {
+      mockGetGitStatus.mockResolvedValue(makeStatus({ has_changes: true }));
+      mockSyncGit.mockResolvedValue({ ...OK_RESULT, pulled: true });
+      expect(useGitSyncStore.getState().lastPullAt).toBeNull();
+      const before = Date.now();
+
+      await useGitSyncStore.getState().runSync("auto");
+
+      const pulledAt = useGitSyncStore.getState().lastPullAt;
+      expect(pulledAt).not.toBeNull();
+      expect(pulledAt).toBeGreaterThanOrEqual(before);
+    });
+
+    it("does not touch lastPullAt when the sync pulled nothing", async () => {
+      mockGetGitStatus.mockResolvedValue(makeStatus({ has_changes: true }));
+      mockSyncGit.mockResolvedValue({ ...OK_RESULT, pulled: false });
+
+      await useGitSyncStore.getState().runSync("auto");
+
+      expect(useGitSyncStore.getState().lastPullAt).toBeNull();
+    });
+
+    it("keeps the previous lastPullAt across a later pull-less sync", async () => {
+      mockGetGitStatus.mockResolvedValue(makeStatus({ has_changes: true }));
+      mockSyncGit.mockResolvedValue({ ...OK_RESULT, pulled: true });
+      await useGitSyncStore.getState().runSync("auto");
+      const first = useGitSyncStore.getState().lastPullAt;
+
+      mockSyncGit.mockResolvedValue({ ...OK_RESULT, pulled: false });
+      await useGitSyncStore.getState().runSync("auto");
+
+      expect(useGitSyncStore.getState().lastPullAt).toBe(first);
     });
 
     it("records a thrown error as a failed sync and never rejects", async () => {
@@ -420,6 +487,7 @@ describe("useGitSyncStore", () => {
         success: false,
         message: "Pull failed",
         conflicts: [],
+        pulled: false,
       });
 
       await useGitSyncStore.getState().runSync("auto");
@@ -445,8 +513,9 @@ describe("useGitSyncStore", () => {
     });
 
     it("does not toast when the auto backup is skipped", async () => {
-      // Nothing to do — clean repo, in sync with remote.
+      // Nothing to do — clean repo, in sync with remote (fetch confirms).
       mockGetGitStatus.mockResolvedValue(makeStatus());
+      mockGetGitStatusAfterFetch.mockResolvedValue(makeStatus());
 
       await useGitSyncStore.getState().runSync("auto");
 

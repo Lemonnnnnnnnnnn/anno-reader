@@ -16,6 +16,20 @@ export async function getGitStatus(dataDir: string): Promise<GitStatus> {
 }
 
 /**
+ * Fetch from origin (best-effort) and return git status with fresh
+ * ahead/behind counts.
+ *
+ * getGitStatus reads the locally cached origin/<branch> ref, which stays
+ * stale until something fetches — remote-only changes are invisible to it.
+ * Use this before deciding a periodic sync has nothing to do.
+ */
+export async function getGitStatusAfterFetch(
+  dataDir: string
+): Promise<GitStatus> {
+  return invoke<GitStatus>("git_fetch_status", { dataDir });
+}
+
+/**
  * Sync git repository: pull (fast-fail) -> add . -> commit -> push.
  *
  * @param dataDir - The data directory path.

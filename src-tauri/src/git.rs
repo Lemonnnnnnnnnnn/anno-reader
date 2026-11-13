@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -12,6 +14,14 @@ use std::os::windows::process::CommandExt;
 /// See: https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// Timeout for local git operations (status, add, commit, merge).
+const LOCAL_TIMEOUT_SECS: u64 = 60;
+/// Timeout for network git operations (fetch, push). Generous so slow links
+/// still finish, but finite so a wedged process can never stall sync forever.
+const NETWORK_TIMEOUT_SECS: u64 = 120;
+/// Poll interval while waiting for a git child process to exit.
+const GIT_POLL_MS: u64 = 50;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GitStatus {
@@ -29,44 +39,105 @@ pub struct SyncResult {
     pub success: bool,
     pub message: String,
     pub conflicts: Vec<String>,
+    /// Whether the sync's pull brought remote commits down. Lets the UI
+    /// reload data that a pull may have rewritten on disk (e.g. bookshelf).
+    pub pulled: bool,
 }
 
 /// Run a git command in the given directory and return stdout.
 fn run_git(data_dir: &str, args: &[&str]) -> Result<String, String> {
+    run_git_timeout(data_dir, args, LOCAL_TIMEOUT_SECS)
+}
+
+/// Run a network git command (fetch/push) with the longer timeout.
+fn run_git_network(data_dir: &str, args: &[&str]) -> Result<String, String> {
+    run_git_timeout(data_dir, args, NETWORK_TIMEOUT_SECS)
+}
+
+/// Run a git command with a hard timeout.
+///
+/// Two guards keep a sync from ever wedging:
+/// - Interactive credential prompts are disabled (GIT_TERMINAL_PROMPT=0,
+///   GCM_INTERACTIVE=Never). Without a TTY a prompt would hang forever, and
+///   the awaiting runSync would leave isSyncing stuck on true — silently
+///   disabling every future sync with no error surfaced.
+/// - The child is killed once the timeout elapses. stdout/stderr are drained
+///   on threads so a chatty command cannot fill the OS pipe buffer and
+///   deadlock while we poll for exit.
+fn run_git_timeout(data_dir: &str, args: &[&str], timeout_secs: u64) -> Result<String, String> {
     log_git_invocation(data_dir, args);
 
     let mut command = Command::new("git");
     command.current_dir(data_dir).args(args);
+    command.env("GIT_TERMINAL_PROMPT", "0");
+    command.env("GCM_INTERACTIVE", "Never");
 
     // On Windows, prevent the child process from briefly flashing a console
     // window. On non-Windows platforms this is a no-op.
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
 
-    let output = command.output();
-
-    match output {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-
-            if output.status.success() {
-                log_git_success(args, &stdout, &stderr);
-                Ok(stdout)
-            } else {
-                log_git_failure(args, output.status.code(), &stdout, &stderr);
-                // Some git failures (e.g. "nothing to commit") print to stdout
-                // with empty stderr. Fall back to stdout so the surfaced error
-                // is never blank.
-                let detail = if !stderr.is_empty() { stderr } else { stdout };
-                Err(detail)
-            }
-        }
+    let mut child = match command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
+        Ok(child) => child,
         Err(e) => {
             log_git_spawn_error(args, &e);
-            Err(format!("Failed to run git: {}", e))
+            return Err(format!("Failed to run git: {}", e));
         }
+    };
+
+    let stdout_pipe = child.stdout.take();
+    let stderr_pipe = child.stderr.take();
+    let stdout_thread = thread::spawn(move || drain_pipe(stdout_pipe));
+    let stderr_thread = thread::spawn(move || drain_pipe(stderr_pipe));
+
+    let deadline = Instant::now() + Duration::from_secs(timeout_secs);
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                eprintln!(
+                    "[git] !!! timeout cmd={} after {}s",
+                    fmt_cmd(args),
+                    timeout_secs
+                );
+                return Err(format!(
+                    "git timed out after {}s: {}",
+                    timeout_secs,
+                    fmt_cmd(args)
+                ));
+            }
+            Ok(None) => thread::sleep(Duration::from_millis(GIT_POLL_MS)),
+            Err(e) => return Err(format!("Failed to run git: {}", e)),
+        }
+    };
+
+    let stdout = stdout_thread.join().unwrap_or_default();
+    let stderr = stderr_thread.join().unwrap_or_default();
+    let stdout = stdout.trim().to_string();
+    let stderr = stderr.trim().to_string();
+
+    if status.success() {
+        log_git_success(args, &stdout, &stderr);
+        Ok(stdout)
+    } else {
+        log_git_failure(args, status.code(), &stdout, &stderr);
+        // Some git failures (e.g. "nothing to commit") print to stdout
+        // with empty stderr. Fall back to stdout so the surfaced error
+        // is never blank.
+        let detail = if !stderr.is_empty() { stderr } else { stdout };
+        Err(detail)
     }
+}
+
+/// Drain a child process pipe to EOF, tolerating invalid UTF-8.
+fn drain_pipe(pipe: Option<impl Read>) -> String {
+    let mut bytes = Vec::new();
+    if let Some(mut pipe) = pipe {
+        let _ = pipe.read_to_end(&mut bytes);
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
 }
 
 /// Format a git invocation as a single command line for logging.
@@ -154,8 +225,26 @@ fn detect_protocol(url: &str) -> String {
 /// Returns GitStatus with repo info, remote, branch, and ahead/behind counts.
 #[tauri::command]
 pub async fn git_status(data_dir: String) -> Result<GitStatus, String> {
+    git_status_impl(&data_dir)
+}
+
+/// Fetch from origin (best-effort) and then report git status.
+///
+/// The plain git_status reads ahead/behind from the locally cached
+/// origin/<branch> refs, which stay stale until something fetches — an auto
+/// backup that only ever inspected it could never notice remote-only changes
+/// (behind would read 0 forever). The fetch here is best-effort: offline or
+/// auth failures leave the cached refs untouched, and the status below still
+/// reflects them, so a known-behind repo still qualifies for a sync.
+#[tauri::command]
+pub async fn git_fetch_status(data_dir: String) -> Result<GitStatus, String> {
+    let _ = run_git_network(&data_dir, &["fetch", "origin"]);
+    git_status_impl(&data_dir)
+}
+
+fn git_status_impl(data_dir: &str) -> Result<GitStatus, String> {
     // Check if inside a git repo
-    let is_repo = run_git(&data_dir, &["rev-parse", "--is-inside-work-tree"])
+    let is_repo = run_git(data_dir, &["rev-parse", "--is-inside-work-tree"])
         .map(|out| out == "true")
         .unwrap_or(false);
 
@@ -172,17 +261,17 @@ pub async fn git_status(data_dir: String) -> Result<GitStatus, String> {
     }
 
     // Get current branch
-    let branch = run_git(&data_dir, &["branch", "--show-current"]).ok();
+    let branch = run_git(data_dir, &["branch", "--show-current"]).ok();
 
     // Get remote URL
-    let remote = run_git(&data_dir, &["remote", "get-url", "origin"]).ok();
+    let remote = run_git(data_dir, &["remote", "get-url", "origin"]).ok();
     let remote_protocol = remote.as_ref().map(|url| detect_protocol(url));
 
     // Get ahead/behind counts
-    let (ahead, behind) = get_ahead_behind(&data_dir);
+    let (ahead, behind) = get_ahead_behind(data_dir);
 
     // Check for uncommitted changes
-    let has_changes = run_git(&data_dir, &["status", "--porcelain"])
+    let has_changes = run_git(data_dir, &["status", "--porcelain"])
         .map(|out| !out.is_empty())
         .unwrap_or(false);
 
@@ -243,6 +332,7 @@ fn run_sync(data_dir: &str, template: &str) -> Result<SyncResult, String> {
     commit_local_changes(data_dir, &message, "1/4")?;
 
     // Step 2: Pull with auto-merge for JSON files
+    let head_before_pull = run_git(data_dir, &["rev-parse", "HEAD"]).ok();
     eprintln!("[sync] step 2/4: pull");
     match git_pull(data_dir) {
         Ok(_) => {
@@ -258,25 +348,55 @@ fn run_sync(data_dir: &str, template: &str) -> Result<SyncResult, String> {
                 success: false,
                 message: "Pull failed".to_string(),
                 conflicts,
+                pulled: false,
             });
         }
     }
 
+    // Whether the pull actually brought remote commits down (vs. already
+    // being up to date). HEAD can only move here because of the merge above
+    // — the second commit pass happens after this snapshot, so it never
+    // pollutes the signal.
+    let head_after_pull = run_git(data_dir, &["rev-parse", "HEAD"]).ok();
+    let pulled = head_before_pull.is_some() && head_before_pull != head_after_pull;
+
     // Step 3: Capture anything written while the merge was running.
     commit_local_changes(data_dir, &message, "3/4")?;
 
-    // Step 4: Push
+    // Step 4: Push. Another device can land a commit in the window between
+    // our fetch and push, rejecting the push as non-fast-forward. Integrate
+    // whatever landed and retry once instead of failing the whole tick.
     eprintln!("[sync] step 4/4: push");
-    run_git(data_dir, &["push"]).map_err(|e| {
-        eprintln!("[sync] step 4/4: push FAILED: {}", e);
-        format!("Failed to push: {}", e)
-    })?;
+    if let Err(push_err) = run_git_network(data_dir, &["push"]) {
+        eprintln!(
+            "[sync] step 4/4: push FAILED ({}), retrying after re-integrate",
+            truncate_for_log(&push_err, 200)
+        );
+        if let Err(retry_conflicts) = git_pull(data_dir) {
+            eprintln!(
+                "[sync] step 4/4: retry pull FAILED: {:?}",
+                retry_conflicts
+            );
+            return Err(format!(
+                "Failed to push: {} (retry pull failed: {})",
+                push_err,
+                retry_conflicts.join("; ")
+            ));
+        }
+        commit_local_changes(data_dir, &message, "4/4 (retry)")?;
+        eprintln!("[sync] step 4/4: push retry");
+        run_git_network(data_dir, &["push"]).map_err(|e| {
+            eprintln!("[sync] step 4/4: push retry FAILED: {}", e);
+            format!("Failed to push after retry: {}", e)
+        })?;
+    }
 
     eprintln!("[sync] === done ===");
     Ok(SyncResult {
         success: true,
         message: format!("Synced successfully: {}", message),
         conflicts: vec![],
+        pulled,
     })
 }
 
@@ -348,7 +468,7 @@ fn git_pull(data_dir: &str) -> Result<(), Vec<String>> {
 
     // Try fetch + merge (fast-forward only first)
     eprintln!("[pull] fetch origin");
-    run_git(data_dir, &["fetch", "origin"])
+    run_git_network(data_dir, &["fetch", "origin"])
         .map_err(|e| vec![format!("Fetch failed: {}", e)])?;
 
     // Try fast-forward merge
@@ -584,49 +704,55 @@ fn merge_progress(ours: Value, theirs: Value) -> Result<Value, String> {
 
 /// Merge arrays by id, keeping the item with newer timestamp.
 /// timestamp_field: "updatedAt" for notes, "createdAt" for highlights
+///
+/// Output preserves the "ours" ordering; ids only known to "theirs" are
+/// appended in their own order. A HashMap would randomize item order, making
+/// every conflict resolution commit a spurious full-array reorder — noise in
+/// git history and a fresh conflict for the next tick.
 fn merge_array_by_id(ours: Value, theirs: Value, timestamp_field: &str) -> Result<Value, String> {
     let our_arr = ours.as_array().ok_or("Expected array")?;
     let their_arr = theirs.as_array().ok_or("Expected array")?;
 
-    let mut merged: HashMap<String, Value> = HashMap::new();
+    let mut merged: Vec<(String, Value)> = our_arr
+        .iter()
+        .filter_map(|item| {
+            item.get("id")
+                .and_then(|v| v.as_str())
+                .map(|id| (id.to_string(), item.clone()))
+        })
+        .collect();
 
-    // Add our items
-    for item in our_arr {
-        if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
-            merged.insert(id.to_string(), item.clone());
-        }
-    }
-
-    // Add/replace with their items if newer
     for item in their_arr {
-        if let Some(id) = item.get("id").and_then(|v| v.as_str()) {
-            let should_replace = match merged.get(id) {
-                Some(existing) => {
-                    let existing_time = existing
-                        .get(timestamp_field)
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    let new_time = item
-                        .get(timestamp_field)
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    new_time > existing_time
+        let Some(id) = item.get("id").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let new_time = item
+            .get(timestamp_field)
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        match merged.iter().position(|(existing_id, _)| existing_id == id) {
+            Some(index) => {
+                let existing_time = merged[index]
+                    .1
+                    .get(timestamp_field)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if new_time > existing_time {
+                    merged[index].1 = item.clone();
                 }
-                None => true,
-            };
-
-            if should_replace {
-                merged.insert(id.to_string(), item.clone());
             }
+            None => merged.push((id.to_string(), item.clone())),
         }
     }
 
-    // Convert back to array
-    let result: Vec<Value> = merged.into_values().collect();
-    Ok(Value::Array(result))
+    Ok(Value::Array(
+        merged.into_iter().map(|(_, item)| item).collect(),
+    ))
 }
 
 /// Merge bookshelf.json: merge entries by id.
+///
+/// Same ordering rationale as merge_array_by_id — deterministic output.
 fn merge_bookshelf(ours: Value, theirs: Value) -> Result<Value, String> {
     let our_entries = ours
         .get("entries")
@@ -637,41 +763,42 @@ fn merge_bookshelf(ours: Value, theirs: Value) -> Result<Value, String> {
         .and_then(|v| v.as_array())
         .ok_or("Expected entries array")?;
 
-    let mut merged: HashMap<String, Value> = HashMap::new();
-
-    // Add our entries
-    for entry in our_entries {
-        if let Some(id) = entry.get("id").and_then(|v| v.as_str()) {
-            merged.insert(id.to_string(), entry.clone());
-        }
-    }
+    let mut merged: Vec<(String, Value)> = our_entries
+        .iter()
+        .filter_map(|entry| {
+            entry
+                .get("id")
+                .and_then(|v| v.as_str())
+                .map(|id| (id.to_string(), entry.clone()))
+        })
+        .collect();
 
     // Add/replace with their entries (keep newer lastOpened)
     for entry in their_entries {
-        if let Some(id) = entry.get("id").and_then(|v| v.as_str()) {
-            let should_replace = match merged.get(id) {
-                Some(existing) => {
-                    let existing_time = existing
-                        .get("lastOpened")
-                        .and_then(|v| v.as_f64())
-                        .unwrap_or(0.0);
-                    let new_time = entry
-                        .get("lastOpened")
-                        .and_then(|v| v.as_f64())
-                        .unwrap_or(0.0);
-                    new_time > existing_time
+        let Some(id) = entry.get("id").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let new_time = entry
+            .get("lastOpened")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        match merged.iter().position(|(existing_id, _)| existing_id == id) {
+            Some(index) => {
+                let existing_time = merged[index]
+                    .1
+                    .get("lastOpened")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                if new_time > existing_time {
+                    merged[index].1 = entry.clone();
                 }
-                None => true,
-            };
-
-            if should_replace {
-                merged.insert(id.to_string(), entry.clone());
             }
+            None => merged.push((id.to_string(), entry.clone())),
         }
     }
 
     // Convert back to array and wrap in object
-    let entries: Vec<Value> = merged.into_values().collect();
+    let entries: Vec<Value> = merged.into_iter().map(|(_, entry)| entry).collect();
     let mut result = serde_json::Map::new();
     result.insert("entries".to_string(), Value::Array(entries));
 
@@ -800,5 +927,111 @@ mod tests {
         assert_eq!(unpushed, "0");
 
         let _ = fs::remove_dir_all(&base);
+    }
+
+    /// A remote-only commit (another device pushed) must be pulled down by
+    /// sync, and SyncResult.pulled must be true exactly when that happened —
+    /// the frontend uses it to reload data the pull rewrote on disk.
+    #[test]
+    fn sync_reports_pulled_when_remote_has_new_commits() {
+        let (base, work) = fixture("sync-pulled");
+        let base_str = base.to_str().unwrap();
+        let work_str = work.to_str().unwrap();
+
+        // Another device clones, writes newer progress, pushes.
+        let other = base.join("other");
+        run_git(
+            base_str,
+            &[
+                "clone",
+                base.join("remote.git").to_str().unwrap(),
+                other.to_str().unwrap(),
+            ],
+        )
+        .unwrap();
+        configure_identity(&other);
+        let other_progress = other.join("entries").join("book1").join("progress.json");
+        fs::write(&other_progress, r#"{ "lastUpdated": "2026-01-05T00:00:00Z" }"#).unwrap();
+        run_git(other.to_str().unwrap(), &["commit", "-am", "other device"]).unwrap();
+        run_git(other.to_str().unwrap(), &["push"]).unwrap();
+
+        // Our side is clean and (as far as cached refs know) in sync — the
+        // sync must still pull the remote commit and report pulled=true.
+        let result = run_sync(work_str, "test {datetime}").unwrap();
+        assert!(result.success, "sync should succeed: {}", result.message);
+        assert!(
+            result.pulled,
+            "first sync after a remote push should report pulled"
+        );
+        let progress = work.join("entries").join("book1").join("progress.json");
+        let merged = fs::read_to_string(&progress).unwrap();
+        assert!(
+            merged.contains("2026-01-05T00:00:00Z"),
+            "remote progress should have been pulled: {}",
+            merged
+        );
+
+        // The immediately following sync is up to date — pulled must be false.
+        let result2 = run_sync(work_str, "test {datetime}").unwrap();
+        assert!(result2.success, "second sync should succeed: {}", result2.message);
+        assert!(!result2.pulled, "up-to-date sync must not claim a pull");
+
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    /// Merged arrays must keep the "ours" order (with theirs-only ids
+    /// appended) — a HashMap-backed merge randomized item order, making every
+    /// conflict resolution commit a spurious full-array reorder.
+    #[test]
+    fn merge_array_by_id_preserves_ours_order() {
+        let ours = serde_json::json!([
+            { "id": "a", "updatedAt": "2026-01-01T00:00:00Z" },
+            { "id": "b", "updatedAt": "2026-01-02T00:00:00Z" },
+            { "id": "c", "updatedAt": "2026-01-03T00:00:00Z" }
+        ]);
+        let theirs = serde_json::json!([
+            { "id": "d", "updatedAt": "2026-01-04T00:00:00Z" },
+            { "id": "b", "updatedAt": "2026-01-05T00:00:00Z" }
+        ]);
+
+        let merged = merge_array_by_id(ours, theirs, "updatedAt").unwrap();
+        let items = merged.as_array().unwrap();
+        let ids: Vec<&str> = items
+            .iter()
+            .map(|item| item.get("id").and_then(|v| v.as_str()).unwrap())
+            .collect();
+        assert_eq!(ids, vec!["a", "b", "c", "d"]);
+        // "b" replaced in place with the newer theirs version.
+        assert_eq!(
+            items[1].get("updatedAt").and_then(|v| v.as_str()),
+            Some("2026-01-05T00:00:00Z")
+        );
+    }
+
+    /// Bookshelf merge follows the same deterministic-ordering rule.
+    #[test]
+    fn merge_bookshelf_preserves_ours_order() {
+        let ours = serde_json::json!({
+            "entries": [
+                { "id": "x", "lastOpened": 100.0 },
+                { "id": "y", "lastOpened": 200.0 }
+            ]
+        });
+        let theirs = serde_json::json!({
+            "entries": [
+                { "id": "z", "lastOpened": 50.0 },
+                { "id": "x", "lastOpened": 300.0 }
+            ]
+        });
+
+        let merged = merge_bookshelf(ours, theirs).unwrap();
+        let entries = merged.get("entries").unwrap().as_array().unwrap();
+        let ids: Vec<&str> = entries
+            .iter()
+            .map(|entry| entry.get("id").and_then(|v| v.as_str()).unwrap())
+            .collect();
+        assert_eq!(ids, vec!["x", "y", "z"]);
+        // "x" replaced in place with the newer lastOpened.
+        assert_eq!(entries[0].get("lastOpened").and_then(|v| v.as_f64()), Some(300.0));
     }
 }

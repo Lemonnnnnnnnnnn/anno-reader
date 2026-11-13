@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import { readConfig, writeConfig } from "@/lib/storage/config";
-import { getGitStatus, syncGit } from "@/lib/git";
+import { getGitStatus, getGitStatusAfterFetch, syncGit } from "@/lib/git";
 import type { SyncResult } from "@/lib/git";
 import { DEFAULT_COMMIT_TEMPLATE } from "@/lib/git/types";
 
@@ -23,6 +23,8 @@ export interface GitSyncStore {
   lastSyncSuccess: boolean | null;
   lastSyncMessage: string | null;
   lastSyncConflicts: string[];
+  /** When a sync last pulled remote commits down (drives UI reloads). */
+  lastPullAt: number | null;
 
   setAutoSyncEnabled: (enabled: boolean) => void;
   setIntervalMinutes: (minutes: number) => void;
@@ -33,8 +35,10 @@ export interface GitSyncStore {
    * Run a git sync (commit -> pull -> push) and record the outcome.
    *
    * Auto sync performs pre-checks and silently skips when there is nothing
-   * to do (no repo, no remote, or no local/remote delta). Errors are caught
-   * and recorded — never thrown to the UI.
+   * to do (no repo, no remote, or no local/remote delta). When nothing
+   * local qualifies it fetches first — behind counts read the cached
+   * origin/<branch> ref, so remote-only changes are invisible without a
+   * fetch. Errors are caught and recorded — never thrown to the UI.
    *
    * @returns The SyncResult, or null when skipped/failed.
    */
@@ -86,6 +90,7 @@ export const useGitSyncStore = create<GitSyncStore>((set, get) => ({
   lastSyncSuccess: null,
   lastSyncMessage: null,
   lastSyncConflicts: [],
+  lastPullAt: null,
 
   setAutoSyncEnabled: (enabled) => {
     set({ autoSyncEnabled: enabled });
@@ -129,11 +134,23 @@ export const useGitSyncStore = create<GitSyncStore>((set, get) => ({
       // remote, or no delta in either direction (an empty sync would spawn
       // several git processes every interval for zero effect).
       if (trigger === "auto") {
-        const status = await getGitStatus(dataDir);
+        let status = await getGitStatus(dataDir);
         const hasRemote = status.is_repo && !!status.remote;
+        if (!hasRemote) {
+          return null;
+        }
+
+        // A local delta is visible without the network; a remote-only delta
+        // is not — behind counts read the cached origin/<branch> ref, so
+        // check the real remote whenever nothing local qualifies.
+        const hasLocalDelta = status.has_changes || status.ahead > 0;
+        if (!hasLocalDelta) {
+          status = await getGitStatusAfterFetch(dataDir).catch(() => status);
+        }
+
         const hasDelta =
           status.has_changes || status.ahead > 0 || status.behind > 0;
-        if (!hasRemote || !hasDelta) {
+        if (!hasDelta) {
           return null;
         }
       }
@@ -146,6 +163,8 @@ export const useGitSyncStore = create<GitSyncStore>((set, get) => ({
         lastSyncSuccess: result.success,
         lastSyncMessage: result.message,
         lastSyncConflicts: result.conflicts,
+        lastPullAt:
+          result.success && result.pulled ? Date.now() : get().lastPullAt,
       });
 
       // Auto backups notify via toast (silent skips never reach here).

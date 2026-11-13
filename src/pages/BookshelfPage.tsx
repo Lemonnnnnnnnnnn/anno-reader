@@ -6,11 +6,12 @@
  * (with confirmation), and navigation to reader.
  */
 
-import { useEffect, useCallback, useState, useMemo } from "react";
+import { useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBookshelfStore } from "@/stores/useBookshelfStore";
 import { useBookStore } from "@/stores/useBookStore";
 import { useChatStore } from "@/stores/useChatStore";
+import { useGitSyncStore } from "@/stores/useGitSyncStore";
 import { importBook, EpubImportError } from "@/lib/import";
 import { BookCard } from "@/components/BookCard";
 import { ImportWebDialog } from "@/components/ImportWebDialog";
@@ -80,6 +81,17 @@ export function BookshelfPage() {
   useEffect(() => {
     loadBooks();
   }, [loadBooks]);
+
+  // Reload after a sync pulled remote changes (e.g. the startup backup
+  // landing after this page already read from disk). The ref keeps the
+  // lastPullAt the mount load already reflects, so that pull isn't reloaded.
+  const lastPullAt = useGitSyncStore((state) => state.lastPullAt);
+  const seenPullAtRef = useRef<number | null>(lastPullAt);
+  useEffect(() => {
+    if (lastPullAt === null || lastPullAt === seenPullAtRef.current) return;
+    seenPullAtRef.current = lastPullAt;
+    loadBooks();
+  }, [lastPullAt, loadBooks]);
 
   const handleBookSelect = useCallback(
     (_book: BookshelfItem) => {

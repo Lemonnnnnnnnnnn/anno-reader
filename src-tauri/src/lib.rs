@@ -9,6 +9,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .invoke_handler(tauri::generate_handler![
             git::git_status,
+            git::git_fetch_status,
             git::git_sync,
         ])
         .run(tauri::generate_context!())

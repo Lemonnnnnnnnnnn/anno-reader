@@ -16,6 +16,8 @@ export interface SyncResult {
   success: boolean;
   message: string;
   conflicts: string[];
+  /** Whether the sync's pull brought remote commits down. */
+  pulled: boolean;
 }
 
 /** Default commit message template */

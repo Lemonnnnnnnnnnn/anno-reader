@@ -11,17 +11,19 @@ import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useGitSyncStore } from "@/stores/useGitSyncStore";
 import { useGitAutoSync } from "../useGitAutoSync";
-import { getGitStatus, syncGit } from "@/lib/git";
+import { getGitStatus, getGitStatusAfterFetch, syncGit } from "@/lib/git";
 import { stopAutoSync } from "@/lib/git/autoSync";
 import type { GitStatus, SyncResult } from "@/lib/git/types";
 
 vi.mock("@/lib/git", () => ({
   getGitStatus: vi.fn(),
+  getGitStatusAfterFetch: vi.fn(),
   syncGit: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast: vi.fn() }));
 
 const mockGetGitStatus = vi.mocked(getGitStatus);
+const mockGetGitStatusAfterFetch = vi.mocked(getGitStatusAfterFetch);
 const mockSyncGit = vi.mocked(syncGit);
 
 vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -39,7 +41,12 @@ function makeStatus(overrides: Partial<GitStatus> = {}): GitStatus {
   };
 }
 
-const OK_RESULT: SyncResult = { success: true, message: "", conflicts: [] };
+const OK_RESULT: SyncResult = {
+  success: true,
+  message: "",
+  conflicts: [],
+  pulled: false,
+};
 
 function primeStore(overrides: Record<string, unknown> = {}) {
   useGitSyncStore.setState({
